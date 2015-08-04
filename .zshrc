@@ -5,7 +5,7 @@ export ZSH=$HOME/.oh-my-zsh
 # Look in ~/.oh-my-zsh/themes/
 # Optionally, if you set this to "random", it'll load a random theme each
 # time that oh-my-zsh is loaded.
-ZSH_THEME="wedisagree"
+ZSH_THEME="wedisagree_ryosuke"
 
 # Uncomment the following line to use case-sensitive completion.
 # CASE_SENSITIVE="true"
@@ -109,6 +109,15 @@ function ph(){
 # my zshrc
 # 濁点半濁点をちゃんと表示
 setopt combining_chars
+
+# missったときにもしかして
+setopt correct
+
+# 直前と同じコマンドをヒストリに追加しない
+setopt hist_ignore_dups
+
+# cdしたあとで、自動的に ls する
+#function chpwd() { ls }
 
 PATH=/opt/local/bin:/opt/local/sbin:$PATH
 PATH=/Users/ryosuke/MyGlobalScripts:$PATH
