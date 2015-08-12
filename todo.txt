@@ -3,4 +3,4 @@
 * vim
 * pyenv
 * pyenv-virtualenv
-
+* pyenv 3.4.3 pip list
