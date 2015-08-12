@@ -9,5 +9,5 @@ do
 done
 
 cd
-ln -sv dotfiles/wedisagree_ryosuke.zsh-theme ./.oh-my-zsh/themes/wedisagree_ryosuke.zsh-theme
+cp dotfiles/wedisagree_ryosuke.zsh-theme ./.oh-my-zsh/themes/wedisagree_ryosuke.zsh-theme
 
