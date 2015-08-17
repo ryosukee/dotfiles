@@ -1,6 +1,7 @@
 * zsh
 * oh-my-zsh
 * vim
+* neobundle
 * pyenv
 * pyenv-virtualenv
 * pyenv 3.4.3 pip list
