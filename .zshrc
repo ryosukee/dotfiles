@@ -124,14 +124,14 @@ PATH=/Users/ryosuke/MyGlobalScripts:$PATH
 PATH=/opt/local/libexec/word2vec:$PATH
 
 # java
-export JAVA_HOME=`/System/Library/Frameworks/JavaVM.framework/Versions/A/Commands/java_home -v "1.8"`
-alias java_home='/System/Library/Frameworks/JavaVM.framework/Versions/A/Commands/java_home'
+#export JAVA_HOME=`/System/Library/Frameworks/JavaVM.framework/Versions/A/Commands/java_home -v "1.8"`
+#alias java_home='/System/Library/Frameworks/JavaVM.framework/Versions/A/Commands/java_home'
 
 # alias
-alias ls='ls -G -F'
+alias ls='ls -F --color=auto'
 alias rm='rmtrash'
 alias ipy='ipython --colors=linux'
-alias vim='/opt/local/bin/vim'
+#alias vim='/opt/local/bin/vim'
 
 # pyenv
 export PYENV_ROOT="$HOME/.pyenv"
