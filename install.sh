@@ -17,4 +17,4 @@ do
     ln -sfv ~/.dotfiles/$f ~/$f
 done
 
-exec /bin/zsh
+exec -l /bin/zsh
