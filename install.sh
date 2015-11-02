@@ -14,6 +14,6 @@ ln -sfv ~/.dotfiles/wedisagree_ryosuke.zsh-theme ~/.oh-my-zsh/themes/wedisagree_
 for f in `ls -a ~/.dotfiles | grep "^\.[^./]"`
 do
     [ "$f" = ".git" ] && continue
-    ln -sfv "~/.dotfiles/$f" "~/$f"
+    ln -sfv ~/.dotfiles/$f ~/$f
 done
 
