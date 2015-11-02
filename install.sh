@@ -11,12 +11,10 @@ git clone https://github.com/ryosukee/dotfiles ~/.dotfiles
 
 ln -sfv ~/.dotfiles/wedisagree_ryosuke.zsh-theme ~/.oh-my-zsh/themes/wedisagree_ryosuke.zsh-theme
 
-cd ~/.dotfiles
-for f in `ls -a | grep "^\.[^./]"`
+for f in `ls -a ~/.dotfiles| grep "^\.[^./]"`
 do
     [ "$f" = ".git" ] && continue
-    ln -sfv $f ../$f
+    ln -sfv ~/.dotfiles/$f ~/$f
 done
-cd
 
 exec /bin/zsh
