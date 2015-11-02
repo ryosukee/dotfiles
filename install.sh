@@ -4,7 +4,7 @@ echo "change login shell to /bin/zsh"
 chsh -s /bin/zsh
 
 echo "setup oh-my-zsh"
-git clone https://github.com/robbyrussell/oh-my-zsh ~/.oh-my-zsh
+git clone https://github.com/robbyrussell/oh-my-zsh.git ~/.oh-my-zsh
 
 echo "setup dotfiles"
 git clone https://github.com/ryosukee/dotfiles ~/.dotfiles
