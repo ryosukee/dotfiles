@@ -18,3 +18,5 @@ do
     ln -sfv $f ../$f
 done
 cd
+
+exec /bin/zsh
