@@ -47,6 +47,7 @@ eval "$(pyenv virtualenv-init -)"
 pyenv install 3.4.3
 pyenv virtualenv 3.4.3 myenv3.4.3
 mypy
+pip install -U pip
 if [ "$(expr substr $(uname -s) 1 5)" == 'Linux' ]; then
     sudo apt-get build-dep python-matplotlib
 fi
@@ -57,4 +58,4 @@ echo "============================================="
 
 echo
 echo "restart zsh"
-exec -l /bin/zsh
+exec /bin/zsh
