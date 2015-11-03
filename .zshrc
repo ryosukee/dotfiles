@@ -131,9 +131,9 @@ alias java_home='/System/Library/Frameworks/JavaVM.framework/Versions/A/Commands
 alias sudo='sudo '
 alias ls='ls -G -F'
 alias orm='/bin/rm'
-if [ "$(uname)" == "Darwin" ]; then
+if [ "$(uname)" = "Darwin" ]; then
     alias rm='rmtrash'
-elif [ "$(expr substr $(uname -s) 1 5)" == 'Linux' ]; then
+elif [ "$(expr substr $(uname -s) 1 5)" = 'Linux' ]; then
     alias rm='trash-put'
 fi
 alias ipy='ipython --colors=linux'
