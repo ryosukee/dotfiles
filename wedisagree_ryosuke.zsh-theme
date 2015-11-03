@@ -20,14 +20,11 @@
 # Thanks to Steve Losh: http://stevelosh.com/blog/2009/03/candy-colored-terminal/
 
 # The prompt
-
-OK=":) "
-NG=":( "
-PROMPT='%{$fg[magenta]%}[%(?.%F{green}$OK%f.%F{red}$NG%f)%{$fg[magenta]%}%c] %{$reset_color%}'
+PROMPT='%{$fg[magenta]%}[%(?.%{$fg[green]%}.%{$fg[red]%})(%(?.^_^.◞‸◟))%{$fg[magenta]%} %c] %{$reset_color%}'
 
 # The right-hand prompt
 
-RPROMPT='${time} %{$fg[magenta]%}$(git_prompt_info)%{$reset_color%}$(git_prompt_status)%{$reset_color%}$(git_prompt_ahead)%{$reset_color%}'
+RPROMPT='${time} %{$fg[cyan]%}$HOST%{$fg[magenta]%}$(git_prompt_info)%{$reset_color%}$(git_prompt_status)%{$reset_color%}$(git_prompt_ahead)%{$reset_color%}'
 
 # Add this at the start of RPROMPT to include rvm info showing ruby-version@gemset-name
 # %{$fg[yellow]%}$(~/.rvm/bin/rvm-prompt)%{$reset_color%} 
