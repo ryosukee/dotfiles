@@ -40,7 +40,7 @@ git clone https://github.com/yyuu/pyenv-virtualenv.git ~/.pyenv/plugins/pyenv-vi
 
 if [ "$(expr substr $(uname -s) 1 5)" == 'Linux' ]; then
     echo
-    echo "install requirements"
+    echo "install requirements for pyenv"
     sudo apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev \
         libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev
 fi
@@ -57,6 +57,7 @@ pyenv virtualenv 3.4.3 myenv3.4.3
 mypy
 pip install -U pip
 if [ "$(expr substr $(uname -s) 1 5)" == 'Linux' ]; then
+    echo "install requirements for matplotlib"
     sudo apt-get build-dep python-matplotlib
 fi
 pip install -r ~/.dotfiles/myenv.requirement
