@@ -9,8 +9,9 @@ set shiftwidth=4
 set expandtab
 set cursorline
 set laststatus=2
+
 "####表示色設定#####
-execute "set colorcolumn=" . join(range(81, 9999), ',')
+execute "set colorcolumn=" . join(range(80, 9999), ',')
 autocmd ColorScheme * highlight ColorColumn ctermbg=235
 autocmd ColorScheme * highlight LineNr ctermbg=235 ctermfg=242
 autocmd ColorScheme * highlight CursorLineNr ctermbg=239 ctermfg=246
@@ -39,7 +40,13 @@ nnoremap j gj
 nnoremap k gk
 "ESC2回でnoh
 nnoremap <ESC><ESC> :nohlsearch<CR>
+"nmap <F5> :!/usr/bin/python %<CR>
+"nmap <F12> :!/usr/lib/python2.7/pdb.py %<CR>
 
+
+"#####その他設定#####
+set noswapfile  " .swapファイルを作らない
+set backspace=indent,eol,start "バックスペースで消せるように
 
 "---------------------------
 " Start Neobundle Settings.
@@ -65,7 +72,7 @@ NeoBundle 'plasticboy/vim-markdown'
 let g:vim_markdown_no_default_key_mappings = 1
 
 " vim-niji
-" NeoBundle 'amdt/vim-niji'
+NeoBundle 'amdt/vim-niji'
 
 " vimproc.vim
 NeoBundle 'Shougo/vimproc.vim', {
@@ -79,7 +86,7 @@ NeoBundle 'Shougo/vimproc.vim', {
             \ }
 
 " neocomplete.vim
-NeoBundle 'Shougo/neocomplete'
+" NeoBundle 'Shougo/neocomplete'
 
 " neosnippet.vim
 NeoBundle 'Shougo/neosnippet.vim'
@@ -90,7 +97,7 @@ xmap <C-k> <Plug>(neosnippet_expand_target)
 let g:neosnippet#snippets_directory='~/.vim/mysnippets'
 
 " unite.vim
-NeoBundle 'Shougo/unite.vim'
+" NeoBundle 'Shougo/unite.vim'
 
 " gauche
 NeoBundle 'aharisu/vim_goshrepl'
@@ -107,7 +114,7 @@ let g:syntastic_python_flake8_args = '--ignore="D100"'
 NeoBundle 'tell-k/vim-autopep8'
 
 " jedi-vim
-NeoBundle 'davidhalter/jedi-vim'
+" NeoBundle 'davidhalter/jedi-vim'
 
 " Yggdroot/indentLine
 NeoBundle 'Yggdroot/indentLine'
