@@ -66,4 +66,4 @@ echo "============================================="
 
 echo
 echo "restart zsh"
-exec /bin/zsh
+exec -l /bin/zsh
