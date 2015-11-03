@@ -135,6 +135,7 @@ if [ "$(uname)" == "Darwin" ]; then
     alias rm='rmtrash'
 elif [ "$(expr substr $(uname -s) 1 5)" == 'Linux' ]; then
     alias rm='trash-put'
+fi
 alias ipy='ipython --colors=linux'
 alias vim='/opt/local/bin/vim'
 alias mypy='pyenv activate myenv3.4.3'

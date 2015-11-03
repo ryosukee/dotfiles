@@ -39,9 +39,13 @@ git clone https://github.com/yyuu/pyenv-virtualenv.git ~/.pyenv/plugins/pyenv-vi
 
 echo
 echo "setting mypyenv"
+source ~/.zshrc
 pyenv install 3.4.3
 pyenv virtualenv 3.4.3 myenv3.4.3
 mypy
+if [ "$(expr substr $(uname -s) 1 5)" == 'Linux' ]; then
+    sudo apt-get build-dep python-matplotlib
+fi
 pip install -r ~/.dotfiles/myenv.requirement
 pyenv deactivate
 echo "============================================="
