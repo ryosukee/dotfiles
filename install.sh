@@ -1,7 +1,7 @@
 #!/bin/sh
 
-echo "================ Zsh setting ================"
 echo
+echo "================ Zsh setting ================"
 echo "change login shell to /bin/zsh"
 chsh -s /bin/zsh
 
@@ -12,8 +12,8 @@ echo "============================================="
 
 
 
-echo "============= Dotfiles setting ============="
 echo
+echo "============= Dotfiles setting ============="
 echo "download dotfiles"
 git clone https://github.com/ryosukee/dotfiles ~/.dotfiles
 
@@ -28,14 +28,19 @@ done
 echo "============================================="
 
 
-echo "=============== pyenv setting ==============="
 echo
+echo "=============== pyenv setting ==============="
 echo "download pyenv"
 git clone https://github.com/yyuu/pyenv.git ~/.pyenv
 
 echo
 echo "download pyenv-virtualenv"
 git clone https://github.com/yyuu/pyenv-virtualenv.git ~/.pyenv/plugins/pyenv-virtualenv
+
+echo
+echo "install requirements"
+sudo apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev \
+    libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev
 
 echo
 echo "setting mypyenv"
