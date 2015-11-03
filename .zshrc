@@ -128,7 +128,10 @@ export JAVA_HOME=`/System/Library/Frameworks/JavaVM.framework/Versions/A/Command
 alias java_home='/System/Library/Frameworks/JavaVM.framework/Versions/A/Commands/java_home'
 
 # alias
+alias sudo='sudo '
 alias ls='ls -G -F'
+alias orm='/bin/rm'
+alias rm='trash-put'
 alias rm='rmtrash'
 alias ipy='ipython --colors=linux'
 alias vim='/opt/local/bin/vim'
