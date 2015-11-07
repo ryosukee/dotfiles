@@ -20,7 +20,7 @@
 # Thanks to Steve Losh: http://stevelosh.com/blog/2009/03/candy-colored-terminal/
 
 # The prompt
-PROMPT='%{$fg[magenta]%}[%(?.%{$fg[green]%}.%{$fg[red]%})(%(?.^_^.◞‸◟))%{$fg[magenta]%} %c] %{$reset_color%}'
+PROMPT='(`basename $PYENV_ACTIVATE`)%{$fg[magenta]%}[%(?.%{$fg[green]%}.%{$fg[red]%})(%(?.^_^.◞‸◟))%{$fg[magenta]%} %c] %{$reset_color%}'
 
 # The right-hand prompt
 
