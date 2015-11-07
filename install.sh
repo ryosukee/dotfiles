@@ -1,5 +1,3 @@
-#!/bin/sh
-
 echo
 echo "============= Dotfiles setting ============="
 echo "download dotfiles"
