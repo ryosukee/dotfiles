@@ -1,15 +1,16 @@
-echo
-echo "============= Dotfiles setting ============="
 echo "download dotfiles"
 git clone https://github.com/ryosukee/dotfiles ~/.dotfiles
-
-sh ~/.dotfiles/dotfiles_setting.sh
-echo "============================================="
 
 
 echo
 echo "================ Zsh setting ================"
 sh ~/.dotfiles/zsh_setting.sh
+echo "============================================="
+
+
+echo
+echo "============= Dotfiles setting ============="
+sh ~/.dotfiles/dotfiles_setting.sh
 echo "============================================="
 
 
