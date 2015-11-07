@@ -110,7 +110,7 @@ function ph(){
 # 濁点半濁点をちゃんと表示
 setopt combining_chars
 
-# missったときにもしかして
+# missったときに, もしかして
 setopt correct
 
 # 直前と同じコマンドをヒストリに追加しない
@@ -119,22 +119,26 @@ setopt hist_ignore_dups
 # cdしたあとで、自動的に ls する
 #function chpwd() { ls }
 
-PATH=/opt/local/bin:/opt/local/sbin:$PATH
-PATH=/Users/ryosuke/MyGlobalScripts:$PATH
-PATH=/opt/local/libexec/word2vec:$PATH
 
+if [ "$(uname)" = "Darwin" ]; then
+    PATH=/opt/local/bin:/opt/local/sbin:$PATH
+    PATH=/opt/local/libexec/word2vec:$PATH
+    
 # java
-export JAVA_HOME=`/System/Library/Frameworks/JavaVM.framework/Versions/A/Commands/java_home -v "1.8"`
-alias java_home='/System/Library/Frameworks/JavaVM.framework/Versions/A/Commands/java_home'
+    export JAVA_HOME=`/System/Library/Frameworks/JavaVM.framework/Versions/A/Commands/java_home -v "1.8"`
+    alias java_home='/System/Library/Frameworks/JavaVM.framework/Versions/A/Commands/java_home'
+fi
+
 
 # alias
 alias sudo='sudo '
-alias ls='ls -G -F'
 alias orm='/bin/rm'
 if [ "$(uname)" = "Darwin" ]; then
     alias rm='rmtrash'
+    alias ls='ls -G -F'
 elif [ "$(expr substr $(uname -s) 1 5)" = 'Linux' ]; then
     alias rm='trash-put'
+    alias ls='ls --color=auto -F'
 fi
 alias ipy='ipython --colors=linux'
 alias vim='/opt/local/bin/vim'
