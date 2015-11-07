@@ -144,7 +144,8 @@ alias ipy='ipython --colors=linux'
 alias vim='/opt/local/bin/vim'
 alias mypy='pyenv activate myenv3.4.3'
 alias pipall='pip freeze --local | grep -v "^\-e" | cut -d = -f 1 | xargs -n1 pip install -U'
-
+alias pushdots='bash ~/.dotfiles/push_dotfiles.sh'
+alias pulldots='git -C ~/.dotfiles pull'
 
 # pyenv
 export PYENV_ROOT="$HOME/.pyenv"
@@ -152,8 +153,4 @@ export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
 eval "$(pyenv virtualenv-init -)"
 mypy
-
-
-# update
-git -C $HOME/.dotfiles pull
 

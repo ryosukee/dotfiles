@@ -1,0 +1,22 @@
+[user]
+	name = ryosukee
+	email = tmcit.miyazaki@gmail.com
+[merge]
+	conflictstyle = diff3
+[push]
+	default = simple
+[fetch]
+	prune = true
+[alias]
+[branch]
+[alias]
+[alias]
+[alias]
+	bra = branch -vva
+	lo = log --numstat
+[core]
+	editor = vim
+[filter "lfs"]
+	clean = git-lfs clean %f
+	smudge = git-lfs smudge %f
+	required = true
