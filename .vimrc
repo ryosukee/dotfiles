@@ -125,6 +125,8 @@ NeoBundle 'tell-k/vim-autopep8'
 
 " jedi-vim
  NeoBundle 'davidhalter/jedi-vim'
+" docstringは表示しない
+autocmd FileType python setlocal completeopt-=preview
 
 " Yggdroot/indentLine
 NeoBundle 'Yggdroot/indentLine'
