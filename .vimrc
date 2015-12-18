@@ -18,6 +18,9 @@ autocmd ColorScheme * highlight CursorLineNr ctermbg=239 ctermfg=246
 autocmd ColorScheme * highlight Visual ctermbg=239 ctermfg=246
 colorscheme desert
 
+"#####操作設定#####
+set shiftround " '<'や'>'でインデントする際に'shiftwidth'の倍数に丸める
+
 "#####検索設定#####
 set ignorecase "大文字/小文字の区別を無視
 set smartcase "検索文字に大文字が含まれている場合は区別
