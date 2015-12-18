@@ -9,6 +9,9 @@ set shiftwidth=4
 set expandtab
 set cursorline
 set laststatus=2
+set list                " 不可視文字の可視化
+" デフォルト不可視文字は美しくないのでUnicodeで綺麗に
+set listchars=tab:»-,trail:-,extends:»,precedes:«,nbsp:%,eol:↲
 
 "####表示色設定#####
 execute "set colorcolumn=" . join(range(80, 9999), ',')
