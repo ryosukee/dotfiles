@@ -20,6 +20,7 @@ colorscheme desert
 
 "#####操作設定#####
 set shiftround " '<'や'>'でインデントする際に'shiftwidth'の倍数に丸める
+set backspace=indent,eol,start "バックスペースで消せるように
 
 "#####検索設定#####
 set ignorecase "大文字/小文字の区別を無視
@@ -49,7 +50,9 @@ nnoremap <ESC><ESC> :nohlsearch<CR>
 
 "#####その他設定#####
 set noswapfile  " .swapファイルを作らない
-set backspace=indent,eol,start "バックスペースで消せるように
+set matchpairs& matchpairs+=<:> " 対応括弧に'<'と'>'のペアを追加
+
+
 
 "---------------------------
 " Start Neobundle Settings.
