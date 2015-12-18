@@ -82,6 +82,7 @@ let g:vim_markdown_no_default_key_mappings = 1
 
 " vim-niji
 NeoBundle 'amdt/vim-niji'
+let g:niji_matching_filetypes = ['lisp', 'scheme', 'clojure', 'ruby', 'python']
 
 " vimproc.vim
 NeoBundle 'Shougo/vimproc.vim', {
