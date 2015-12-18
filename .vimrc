@@ -114,7 +114,7 @@ let g:syntastic_python_flake8_args = '--ignore="D100"'
 NeoBundle 'tell-k/vim-autopep8'
 
 " jedi-vim
-" NeoBundle 'davidhalter/jedi-vim'
+ NeoBundle 'davidhalter/jedi-vim'
 
 " Yggdroot/indentLine
 NeoBundle 'Yggdroot/indentLine'
