@@ -13,7 +13,7 @@
 [alias]
 [alias]
 	bra = branch -vva
-	lo = log --numstat
+	lo = log --numstat --graph
 [core]
 	editor = vim
 [filter "lfs"]
