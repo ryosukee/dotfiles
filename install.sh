@@ -1,6 +1,5 @@
 echo "download dotfiles"
-git clone https://github.com/ryosukee/dotfiles ~/.dotfiles
-
+git clone https://github.com/ryosukee/dotfiles.git ~/.dotfiles
 
 echo
 echo "================ Zsh setting ================"
