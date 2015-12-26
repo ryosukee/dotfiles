@@ -147,6 +147,7 @@ alias mypy='pyenv activate myenv3.4.3'
 alias pipall='pip freeze --local | grep -v "^\-e" | cut -d = -f 1 | xargs -n1 pip install -U'
 alias pushdots='bash ~/.dotfiles/push_dotfiles.sh'
 alias pulldots='git -C ~/.dotfiles pull'
+alias sshwin='ssh ryosuke@192.168.0.7 -o PreferredAuthentications=password'
 
 # pyenv
 export PYENV_ROOT="$HOME/.pyenv"
