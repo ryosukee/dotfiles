@@ -47,6 +47,23 @@ nnoremap j gj
 nnoremap k gk
 "ESC2回でnoh
 nnoremap <ESC><ESC> :nohlsearch<CR>
+"relativenumberとnumberをトグル表示
+if version >= 703
+    nnoremap  <silent> ,n :<C-u>ToggleNumber<CR>
+    command! -nargs=0 ToggleNumber call ToggleNumberOption()
+
+    function! ToggleNumberOption()
+        if &number
+            set relativenumber
+            set nonumber
+        else
+            set number
+            set norelativenumber
+        endif
+    endfunction
+endif
+
+
 "nmap <F5> :!/usr/bin/python %<CR>
 "nmap <F12> :!/usr/lib/python2.7/pdb.py %<CR>
 
