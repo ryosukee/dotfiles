@@ -148,6 +148,7 @@ alias pipall='pip freeze --local | grep -v "^\-e" | cut -d = -f 1 | xargs -n1 pi
 alias pushdots='bash ~/.dotfiles/push_dotfiles.sh'
 alias pulldots='git -C ~/.dotfiles pull'
 alias sshwin='ssh ryosuke@192.168.0.7 -o PreferredAuthentications=password'
+alias t='bash ~/MyGlobalScripts/tweet.sh'
 
 # pyenv
 export PYENV_ROOT="$HOME/.pyenv"
