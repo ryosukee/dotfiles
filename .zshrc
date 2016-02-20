@@ -141,7 +141,8 @@ elif [ "$(expr substr $(uname -s) 1 5)" = 'Linux' ]; then
     alias ls='ls --color=auto -F'
 fi
 alias ipy='ipython --colors=linux'
-alias jupyter_slide='ipython nbconvert $1 --to slides --post serve'
+alias jupyslide='ipython nbconvert $1 --to slides --post serve'
+alias jupy='jupyter notebook'
 alias vim='/opt/local/bin/vim'
 alias mypy='pyenv activate myenv3.4.3'
 alias pipall='pip freeze --local | grep -v "^\-e" | cut -d = -f 1 | xargs -n1 pip install -U'
@@ -149,6 +150,7 @@ alias pushdots='bash ~/.dotfiles/push_dotfiles.sh'
 alias pulldots='git -C ~/.dotfiles pull'
 alias sshwin='ssh ryosuke@192.168.0.7 -o PreferredAuthentications=password'
 alias t='bash ~/MyGlobalScripts/tweet.sh'
+alias weather='curl -4 wttr.in/Tokyo'
 
 # pyenv
 export PYENV_ROOT="$HOME/.pyenv"
