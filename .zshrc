@@ -119,11 +119,11 @@ setopt hist_ignore_dups
 # cdしたあとで、自動的に ls する
 #function chpwd() { ls }
 
-
 if [ "$(uname)" = "Darwin" ]; then
-    PATH=/opt/local/bin:/opt/local/sbin:$PATH
-    PATH=/opt/local/libexec/word2vec:$PATH
-    
+# mac ports
+#    PATH=/opt/local/bin:/opt/local/sbin:$PATH
+#    PATH=/opt/local/libexec/word2vec:$PATH
+
 # java
     export JAVA_HOME=`/System/Library/Frameworks/JavaVM.framework/Versions/A/Commands/java_home -v "1.8"`
     alias java_home='/System/Library/Frameworks/JavaVM.framework/Versions/A/Commands/java_home'
@@ -143,7 +143,6 @@ fi
 alias ipy='ipython --colors=linux'
 alias jupyslide='ipython nbconvert $1 --to slides --post serve'
 alias jupy='jupyter notebook'
-alias vim='/opt/local/bin/vim'
 alias mypy='pyenv activate myenv3.4.3'
 alias pipall='pip freeze --local | grep -v "^\-e" | cut -d = -f 1 | xargs -n1 pip install -U'
 alias pushdots='bash ~/.dotfiles/push_dotfiles.sh'
