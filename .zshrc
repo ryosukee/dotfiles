@@ -132,7 +132,6 @@ fi
 
 # alias
 alias sudo='sudo '
-alias orm='/bin/rm'
 if [ "$(uname)" = "Darwin" ]; then
     alias rm='rmtrash'
     alias ls='ls -G -F'
@@ -150,7 +149,7 @@ alias pulldots='git -C ~/.dotfiles pull'
 alias sshwin='ssh ryosuke@192.168.0.7 -o PreferredAuthentications=password'
 alias t='bash ~/MyGlobalScripts/tweet.sh'
 alias weather='curl -4 wttr.in/Tokyo'
-
+alias jnethack='cocot -t UTF-8 -p EUC-JP -- jnethack'
 # pyenv
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
