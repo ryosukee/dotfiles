@@ -1,7 +1,7 @@
 "#####表示設定#####
 syntax on
 set encoding=utf-8
-set relativenumber
+set number
 set showmatch
 "set smartindent
 set tabstop=4
