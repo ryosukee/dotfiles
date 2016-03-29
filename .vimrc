@@ -63,6 +63,12 @@ if version >= 703
     endfunction
 endif
 
+function! refresh()
+    while 1
+        e
+        redr
+    endwhile
+
 
 "nmap <F5> :!/usr/bin/python %<CR>
 "nmap <F12> :!/usr/lib/python2.7/pdb.py %<CR>
