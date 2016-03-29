@@ -63,11 +63,14 @@ if version >= 703
     endfunction
 endif
 
-function! refresh()
+
+command! Refresh call Refresh()
+function! Refresh()
     while 1
         e
         redr
     endwhile
+endfunction
 
 
 "nmap <F5> :!/usr/bin/python %<CR>
