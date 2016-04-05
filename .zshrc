@@ -150,6 +150,9 @@ alias sshwin='ssh ryosuke@192.168.0.7 -o PreferredAuthentications=password'
 alias t='bash ~/MyGlobalScripts/tweet.sh'
 alias weather='curl -4 wttr.in/Tokyo'
 alias jnethack='cocot -t UTF-8 -p EUC-JP -- jnethack'
+function line() {
+    head -n $1 $2 | tail -n 1
+}
 # pyenv
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
