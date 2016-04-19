@@ -141,6 +141,7 @@ elif [ "$(expr substr $(uname -s) 1 5)" = 'Linux' ]; then
 fi
 alias ipy='ipython --colors=linux'
 alias jupyslide='jupyter nbconvert $1 --to slides --post serve'
+alias jupypy='jupyter nbconvert $1 --to=python'
 alias jupy='jupyter notebook'
 alias mypy='pyenv activate myenv3.4.3'
 alias pipall='pip freeze --local | grep -v "^\-e" | cut -d = -f 1 | xargs -n1 pip install -U'
