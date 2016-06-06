@@ -20,9 +20,9 @@ export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
 eval "$(pyenv virtualenv-init -)"
 
-pyenv install 3.4.3
-pyenv virtualenv 3.4.3 myenv3.4.3
-pyenv activate myenv3.4.3
+pyenv install 3.5.1
+pyenv virtualenv 3.5.1 myenv3.5.1
+pyenv activate myenv3.5.1
 pip install -U pip
 if [ "$(expr substr $(uname -s) 1 5)" == 'Linux' ]; then
     echo "install requirements for matplotlib"
