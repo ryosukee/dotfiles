@@ -151,6 +151,7 @@ alias sshwin='ssh ryosuke@192.168.0.7 -o PreferredAuthentications=password'
 alias t='bash ~/MyGlobalScripts/tweet.sh'
 alias weather='curl -4 wttr.in/Tokyo'
 alias jnethack='cocot -t UTF-8 -p EUC-JP -- jnethack'
+alias vim='nvim'
 function line() {
     head -n $1 $2 | tail -n 1
 }
@@ -162,3 +163,21 @@ eval "$(pyenv virtualenv-init -)"
 export PYENV_VIRTUALENV_DISABLE_PROMPT=1
 mypy
 
+# Rust
+source ${HOME}/.cargo/env
+
+# phpenv
+export PHPENV_ROOT=$HOME/.phpenv
+export PATH="$HOME/.phpenv/bin:$PATH"
+eval "$(phpenv init -)"
+
+# std error coloer
+zmodload zsh/terminfo zsh/system
+color_stderr() {
+  while sysread std_err_color; do
+    syswrite -o 2 "${fg_bold[red]}${std_err_color}${terminfo[sgr0]}"
+  done
+}
+exec 2> >(color_stderr)
+
+pyenv activate crypto3.5.2

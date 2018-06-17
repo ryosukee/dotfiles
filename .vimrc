@@ -74,13 +74,10 @@ function! Refresh()
 endfunction
 
 
-"nmap <F5> :!/usr/bin/python %<CR>
-"nmap <F12> :!/usr/lib/python2.7/pdb.py %<CR>
-
-
 "#####その他設定#####
 set noswapfile  " .swapファイルを作らない
 set matchpairs& matchpairs+=<:> " 対応括弧に'<'と'>'のペアを追加
+
 
 
 
@@ -161,6 +158,24 @@ let g:indentLine_color_term = 239
 let g:indentLine_char = '|'
 let g:indentLine_faster = 1
 nmap <silent><Leader>i :<C-u>IndentLinesToggle<CR>
+
+" rust
+NeoBundle 'rust-lang/rust.vim'
+NeoBundle 'wting/rust.vim'
+NeoBundle 'racer-rust/vim-racer'
+NeoBundle 'rhysd/rust-doc.vim'
+set hidden
+let g:racer_cmd = '$HOME/.cargo/bin/racer'
+let g:rustfmt_autosave = 1
+let g:rustfmt_command = '$HOME/.cargo/bin/rustfmt'
+let g:rust_doc#downloaded_rust_doc_dir = '$HOME/.rustup/toolchains/stable-x86_64-apple-darwin/'
+
+" git diff
+NeoBundle 'airblade/vim-gitgutter'
+set updatetime=250
+
+" 末尾のスペースハイライト (:FixWhitespace で全て削除)
+NeoBundle 'bronson/vim-trailing-whitespace'
 
 call neobundle#end()
 
