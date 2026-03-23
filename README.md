@@ -1,58 +1,64 @@
 # dotfiles
 
-ポータブルな CLI ツール・設定ファイル集。
+ポータブルな設定ファイル・CLI ツール集。
 
-## 含まれるツール
+## 含まれるもの
 
-### `bin/git-review`
+| パス | 内容 |
+|---|---|
+| `config/nvim/` | nvim 設定 (init.vim + lua プラグイン設定) |
+| `config/git/delta.gitconfig` | delta (git pager) の設定 |
+| `bin/` | 自作 CLI ツール (今後追加予定) |
 
-ローカル完結の PR 風 diff レビューツール。`git diff` の出力をブラウザで GitHub 風に表示し、インラインコメントを付けられる。PR を出す前のセルフレビュー用。
+### nvim プラグイン
 
-**機能:**
-- GitHub 風のサイドバイサイド / 統合 diff 表示 (diff2html)
-- ファイル一覧サイドバー
-- 行クリックでインラインコメント追加 (localStorage 保存)
-- Markdown エクスポート (クリップボードコピー)
+- diffview.nvim — サイドバイサイド diff レビュー (wrap 対応、ハイライト調整済み)
+- fzf-lua — ファジーファインダー
+- その他: vim-gitgutter, vim-airline, markdown-preview.nvim 等
 
-**使い方:**
+### delta
+
+ターミナルの `git diff` / `git log` 出力を改善する pager。行番号、サイドバイサイド、シンタックスハイライト、word-level diff 付き。
+
+## 依存ツール
 
 ```bash
-git review              # working tree vs HEAD
-git review --staged     # staged のみ
-git review main         # main との差分
-git review main..HEAD   # コミット間差分
+brew install neovim git-delta
 ```
 
-## セットアップ
+## 初回セットアップ
 
 ```bash
-# clone
+# 1. clone
 ghq get ryosukee/dotfiles
-# または
-git clone https://github.com/ryosukee/dotfiles.git
 
-# インストール (~/bin に symlink を作成)
+# 2. 既存の nvim 設定をバックアップ（ある場合）
+mv ~/.config/nvim ~/.config/nvim.bak
+
+# 3. インストール
+cd "$(ghq root)/github.com/ryosukee/dotfiles"
 ./install.sh
+
+# 4. PATH に ~/.local/bin を追加（未設定の場合）
+# fish
+fish_add_path ~/.local/bin
+# bash/zsh
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 ```
 
-`~/bin` が `$PATH` に含まれていることを確認:
+install.sh が行うこと:
+- `~/.config/nvim` → dotfiles の `config/nvim/` に symlink
+- `~/.gitconfig` に `config/git/delta.gitconfig` の include を追加
+- `bin/` 内のツールを `~/.local/bin/` に symlink
+- nvim プラグインのインストール (`PlugInstall`)
+- 依存ツールの存在チェック
+
+## アップデート
 
 ```bash
-# fish
-fish_add_path ~/bin
-
-# bash/zsh
-export PATH="$HOME/bin:$PATH"
+cd "$(ghq root)/github.com/ryosukee/dotfiles"
+git pull
 ```
 
-`git review` として git サブコマンドのように使えます (`git-review` が PATH にあれば自動的に認識)。
-
-## 構成
-
-```
-dotfiles/
-  bin/          # CLI ツール
-    git-review  # PR 風 diff レビュー
-  install.sh    # ~/bin への symlink セットアップ
-  README.md
-```
+nvim 設定は symlink なので pull するだけで反映される。
+nvim プラグインの追加・削除があった場合は nvim 内で `:PlugInstall` / `:PlugClean` を実行する。
