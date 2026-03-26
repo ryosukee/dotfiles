@@ -1,64 +1,145 @@
 # dotfiles
 
-ポータブルな設定ファイル・CLI ツール集。
+設定ファイルとツールカタログ。インストールスクリプトは持たず、何を使っているかを宣言的に管理する。
 
-## 含まれるもの
+## 方針
 
-| パス | 内容 |
-|---|---|
-| `config/nvim/` | nvim 設定 (init.vim + lua プラグイン設定) |
-| `config/git/delta.gitconfig` | delta (git pager) の設定 |
-| `bin/` | 自作 CLI ツール (今後追加予定) |
+- **設定ファイルの同期**: stow でシンボリックリンクを作成
+- **ツールカタログ**: Brewfile がパッケージ一覧を兼ねる
+- **インストールは手動 or AI に任せる**: スクリプトは腐りやすいので持たない
 
-### nvim プラグイン
+## 構造
 
-- diffview.nvim — サイドバイサイド diff レビュー (wrap 対応、ハイライト調整済み)
-- fzf-lua — ファジーファインダー
-- その他: vim-gitgutter, vim-airline, markdown-preview.nvim 等
-
-### delta
-
-ターミナルの `git diff` / `git log` 出力を改善する pager。行番号、サイドバイサイド、シンタックスハイライト、word-level diff 付き。
-
-## 依存ツール
-
-```bash
-brew install neovim git-delta
+```
+dotfiles/
+├── nvim/          # Neovim 設定 (stow package)
+├── git/           # Git 設定 (stow package)
+├── fish/          # Fish shell 設定 (stow package)
+├── Brewfile       # brew パッケージ一覧 (brew bundle dump --describe で生成)
+└── .stow-local-ignore
 ```
 
-## 初回セットアップ
+各ディレクトリは stow package。中身は `~` からの相対パスをそのまま再現している。
+
+## セットアップ
 
 ```bash
 # 1. clone
 ghq get ryosukee/dotfiles
 
-# 2. 既存の nvim 設定をバックアップ（ある場合）
+# 2. stow と依存ツールをインストール
+brew install stow
+brew bundle --file="$(ghq root)/github.com/ryosukee/dotfiles/Brewfile"
+
+# 3. 既存設定をバックアップ (必要な場合)
 mv ~/.config/nvim ~/.config/nvim.bak
+mv ~/.config/fish ~/.config/fish.bak
 
-# 3. インストール
+# 4. symlink を作成
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
-./install.sh
+stow nvim git fish
 
-# 4. PATH に ~/.local/bin を追加（未設定の場合）
-# fish
-fish_add_path ~/.local/bin
-# bash/zsh
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+# 5. nvim プラグインをインストール
+nvim --headless +PlugInstall +qall
+
+# 6. fish プラグインをインストール
+fisher update
+
+# 7. git delta の設定を include
+git config --global --add include.path ~/.config/git/delta.gitconfig
 ```
 
-install.sh が行うこと:
-- `~/.config/nvim` → dotfiles の `config/nvim/` に symlink
-- `~/.gitconfig` に `config/git/delta.gitconfig` の include を追加
-- `bin/` 内のツールを `~/.local/bin/` に symlink
-- nvim プラグインのインストール (`PlugInstall`)
-- 依存ツールの存在チェック
+## ツールカタログ
 
-## アップデート
+主要なツールと用途。全量は Brewfile を参照。
+
+### シェル & ターミナル
+
+| ツール | 用途 | インストール |
+|---|---|---|
+| fish | メインシェル (vi キーバインド) | `brew install fish` |
+| starship | プロンプト | `brew install starship` |
+| wezterm | ターミナルエミュレータ | `brew install --cask wezterm` |
+| tmux | ターミナルマルチプレクサ | `brew install tmux` |
+| direnv | ディレクトリ単位の環境変数 | `brew install direnv` |
+| zoxide | cd の高速化 | `brew install zoxide` |
+
+### エディタ
+
+| ツール | 用途 | インストール |
+|---|---|---|
+| neovim | メインエディタ | `brew install neovim` |
+| vim-plug | nvim プラグインマネージャ | init.vim で自動セットアップ |
+
+### Git
+
+| ツール | 用途 | インストール |
+|---|---|---|
+| git-delta | diff/log の pager (行番号, サイドバイサイド, シンタックスハイライト) | `brew install git-delta` |
+| ghq | リポジトリ管理 (`~/ghq_root/` 配下) | `brew install ghq` |
+| gwq | git worktree マネージャ | `brew install d-kuro/tap/gwq` |
+| git-graph | ブランチグラフ表示 | `cargo install git-graph` |
+| tig | TUI git クライアント | `brew install tig` |
+| gitui | TUI git クライアント (Rust) | `brew install gitui` |
+
+### ランタイム管理
+
+| ツール | 用途 | インストール |
+|---|---|---|
+| mise | 言語ランタイム管理 (Node, Python, Go 等) | `brew install mise` |
+| uv | Python パッケージマネージャ | `brew install uv` |
+
+### CLI ユーティリティ
+
+| ツール | 用途 | インストール |
+|---|---|---|
+| bat | cat の代替 (シンタックスハイライト) | `brew install bat` |
+| lsd | ls の代替 (アイコン, カラー) | `brew install lsd` |
+| fzf | ファジーファインダー | `brew install fzf` |
+| peco | インタラクティブフィルタ | `brew install peco` |
+| jq | JSON プロセッサ | `brew install jq` |
+| yq | YAML/JSON/XML プロセッサ | `brew install yq` |
+| imagemagick | 画像処理 | `brew install imagemagick` |
+
+### AI
+
+| ツール | 用途 | インストール |
+|---|---|---|
+| claude-code | Claude Code CLI + VS Code 拡張 | `brew install anthropic/claude-code/claude-code` / VS Code |
+| codex | OpenAI のコーディングエージェント | `brew install codex` |
+
+### インフラ & クラウド
+
+| ツール | 用途 | インストール |
+|---|---|---|
+| terraform | IaC | `brew install terraform` |
+| kubernetes-cli | kubectl | `brew install kubernetes-cli` |
+| k9s | Kubernetes TUI | `brew install k9s` |
+| kubectx | context/namespace 切り替え | `brew install kubectx` |
+| cloudflared | Cloudflare Tunnel | `brew install cloudflared` |
+
+## fish のキーバインド
+
+| キー | 機能 |
+|---|---|
+| `Ctrl+G` | git branch を peco で選択して checkout |
+| `Ctrl+H` | ghq リポジトリを peco で選択して cd |
+| `Ctrl+T` | git worktree を peco で選択して cd |
+| `Ctrl+R` | コマンド履歴を peco で検索 |
+
+## nvim プラグイン
+
+- **diffview.nvim** — サイドバイサイド diff レビュー
+- **fzf-lua** — ファジーファインダー (Claude Code 連携あり: `.claude` ファイルで `@` キー)
+- **vim-gitgutter** — git diff マーカー
+- **vim-airline** — ステータスバー
+- **markdown-preview.nvim** — Markdown プレビュー (mermaid 対応)
+- **ALE** — 非同期リンター
+- その他: vim-niji, indentLine, goyo.vim, limelight.vim, tabular, nerdtree
+
+## Brewfile の更新
 
 ```bash
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
-git pull
+brew bundle dump --describe --force --file=Brewfile
 ```
-
-nvim 設定は symlink なので pull するだけで反映される。
-nvim プラグインの追加・削除があった場合は nvim 内で `:PlugInstall` / `:PlugClean` を実行する。
