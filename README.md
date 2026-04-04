@@ -4,17 +4,20 @@
 
 ## 方針
 
-- **設定ファイルの同期**: stow でシンボリックリンクを作成
-- **ツールカタログ**: Brewfile がパッケージ一覧を兼ねる
-- **インストールは手動 or AI に任せる**: スクリプトは腐りやすいので持たない
+- 設定ファイルの同期: stow でシンボリックリンクを作成
+- ツールカタログ: Brewfile がパッケージ一覧を兼ねる
+- インストールは手動 or AI に任せる: スクリプトは腐りやすいので持たない
 
 ## 構造
 
 ```
 dotfiles/
-├── nvim/          # Neovim 設定 (stow package)
-├── git/           # Git 設定 (stow package)
-├── fish/          # Fish shell 設定 (stow package)
+├── nvim/          # Neovim (LazyVim)
+├── git/           # gitconfig, gitignore
+├── fish/          # Fish shell
+├── lazygit/       # lazygit (delta 連携)
+├── tig/           # tig
+├── tmux/          # tmux + claude popup editor
 ├── Brewfile       # brew パッケージ一覧 (brew bundle dump --describe で生成)
 └── .stow-local-ignore
 ```
@@ -34,19 +37,17 @@ brew bundle --file="$(ghq root)/github.com/ryosukee/dotfiles/Brewfile"
 # 3. 既存設定をバックアップ (必要な場合)
 mv ~/.config/nvim ~/.config/nvim.bak
 mv ~/.config/fish ~/.config/fish.bak
+mv ~/.config/git/config ~/.config/git/config.bak
 
 # 4. symlink を作成
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
-stow nvim git fish
+stow -t ~ nvim git fish lazygit tig tmux
 
-# 5. nvim プラグインをインストール
-nvim --headless +PlugInstall +qall
+# 5. nvim プラグインをインストール (初回起動で自動)
+nvim
 
 # 6. fish プラグインをインストール
 fisher update
-
-# 7. git delta の設定を include
-git config --global --add include.path ~/.config/git/delta.gitconfig
 ```
 
 ## ツールカタログ
@@ -68,14 +69,14 @@ git config --global --add include.path ~/.config/git/delta.gitconfig
 
 | ツール | 用途 | インストール |
 |---|---|---|
-| neovim | メインエディタ | `brew install neovim` |
-| vim-plug | nvim プラグインマネージャ | init.vim で自動セットアップ |
+| neovim | メインエディタ (LazyVim) | `brew install neovim` |
 
 ### Git
 
 | ツール | 用途 | インストール |
 |---|---|---|
 | git-delta | diff/log の pager (行番号, サイドバイサイド, シンタックスハイライト) | `brew install git-delta` |
+| lazygit | TUI git クライアント (delta 連携, LazyVim 内蔵) | `brew install lazygit` |
 | ghq | リポジトリ管理 (`~/ghq_root/` 配下) | `brew install ghq` |
 | gwq | git worktree マネージャ | `brew install d-kuro/tap/gwq` |
 | git-graph | ブランチグラフ表示 | `cargo install git-graph` |
@@ -127,15 +128,24 @@ git config --global --add include.path ~/.config/git/delta.gitconfig
 | `Ctrl+T` | git worktree を peco で選択して cd |
 | `Ctrl+R` | コマンド履歴を peco で検索 |
 
-## nvim プラグイン
+## nvim (LazyVim)
 
-- **diffview.nvim** — サイドバイサイド diff レビュー
-- **fzf-lua** — ファジーファインダー (Claude Code 連携あり: `.claude` ファイルで `@` キー)
-- **vim-gitgutter** — git diff マーカー
-- **vim-airline** — ステータスバー
-- **markdown-preview.nvim** — Markdown プレビュー (mermaid 対応)
-- **ALE** — 非同期リンター
-- その他: vim-niji, indentLine, goyo.vim, limelight.vim, tabular, nerdtree
+LazyVim ベース。カスタムプラグイン:
+
+- diffview.nvim: サイドバイサイド diff (`<Space>do` で開く、右ペインで直接編集可能)
+- fzf-lua: Claude Code 連携 (`.claude` ファイルで `@` キーでファイル補完)
+
+主要キーバインド:
+
+| キー | 機能 |
+|---|---|
+| `<Space>gg` | lazygit |
+| `<Space>e` | ファイルツリー (neo-tree) |
+| `<Space><Space>` | ファイル検索 |
+| `<Space>/` | プロジェクト内 grep |
+| `<Space>do` | diffview open |
+| `<Space>dc` | diffview close |
+| `<Space>dh` | ファイル履歴 |
 
 ## Brewfile の更新
 
