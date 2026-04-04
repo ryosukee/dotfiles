@@ -1,0 +1,69 @@
+[user]
+	email = tmcit.miyazaki@gmail.com
+	signingkey = /Users/ryosuke/.ssh/id_ed25519_signing.pub
+	name = ryosukee
+
+[ghq]
+	root = /Users/ryosuke/go/1.16.5/src/
+	root = /Users/ryosuke/ghq_root
+
+[alias]
+	pr = !"f(){ git fetch origin pull/${1}/head:pr/${1} && git checkout pr/${1}; };f"
+	show-all-closed = !git fetch --prune && git branch --format '%(refname:short) %(upstream:track)' | grep '\\[gone\\]' | cut -d' ' -f1
+	del-all-closed = !git show-all-closed | xargs -r git branch -d
+	del-all-closed-D = !git show-all-closed | xargs -r git branch -D
+	show-only-local = !git branch --format='%(refname:short) %(upstream)' | grep -E ' $'
+	del-only-local = !git show-only-local | xargs -r git branch -D
+	default-branch = !git ls-remote --symref origin HEAD | head -n 1 | cut -f 1 | cut -d "/" -f 3-
+	def = !git checkout $(git default-branch)
+	c- = !git checkout -
+	push-u = !git symbolic-ref --short HEAD | tr -d '\n' | xargs -I{} git push -u origin {}
+	rebase-onto-current = !"f(){ git rebase --onto ${1} ${2} $(git branch --show-current); };f"
+
+[merge]
+	ff = false
+	conflictstyle = zdiff3
+
+[pull]
+	ff = only
+
+[core]
+	ignorecase = false
+	pager = delta
+
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+
+[gpg]
+	format = ssh
+
+[commit]
+	gpgsign = true
+
+[init]
+	defaultBranch = main
+
+[pager]
+	diff = delta
+	log = delta
+	reflog = delta
+	show = delta
+
+[interactive]
+	diffFilter = delta --color-only
+
+[delta]
+	navigate = true
+	line-numbers = true
+	side-by-side = true
+	syntax-theme = Dracula
+	plus-style = "syntax #012800"
+	minus-style = "syntax #340001"
+
+# Machine-local secrets (PAT, credentials, etc.)
+# Create ~/.config/git/config.local manually
+[include]
+	path = config.local
