@@ -77,6 +77,8 @@ brew "kubernetes-cli", link: false
 brew "kubectx"
 # Template-free customization of Kubernetes YAML manifests
 brew "kustomize"
+# Simple terminal UI for git commands
+brew "lazygit"
 # Image processing and image analysis library
 brew "leptonica"
 # Subtitle renderer for the ASS/SSA subtitle format
@@ -127,6 +129,8 @@ brew "rust"
 brew "srt"
 # Cross-shell prompt for astronauts
 brew "starship"
+# Organize software neatly under a single directory tree (e.g. /usr/local)
+brew "stow"
 # Tool to build, change, and version infrastructure
 brew "terraform"
 # OCR (Optical Character Recognition) engine
