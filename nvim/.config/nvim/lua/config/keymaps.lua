@@ -10,3 +10,6 @@ map("n", "k", "gk", { desc = "Up (visual line)" })
 -- Toggle wrap
 map("n", "<ESC>l", "<Cmd>set nowrap<CR>", { desc = "Disable wrap" })
 map("n", "<ESC>h", "<Cmd>set wrap<CR>", { desc = "Enable wrap" })
+
+-- Restore native 's' (delete char and insert), overriding flash.nvim
+map({ "n", "x" }, "s", "s")
