@@ -5,10 +5,7 @@ local opt = vim.opt
 
 opt.tabstop = 4
 opt.shiftwidth = 4
-opt.expandtab = true
-opt.shiftround = true
 
-opt.cursorline = true
 opt.showmatch = true
 
 -- Visible whitespace
@@ -19,8 +16,6 @@ opt.listchars = { tab = "»-", trail = "-", extends = "»", precedes = "«", nbs
 opt.conceallevel = 0
 
 -- Search
-opt.ignorecase = true
-opt.smartcase = true
 opt.wrapscan = true
 
 -- Match pairs

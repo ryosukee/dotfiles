@@ -132,8 +132,13 @@ fisher update
 
 LazyVim ベース。カスタムプラグイン:
 
-- diffview.nvim: サイドバイサイド diff (`<Space>do` で開く、右ペインで直接編集可能)
-- fzf-lua: Claude Code 連携 (`.claude` ファイルで `@` キーでファイル補完)
+| プラグイン | 設定ファイル | 目的 |
+|---|---|---|
+| diffview.nvim | `diffview.lua` | サイドバイサイド diff (右ペインで直接編集可能) |
+| diffview ✓ マーク | `diffview-viewed.lua` | file tree でレビュー済みファイルに ✓ を付ける |
+| scope.nvim | `scope.lua` | バッファを tabpage ごとにスコープ |
+| bufferline.nvim | `bufferline.lua` | diffview 表示中は bufferline を非表示にする |
+| fzf-lua | `claude-fzf.lua` | Claude Code 連携 (`.claude` ファイルで `@` キーでファイル補完) |
 
 主要キーバインド:
 
@@ -146,6 +151,9 @@ LazyVim ベース。カスタムプラグイン:
 | `<Space>do` | diffview open |
 | `<Space>dc` | diffview close |
 | `<Space>dh` | ファイル履歴 |
+| `x` (diffview file tree) | レビュー済み ✓ マークをトグル |
+| `H` / `L` | バッファ切り替え |
+| `<Space><Tab>]` / `[` | tabpage 切り替え |
 
 ## Brewfile の更新
 
