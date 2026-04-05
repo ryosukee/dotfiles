@@ -59,6 +59,22 @@ return {
         file_panel = {
           ["q"] = "<Cmd>DiffviewClose<CR>",
           ["X"] = false, -- restore file from index を無効化
+          ["x"] = function()
+            local lib = require("diffview.lib")
+            local view = lib.get_current_view()
+            if not view then return end
+            local item = view.panel:get_item_at_cursor()
+            if not item or not item.path then return end
+
+            _G._diffview_viewed = _G._diffview_viewed or {}
+            if _G._diffview_viewed[item.path] then
+              _G._diffview_viewed[item.path] = nil
+            else
+              _G._diffview_viewed[item.path] = true
+            end
+
+            _G._diffview_refresh_marks(view)
+          end,
         },
         file_history_panel = { ["q"] = "<Cmd>DiffviewClose<CR>" },
       },

@@ -1,6 +1,6 @@
--- diffview file tree に ✓ マークを付ける機能
--- x キーでトグル、diffview 終了時にリセット
--- 不要になったらこのファイルを削除するだけで無効化できる
+-- diffview file tree に ✓ マークを付ける描画ロジック
+-- キーマップは diffview.lua の file_panel["x"] で定義
+-- 不要になったらこのファイルを削除し、diffview.lua から x キーマップも消す
 
 local ns = vim.api.nvim_create_namespace("diffview_viewed")
 local augroup = vim.api.nvim_create_augroup("diffview_viewed", { clear = true })
@@ -43,30 +43,4 @@ vim.api.nvim_create_autocmd("BufWinEnter", {
   end,
 })
 
-return {
-  {
-    "sindrets/diffview.nvim",
-    opts = {
-      keymaps = {
-        file_panel = {
-          ["x"] = function()
-            local lib = require("diffview.lib")
-            local view = lib.get_current_view()
-            if not view then return end
-            local item = view.panel:get_item_at_cursor()
-            if not item or not item.path then return end
-
-            _G._diffview_viewed = _G._diffview_viewed or {}
-            if _G._diffview_viewed[item.path] then
-              _G._diffview_viewed[item.path] = nil
-            else
-              _G._diffview_viewed[item.path] = true
-            end
-
-            _G._diffview_refresh_marks(view)
-          end,
-        },
-      },
-    },
-  },
-}
+return {}
