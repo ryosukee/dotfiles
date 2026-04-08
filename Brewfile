@@ -157,8 +157,6 @@ brew "d-kuro/tap/gwq"
 cask "alacritty"
 # Open-source browser prompter
 cask "browserosaurus"
-# Native macOS menu bar app for monitoring Claude AI usage limits
-cask "hamed-elfayome/claude-usage/claude-usage-tracker"
 # Lightweight native macOS terminal with vertical tabs for AI coding agents
 cask "manaflow-ai/cmux/cmux"
 cask "font-cica"
