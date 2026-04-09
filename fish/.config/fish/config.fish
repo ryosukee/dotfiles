@@ -17,6 +17,8 @@ alias gg='git-graph'
 mise activate fish | source
 
 set GHQ_SELECTOR peco
+# ghq.root は git config だと ~/$HOME が展開されないためここで設定する
+set -gx GHQ_ROOT "$HOME/ghq_root"
 
 direnv hook fish | source
 zoxide init fish | source
@@ -24,7 +26,9 @@ zoxide init fish | source
 fish_add_path ~/.cargo/bin ~/.local/bin ~/.claude/bin
 
 # The next line updates PATH for the Google Cloud SDK.
-if [ -f '/Users/ryosuke/google-cloud-sdk/path.fish.inc' ]; . '/Users/ryosuke/google-cloud-sdk/path.fish.inc'; end
+if test -f "$HOME/google-cloud-sdk/path.fish.inc"
+    . "$HOME/google-cloud-sdk/path.fish.inc"
+end
 
 starship init fish | source
 

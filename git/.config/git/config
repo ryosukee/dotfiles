@@ -1,11 +1,10 @@
 [user]
 	email = tmcit.miyazaki@gmail.com
-	signingkey = /Users/ryosuke/.ssh/id_ed25519_signing.pub
+	signingkey = ~/.ssh/id_ed25519_signing.pub
 	name = ryosukee
 
-[ghq]
-	root = /Users/ryosuke/go/1.16.5/src/
-	root = /Users/ryosuke/ghq_root
+# ghq.root は git config だと ~/$HOME 展開されないので fish の GHQ_ROOT
+# 環境変数で設定する (fish/.config/fish/config.fish 参照)
 
 [alias]
 	pr = !"f(){ git fetch origin pull/${1}/head:pr/${1} && git checkout pr/${1}; };f"
