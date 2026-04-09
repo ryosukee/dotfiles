@@ -23,6 +23,10 @@ brew "cloudflared"
 brew "codex"
 # Load/unload environment variables based on $PWD
 brew "direnv"
+# Simple, fast and user-friendly alternative to find
+brew "fd"
+# Play, record, convert, and stream select audio and video codecs
+brew "ffmpeg"
 # User-friendly command-line shell for UNIX-like operating systems
 brew "fish"
 # Command-line fuzzy finder written in Go
@@ -41,18 +45,18 @@ brew "git-delta"
 brew "git-lfs"
 # Blazing fast terminal-ui for git written in rust
 brew "gitui"
-# OpenType text shaping engine
-brew "harfbuzz"
-# Framework for layout and rendering of i18n text
-brew "pango"
-# Command-driven, interactive function plotting
-brew "gnuplot"
 # International domain name library (IDNA2008, Punycode and TR46)
 brew "libidn2"
 # Validating, recursive, caching DNS resolver
 brew "unbound"
 # GNU Transport Layer Security (TLS) Library
 brew "gnutls"
+# OpenType text shaping engine
+brew "harfbuzz"
+# Framework for layout and rendering of i18n text
+brew "pango"
+# Command-driven, interactive function plotting
+brew "gnuplot"
 # Generate introspection data for GObject libraries
 brew "gobject-introspection"
 # Library for manipulating JPEG-2000 images
@@ -115,6 +119,8 @@ brew "nmap"
 brew "p7zip"
 # Simplistic interactive filtering tool
 brew "peco"
+# PDF rendering library (based on the xpdf-3.0 code base)
+brew "poppler"
 # Interpreted, interactive, object-oriented programming language
 brew "python@3.10"
 # Interpreted, interactive, object-oriented programming language
@@ -125,6 +131,8 @@ brew "python@3.8"
 brew "python@3.9"
 # Safe, concurrent, practical language
 brew "rust"
+# 7-Zip is a file archiver with a high compression ratio
+brew "sevenzip"
 # Secure Reliable Transport
 brew "srt"
 # Cross-shell prompt for astronauts
@@ -145,6 +153,8 @@ brew "uv"
 brew "watch"
 # Library to create, extract, and modify Windows Imaging files
 brew "wimlib"
+# Blazing fast terminal file manager written in Rust, based on async I/O
+brew "yazi"
 # Process YAML, JSON, XML, CSV and properties documents from the CLI
 brew "yq"
 # Shell extension to navigate your filesystem faster

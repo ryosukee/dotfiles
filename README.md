@@ -98,9 +98,15 @@ fisher update
 | lsd | ls の代替 (アイコン, カラー) | `brew install lsd` |
 | fzf | ファジーファインダー | `brew install fzf` |
 | peco | インタラクティブフィルタ | `brew install peco` |
+| yazi | ターミナルファイルマネージャ (Rust, 画像プレビュー対応) | `brew install yazi` |
+| fd | find の代替 (yazi のバックエンド) | `brew install fd` |
+| ripgrep | grep の代替 (yazi のバックエンド) | `brew install ripgrep` |
 | jq | JSON プロセッサ | `brew install jq` |
 | yq | YAML/JSON/XML プロセッサ | `brew install yq` |
 | imagemagick | 画像処理 | `brew install imagemagick` |
+| ffmpeg | 動画処理 (yazi の動画プレビュー) | `brew install ffmpeg` |
+| poppler | PDF プロセッサ (yazi の PDF プレビュー) | `brew install poppler` |
+| sevenzip | アーカイブ操作 (yazi のアーカイブプレビュー) | `brew install sevenzip` |
 
 ### AI
 
@@ -119,14 +125,15 @@ fisher update
 | kubectx | context/namespace 切り替え | `brew install kubectx` |
 | cloudflared | Cloudflare Tunnel | `brew install cloudflared` |
 
-## fish のキーバインド
+## fish のキーバインド・関数
 
-| キー | 機能 |
+| キー / コマンド | 機能 |
 |---|---|
 | `Ctrl+G` | git branch を peco で選択して checkout |
 | `Ctrl+H` | ghq リポジトリを peco で選択して cd |
 | `Ctrl+T` | git worktree を peco で選択して cd |
 | `Ctrl+R` | コマンド履歴を peco で検索 |
+| `y` | yazi 起動、終了時に yazi 内の cwd に fish を cd |
 
 ## tmux
 
