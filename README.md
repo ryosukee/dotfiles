@@ -128,6 +128,18 @@ fisher update
 | `Ctrl+T` | git worktree を peco で選択して cd |
 | `Ctrl+R` | コマンド履歴を peco で検索 |
 
+## tmux
+
+prefix は tmux デフォルト (`Ctrl+B`)。
+
+| キー | 機能 |
+|---|---|
+| `prefix + S` | session launcher (自前・choose-tree 風、ツリー表示 + fzf) |
+| `prefix + P` | 作業用 popup ターミナル (`popup` session) |
+| `prefix + e` | Claude Code プロンプト編集用の popup nvim |
+
+詳細・内部仕様は [tmux 設定](./docs/tmux.md) を参照。
+
 ## nvim (LazyVim)
 
 LazyVim ベース。プラグイン構成、キーバインド、ワークフローの詳細は [nvim 設定](./docs/nvim.md) を参照。

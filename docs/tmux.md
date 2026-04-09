@@ -1,0 +1,113 @@
+# tmux 設定
+
+tmux のキーバインドと、自前 session launcher の仕様。
+
+## ファイル構成
+
+```
+tmux/
+├── .tmux.conf                        # エントリポイント (bindings + plugins)
+└── .config/tmux/
+    ├── claude-prompt-edit.sh         # prefix + e で呼ばれる popup nvim
+    └── session-launcher.sh           # prefix + S で呼ばれる launcher 本体
+```
+
+## キーバインド
+
+prefix は tmux デフォルト (`Ctrl+B`)。
+
+| キー | 機能 |
+|---|---|
+| `prefix + S` | session launcher を開く |
+| `prefix + P` | 作業用 popup ターミナル (`popup` session) |
+| `prefix + e` | Claude Code プロンプト編集用 popup nvim |
+
+## Plugin
+
+`.tmux.conf` で tpm 経由で入れているもの:
+
+- `tmux-plugins/tpm` — plugin manager
+- `niksingh710/minimal-tmux-status` — ステータスライン
+- `alexwforsythe/tmux-which-key` — which-key 風ヒント
+
+## session launcher (`prefix + S`)
+
+tmux 組み込みの `choose-tree` にインスパイアされた自前のランチャ。組み込みとの違いは、**常にフル幅の左右分割**で表示でき、**fzf のモーダルなキー操作**で navigation / search を切り替えられること。
+
+### UI
+
+```
+window>
+  0  ├─ 0: idp-main (nvim)              <preview area>
+     ├─ 1: Python (Python)              
+     └─ 4: blueprint-bot (2.1.97)
+  59 ├─ 0: cc-market (2.1.96)
+     ├─ 1: dotfiles (fish)
+     └─ 3: nvim (nvim)
+```
+
+- session ごとに window を `├─` / `└─` でツリー表示
+- session 名は先頭 window 行に inline、2 行目以降はスペースでパディング
+- 右側に選択中 window のライブプレビュー (ANSI 色保持、CJK 幅対応)
+- 複数 pane の window は pane ごとにヘッダ付きで縦連結表示
+
+### 操作
+
+| キー | 動作 |
+|---|---|
+| `j` / `k` / `↓` / `↑` | navigation |
+| `Enter` | 選択した window にジャンプ (`switch-client` + `select-window`) |
+| `/` | search モードに切替 (j/k が入力文字になり fuzzy filter が有効化) |
+| `q` / `Esc` | 元の session に戻る (`switch-client -l`) |
+
+起動時は `--disabled` で search 無効、`j`/`k` が navigation に bind されている。`/` を押すと search モードに入り、その呼び出し中は j/k が入力文字として扱われる。次回起動時はまた navigation モードで開く。
+
+### 仕組み
+
+専用の `_launcher` という session を初回 `prefix + S` 時に生成し、その中で fzf を `while true` ループで常駐させる。以降の `prefix + S` は `switch-client -t _launcher` するだけで、fzf はスタンバイ状態なので即座に UI が出る。
+
+```
+[通常の session]          [_launcher session]
+                             fzf (常駐ループ)
+      ↓ prefix + S              │
+      switch-client ───────────→│
+                                │ j/k で navigation
+      ←─────────── Enter ───────│
+      switch-client +           │
+      select-window             │
+      ←─────────── q/Esc ───────│
+      switch-client -l          │
+```
+
+fzf のループ本体は `session-launcher.sh --loop` で走り、各反復で:
+
+1. `--list` でツリー形式の window 一覧を生成
+2. list 幅を計算し preview 幅を決定
+3. per-iteration の cache ディレクトリを用意
+4. fzf を起動してユーザ操作を待つ
+5. 選択結果に応じて `switch-client` / `select-window` を発火
+
+preview は `--preview LAUNCHER_CACHE_DIR='...' bash session-launcher.sh --preview {1}` で、初回アクセス時に `tmux capture-pane -eNp` で pane 内容を取得・整形・キャッシュに保存し、2 回目以降は cat だけで返す lazy cache 方式。
+
+### preview の整形
+
+`_truncate_ansi` 関数が 1 段の perl プロセスで以下を処理する:
+
+1. **underline 系 SGR の除去**: fzf の `--ansi` パーサが解釈できない curly underline (`4:3m`)、複合 SGR 内の underline パラメータ (`;4;` / `;4:3;`)、underline color (`58;...`) などを除去
+2. **bg carry**: 行内に bg SGR が無い場合、前行の bg を prepend して nvim の塗り残しセルを埋める
+3. **幅 truncate**: East Asian Wide 判定付きの `cwidth` 関数で CJK を 2 セルとして数え、`FZF_PREVIEW_COLUMNS` + 安全マージン 4 で truncate
+4. **full attribute reset**: 各行の先頭と末尾に `\e[22m\e[23m\e[24m...` の個別属性リセットを挿入
+5. **幅 pad**: 可視幅に満たない分を default bg のスペースで埋めて preview セルを物理的に上書き
+
+さらに `_pad_output` が `FZF_PREVIEW_LINES` まで空行 (full-width space) で埋めて、preview pane の下部まで完全に上書きする。
+
+### wezterm 側のセル状態残り対策
+
+tmux は client への出力を差分描画で最適化するため、content が変わらないセルは再送しない。過去の preview で設定された SGR 状態が wezterm のセルに残っていると、空白を書いても残骸として見える (特に curly underline の点線)。
+
+これを防ぐため、各 preview 生成の末尾で `tmux run-shell -b` 経由で非同期に `sleep 0.05 && tmux refresh-client -t <client>` を発火する。server プロセス側で実行されるため fzf の kill に影響されず、preview script 自体は即 exit できて navigation の体感遅延がない。
+
+### 既知の制約
+
+- tmux の `capture-pane` は pane グリッドを捕捉するだけなので、**nvim の split バッファの背景色を完全に再現できない**。`-N` フラグでトレイリング空白は保持するが、nvim が明示的に塗っていないセルは default bg になる
+- session を切り替える際は画面全体が launcher から target に遷移する。choose-tree と同じく「sidebar として常駐させながら他の pane を操作する」ことはできない (tmux の session モデル上の制約)
