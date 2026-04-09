@@ -135,6 +135,7 @@ prefix は tmux デフォルト (`Ctrl+B`)。
 | キー | 機能 |
 |---|---|
 | `prefix + S` | session launcher (自前・choose-tree 風、ツリー表示 + fzf) |
+| `prefix + Tab` | treemux sidebar (Neo-Tree を tmux pane として表示) |
 | `prefix + P` | 作業用 popup ターミナル (`popup` session) |
 | `prefix + e` | Claude Code プロンプト編集用の popup nvim |
 

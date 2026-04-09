@@ -18,7 +18,9 @@ prefix は tmux デフォルト (`Ctrl+B`)。
 
 | キー | 機能 |
 |---|---|
-| `prefix + S` | session launcher を開く |
+| `prefix + S` | session launcher を開く (自前、後述) |
+| `prefix + Tab` | treemux sidebar を toggle (フォーカスなし) |
+| `prefix + Backspace` | treemux sidebar を toggle + フォーカス移動 |
 | `prefix + P` | 作業用 popup ターミナル (`popup` session) |
 | `prefix + e` | Claude Code プロンプト編集用 popup nvim |
 
@@ -29,6 +31,41 @@ prefix は tmux デフォルト (`Ctrl+B`)。
 - `tmux-plugins/tpm` — plugin manager
 - `niksingh710/minimal-tmux-status` — ステータスライン
 - `alexwforsythe/tmux-which-key` — which-key 風ヒント
+- `kiyoon/treemux` — Neovim の Neo-Tree を tmux sidebar として表示 (後述)
+
+## treemux
+
+[kiyoon/treemux](https://github.com/kiyoon/treemux) は Neovim の Neo-Tree を tmux の sidebar pane として動かす plugin。ファイルツリーを tmux レベルで常駐させたい時に使う。
+
+### セットアップ
+
+`.tmux.conf` での設定:
+
+```tmux
+set -g @treemux-tree-client 'neo-tree'
+set -g @treemux-python-command '~/.local/share/mise/shims/python3'
+set -g @treemux-tree-nvim-init-file '~/.tmux/plugins/treemux/configs/treemux_init.lua'
+set -g @plugin 'kiyoon/treemux'
+```
+
+python バックエンドに `pynvim` が必要。mise 管理の python に入れる:
+
+```bash
+mise x python -- python -m pip install pynvim
+```
+
+mise の python を upgrade したら再インストール必要。`@treemux-python-command` は mise shim を指しているので version 追従する。
+
+tpm plugin インストール: `prefix + I` または `~/.tmux/plugins/tpm/bin/install_plugins`。
+
+### キー
+
+| キー | 動作 |
+|---|---|
+| `prefix + Tab` | sidebar を toggle (カーソルは移動しない) |
+| `prefix + Backspace` | sidebar を toggle + フォーカス移動 |
+
+Neo-Tree 内では `t` でファイルを main pane に開く (Neo-Tree の `o` は sort 用で衝突するため)。
 
 ## session launcher (`prefix + S`)
 
