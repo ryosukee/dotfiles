@@ -1,7 +1,8 @@
 # yazi keymap overrides
-# `prepend_keymap` はデフォルトキーマップの前に追加される (同じキーなら上書き)。
+# %h は yazi が自動でシェル安全にクォートしてくれるので、テンプレート側で
+# さらに引用符を付けない。
 
-[[manager.prepend_keymap]]
+[[mgr.prepend_keymap]]
 on   = "M"
-run  = 'shell "mpv \"$0\"" --orphan --confirm'
-desc = "Play with mpv (GUI)"
+run  = 'shell "mpv %h" --orphan'
+desc = "Play hovered file with mpv (GUI)"
