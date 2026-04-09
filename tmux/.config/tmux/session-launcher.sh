@@ -10,9 +10,11 @@
 #     select-window。q / esc で元の session (`switch-client -l`) に戻る。
 #
 # サブコマンド:
-#   --loop     launcher session の中で fzf ループを回す
-#   --list     window 一覧をツリー形式で生成 (fzf に食わせる)
-#   --preview  指定 target の preview を生成する (fzf --preview から呼ばれる)
+#   --loop             launcher session の中で fzf ループを回す
+#   --list             window 一覧をツリー形式で生成 (fzf に食わせる)
+#   --preview          指定 target の preview を生成する (fzf --preview から呼ばれる)
+#   --refresh-action   F5 用: list と preview-window を現在のサイズで再計算して
+#                      fzf の action 文字列を stdout に出す (fzf の transform action から呼ばれる)
 
 set -u
 
@@ -200,6 +202,24 @@ _schedule_refresh() {
   done
 }
 
+# ---- refresh action: F5 で fzf の reload + change-preview-window を一発発火 ----
+# 現在の _launcher session 幅を読み直して preview 幅を再計算し、
+# fzf の transform action 用の文字列を stdout に出す。
+refresh_action() {
+  local list list_w cols preview_w
+  list=$("$SELF" --list)
+  list_w=$(
+    printf '%s\n' "$list" \
+      | perl -pe 's/\e\[[0-9;:?]*[ -\/]*[@-~]//g; s/\e\][^\a]*\a//g' \
+      | awk -F'\t' '{ n=length($2); if (n>max) max=n } END { print max }'
+  )
+  cols=$(tmux display -p -t "$LAUNCHER_SESSION:" '#{window_width}' 2>/dev/null || echo 200)
+  preview_w=$(( cols - list_w - 6 ))
+  [ "$preview_w" -lt 20 ] && preview_w=20
+  printf 'reload(bash %q --list)+change-preview-window(right:%d,border-left,nowrap)' \
+    "$SELF" "$preview_w"
+}
+
 gen_preview() {
   local target="$1"
   # fzf が報告する FZF_PREVIEW_COLUMNS が実効幅より狭いケース
@@ -256,6 +276,13 @@ run_loop() {
     cache_dir=$(mktemp -d -t launcher-cache.XXXXXX)
     export LAUNCHER_CACHE_DIR="$cache_dir"
 
+    # key bind のヘルプ (footer、1 行 1 bind)
+    footer='j/k  : move
+enter: switch to window
+/    : search mode
+r    : refresh list & layout
+q/esc: back'
+
     sel=$(
       printf '%s\n' "$list" \
         | fzf \
@@ -268,12 +295,13 @@ run_loop() {
             --with-nth=2.. \
             --disabled \
             --prompt "window> " \
-            --header "j/k: move  /  enter: switch  /  /: search  /  q,esc: back" \
+            --footer "$footer" \
+            --footer-border \
             --bind "j:down,k:up" \
-            --bind "/:unbind(j,k)+enable-search+clear-query+change-prompt(search> )" \
-            --bind "f5:reload(bash '$SELF' --list)" \
+            --bind "/:unbind(j,k,r)+enable-search+clear-query+change-prompt(search> )" \
+            --bind "r:transform:bash '$SELF' --refresh-action" \
             --preview "LAUNCHER_CACHE_DIR='$cache_dir' bash '$SELF' --preview {1}" \
-            --preview-window "right:${preview_w},border-none,nowrap" \
+            --preview-window "right:${preview_w},border-left,nowrap" \
             --expect=q,esc
     ) || true
 
@@ -319,6 +347,10 @@ case "${1:-}" in
     gen_preview "${2:-}"
     exit 0
     ;;
+  --refresh-action)
+    refresh_action
+    exit 0
+    ;;
 esac
 
 # --- エントリモード ---
@@ -327,10 +359,10 @@ if ! tmux has-session -t "=${LAUNCHER_SESSION}" 2>/dev/null; then
     "bash $SELF --loop"
   tmux set-option -t "$LAUNCHER_SESSION" status off 2>/dev/null || true
 else
-  # 既存の launcher に入る前に fzf に reload を送って list を更新する。
-  # (fzf は前回 exit 時に新 list で起動しているが、その後に session が
-  # 追加/rename されていると stale になるため。)
-  tmux send-keys -t "${LAUNCHER_SESSION}:" F5 2>/dev/null || true
+  # 既存の launcher に入る前に fzf に refresh を送って list と preview-window
+  # サイズを再計算する。前回 exit 以降に session が追加/rename されたり、
+  # 端末サイズが変わっていても追従する。
+  tmux send-keys -t "${LAUNCHER_SESSION}:" r 2>/dev/null || true
 fi
 
 tmux switch-client -t "=${LAUNCHER_SESSION}"
