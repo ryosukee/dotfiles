@@ -107,6 +107,7 @@ fisher update
 | ffmpeg | 動画処理 (yazi の動画プレビュー) | `brew install ffmpeg` |
 | poppler | PDF プロセッサ (yazi の PDF プレビュー) | `brew install poppler` |
 | sevenzip | アーカイブ操作 (yazi のアーカイブプレビュー) | `brew install sevenzip` |
+| mpv | 動画プレイヤー (yazi から `M` で起動) | `brew install mpv` |
 
 ### AI
 

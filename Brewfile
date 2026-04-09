@@ -105,6 +105,8 @@ brew "mkcert"
 brew "mkdocs-material"
 # Cross platform, open source .NET development framework
 brew "mono"
+# Media player based on MPlayer and mplayer2
+brew "mpv"
 # Open source relational database management system
 brew "mysql"
 # Ambitious Vim-fork focused on extensibility and agility
