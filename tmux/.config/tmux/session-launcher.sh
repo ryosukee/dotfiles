@@ -271,6 +271,7 @@ run_loop() {
             --header "j/k: move  /  enter: switch  /  /: search  /  q,esc: back" \
             --bind "j:down,k:up" \
             --bind "/:unbind(j,k)+enable-search+clear-query+change-prompt(search> )" \
+            --bind "f5:reload(bash '$SELF' --list)" \
             --preview "LAUNCHER_CACHE_DIR='$cache_dir' bash '$SELF' --preview {1}" \
             --preview-window "right:${preview_w},border-none,nowrap" \
             --expect=q,esc
@@ -325,6 +326,11 @@ if ! tmux has-session -t "=${LAUNCHER_SESSION}" 2>/dev/null; then
   tmux new-session -d -s "$LAUNCHER_SESSION" -x 220 -y 60 \
     "bash $SELF --loop"
   tmux set-option -t "$LAUNCHER_SESSION" status off 2>/dev/null || true
+else
+  # 既存の launcher に入る前に fzf に reload を送って list を更新する。
+  # (fzf は前回 exit 時に新 list で起動しているが、その後に session が
+  # 追加/rename されていると stale になるため。)
+  tmux send-keys -t "${LAUNCHER_SESSION}:" F5 2>/dev/null || true
 fi
 
 tmux switch-client -t "=${LAUNCHER_SESSION}"
