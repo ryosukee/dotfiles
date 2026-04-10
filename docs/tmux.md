@@ -8,8 +8,8 @@ tmux のキーバインドと、自前 session launcher の仕様。
 tmux/
 ├── .tmux.conf                        # エントリポイント (bindings + plugins)
 └── .config/tmux/
-    ├── claude-prompt-edit.sh         # prefix + e で呼ばれる popup nvim
-    └── session-launcher.sh           # prefix + S で呼ばれる launcher 本体
+    ├── session-launcher.sh           # prefix + S で呼ばれる launcher 本体
+    └── treemux_init.lua              # treemux sidebar 用 nvim init (カスタム版)
 ```
 
 ## キーバインド
@@ -22,7 +22,6 @@ prefix は tmux デフォルト (`Ctrl+B`)。
 | `prefix + Tab` | treemux sidebar を toggle (フォーカスなし) |
 | `prefix + Backspace` | treemux sidebar を toggle + フォーカス移動 |
 | `prefix + P` | 作業用 popup ターミナル (`popup` session) |
-| `prefix + e` | Claude Code プロンプト編集用 popup nvim |
 
 ## Plugin
 
@@ -44,9 +43,11 @@ prefix は tmux デフォルト (`Ctrl+B`)。
 ```tmux
 set -g @treemux-tree-client 'neo-tree'
 set -g @treemux-python-command '~/.local/share/mise/shims/python3'
-set -g @treemux-tree-nvim-init-file '~/.tmux/plugins/treemux/configs/treemux_init.lua'
+set -g @treemux-tree-nvim-init-file '~/.config/tmux/treemux_init.lua'
 set -g @plugin 'kiyoon/treemux'
 ```
+
+`@treemux-tree-nvim-init-file` はプラグインのデフォルト (`~/.tmux/plugins/treemux/configs/treemux_init.lua`) をコピーしたカスタム版。`tpm update` で上書きされないようにするため dotfiles 側で管理する。カスタマイズ箇所はファイル内の `[CUSTOM]` コメントで明示。
 
 python バックエンドに `pynvim` が必要。mise 管理の python に入れる:
 
@@ -65,7 +66,7 @@ tpm plugin インストール: `prefix + I` または `~/.tmux/plugins/tpm/bin/i
 | `prefix + Tab` | sidebar を toggle (カーソルは移動しない) |
 | `prefix + Backspace` | sidebar を toggle + フォーカス移動 |
 
-Neo-Tree 内では `t` でファイルを main pane に開く (Neo-Tree の `o` は sort 用で衝突するため)。
+Neo-Tree 内では `l` / `Enter` でファイルを main pane に開く。既存の vim がある場合は新タブで開き、vim 終了時に pane が自動で閉じる (`exec nvim` による)。
 
 ## session launcher (`prefix + S`)
 

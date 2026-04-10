@@ -56,28 +56,8 @@ return {
           vim.opt_local.list = false
           vim.opt_local.relativenumber = false
         end,
-        view_opened = function()
-          _G._diffview_saved_showtabline = vim.o.showtabline
-          vim.schedule(function()
-            vim.o.showtabline = 0
-          end)
-        end,
-        view_enter = function()
-          vim.schedule(function()
-            vim.o.showtabline = 0
-          end)
-        end,
-        view_leave = function()
-          vim.schedule(function()
-            vim.o.showtabline = _G._diffview_saved_showtabline or 2
-          end)
-        end,
         view_closed = function()
           _G._diffview_viewed = nil
-          vim.schedule(function()
-            vim.o.showtabline = _G._diffview_saved_showtabline or 2
-            _G._diffview_saved_showtabline = nil
-          end)
         end,
       },
       keymaps = {
@@ -147,11 +127,14 @@ return {
       end
 
       _G._diffview_refresh_marks = function(view)
-        if not _G._diffview_viewed or not next(_G._diffview_viewed) then return end
         local bufid = view and view.panel and view.panel.bufid
         if not bufid or not vim.api.nvim_buf_is_valid(bufid) then return end
 
+        -- 常に既存マークをクリア (viewed が空でもクリアが必要)
         vim.api.nvim_buf_clear_namespace(bufid, ns, 0, -1)
+
+        if not _G._diffview_viewed or not next(_G._diffview_viewed) then return end
+
         local line_count = vim.api.nvim_buf_line_count(bufid)
         for i = 1, line_count do
           local comp = view.panel.components
