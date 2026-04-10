@@ -118,7 +118,7 @@ items:
         command: move-window-to-new-session
       - name: To other session
         key: m
-        command: 'choose-tree -Zs "move-window -t %%:"'
+        command: move-window-to-other-session
       - name: Kill
         key: X
         command: 'confirm -p "Kill window #W? (y/n)" killw'
