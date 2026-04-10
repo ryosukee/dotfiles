@@ -6,10 +6,13 @@ tmux のキーバインドと、自前 session launcher の仕様。
 
 ```
 tmux/
-├── .tmux.conf                        # エントリポイント (bindings + plugins)
+├── .tmux.conf                              # エントリポイント (bindings + plugins + command aliases)
 └── .config/tmux/
-    ├── session-launcher.sh           # prefix + S で呼ばれる launcher 本体
-    └── treemux_init.lua              # treemux sidebar 用 nvim init (カスタム版)
+    ├── session-launcher.sh                 # prefix + S で呼ばれる launcher 本体 (switch/move/send モード)
+    ├── move-window-to-session.sh           # window を新規 session に移動 (popup prompt)
+    ├── move-window-to-other-session.sh     # window を既存 session に移動 + follow
+    ├── treemux_init.lua                    # treemux sidebar 用 nvim init (カスタム版)
+    └── plugins/tmux-which-key/config.yaml  # which-key メニュー定義
 ```
 
 ## キーバインド
@@ -99,6 +102,20 @@ window>
 | `q` / `Esc` | 元の session に戻る (`switch-client -l`) |
 
 起動時は `--disabled` で search 無効、`j`/`k` が navigation に bind されている。`/` を押すと search モードに入り、その呼び出し中は j/k が入力文字として扱われる。次回起動時はまた navigation モードで開く。
+
+### move/send モード
+
+launcher は window を別 session に移動する機能を持つ。which-key の Window メニュー (`w`) から呼び出す。
+
+| which-key キー | モード | プロンプト | Enter の動作 |
+|---|---|---|---|
+| `w` → `s` | 新規 session | popup で名前入力 | 新規 session 作成 + window 移動 + 切替 |
+| `w` → `m` | move | `move>` | 選択 session に window 移動 + 切替 |
+| `w` → `M` | send | `send>` | 選択 session に window 移動 + 元に戻る |
+
+move/send モードでは launcher session を毎回再作成して、環境変数 (`_LAUNCHER_MODE`, `_LAUNCHER_SRC_WIN`) でモードとソース window を伝達する。switch モード (`prefix + S`) では既存の launcher session を再利用して高速起動する。
+
+最後の 1 window を移動した場合、元 session は tmux に破棄される。send モードではこの場合自動で移動先に切り替わる。
 
 ### 仕組み
 
