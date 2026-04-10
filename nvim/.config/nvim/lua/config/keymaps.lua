@@ -34,13 +34,56 @@ local function open_context_menu()
   local NuiMenu = require("nui.menu")
   local NuiPopup = require("nui.popup")
 
+  -- 静的メニュー項目 + カーソル位置に応じた動的項目を構築
+  local items = vim.deepcopy(context_menu_items)
+
+  -- カーソル位置に画像/mermaid がある場合に項目を追加
+  local has_image = false
+  local image_src = nil
+  if pcall(require, "snacks") and Snacks.image and Snacks.image.doc then
+    -- 同期的に判定するため find を使う
+    local done = false
+    Snacks.image.doc.find(vim.api.nvim_get_current_buf(), function(imgs)
+      local cursor = vim.api.nvim_win_get_cursor(0)
+      for _, img in ipairs(imgs) do
+        local range = img.range
+        if range then
+          if (range[1] == range[3] and cursor[2] >= range[2] and cursor[2] <= range[4])
+            or (range[1] ~= range[3] and cursor[1] >= range[1] and cursor[1] <= range[3]) then
+            has_image = true
+            image_src = img.src
+            break
+          end
+        end
+      end
+      done = true
+    end, { from = vim.api.nvim_win_get_cursor(0)[1], to = vim.api.nvim_win_get_cursor(0)[1] + 1 })
+    vim.wait(100, function() return done end)
+  end
+
+  if has_image then
+    table.insert(items, { label = "Preview here", desc = "フローティングで画像/mermaidをプレビュー (hjkl移動, q閉じ)", action = function()
+      if _G._snacks_image_preview then _G._snacks_image_preview() end
+    end })
+    table.insert(items, { label = "Open in Preview.app", desc = "macOS Preview で画像を開く (ズーム自由)", action = function()
+      Snacks.image.doc.at_cursor(function(src)
+        if src then
+          -- mermaid/latex 等は変換後のキャッシュ画像を開く
+          local cache = vim.fn.glob(vim.fn.stdpath("cache") .. "/snacks/image/*" .. vim.fn.fnamemodify(src, ":t:r") .. "*.png")
+          local target = cache ~= "" and vim.split(cache, "\n")[1] or src
+          vim.fn.system({ "open", "-a", "Preview", target })
+        end
+      end)
+    end })
+  end
+
   local lines = {}
   local max_label = 0
-  for _, item in ipairs(context_menu_items) do
+  for _, item in ipairs(items) do
     if #item.label > max_label then max_label = #item.label end
   end
 
-  for _, item in ipairs(context_menu_items) do
+  for _, item in ipairs(items) do
     table.insert(lines, NuiMenu.item(item.label, { desc = item.desc, action = item.action }))
   end
 
