@@ -115,7 +115,7 @@ items:
         command: command-prompt -I "#W" "renamew -- \"%%\""
       - name: To new session
         key: s
-        command: command-prompt -p "New session:" "run-shell \"bash $HOME/.config/tmux/move-window-to-session.sh %%\""
+        command: 'command-prompt -p "New session:" "run-shell \"bash $HOME/.config/tmux/move-window-to-session.sh %%\""'
       - name: To other session
         key: m
         command: 'choose-tree -Zs "move-window -t %%:"'
