@@ -20,3 +20,6 @@ opt.wrapscan = true
 
 -- Match pairs
 opt.matchpairs:append("<:>")
+
+-- mmdc (mermaid CLI) がシステム Chrome を使うようにする
+vim.env.PUPPETEER_EXECUTABLE_PATH = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"

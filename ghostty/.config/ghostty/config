@@ -1,0 +1,37 @@
+# Font
+font-family = Cica
+font-style = Bold
+font-size = 17
+adjust-cell-width = -10%
+
+# Window
+macos-titlebar-style = hidden
+macos-option-as-alt = left
+macos-option-as-alt = right
+
+# Oceanic Next color scheme
+background = 1b2b34
+foreground = d8dee9
+cursor-color = d8dee9
+selection-background = d8dee9
+selection-foreground = 1b2b34
+
+# ANSI colors
+palette = 0=#29414f
+palette = 1=#ec5f67
+palette = 2=#99c794
+palette = 3=#fac863
+palette = 4=#6699cc
+palette = 5=#c594c5
+palette = 6=#5fb3b3
+palette = 7=#65737e
+
+# Bright colors
+palette = 8=#405860
+palette = 9=#ec5f67
+palette = 10=#99c794
+palette = 11=#fac863
+palette = 12=#6699cc
+palette = 13=#c594c5
+palette = 14=#5fb3b3
+palette = 15=#adb5c0

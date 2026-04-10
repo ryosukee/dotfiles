@@ -97,6 +97,8 @@ brew "libyaml"
 brew "licenseplist"
 # Clone of ls with colorful output, file type icons, and more
 brew "lsd"
+# CLI for Mermaid library
+brew "mermaid-cli"
 # Polyglot runtime manager (asdf rust clone)
 brew "mise"
 # Simple tool to make locally trusted development certificates
@@ -172,6 +174,8 @@ cask "browserosaurus"
 # Lightweight native macOS terminal with vertical tabs for AI coding agents
 cask "manaflow-ai/cmux/cmux"
 cask "font-cica"
+# Terminal emulator that uses platform-native UI and GPU acceleration
+cask "ghostty"
 # 2D and 3D game engine
 cask "godot"
 # Open-source keystroke visualiser
