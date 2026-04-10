@@ -257,6 +257,11 @@ gen_preview() {
 # ---- loop: launcher session の本体 ----
 run_loop() {
   while true; do
+    # モードと移動元 window を環境変数から取得
+    src_win=$(tmux showenv -g _LAUNCHER_SRC_WIN 2>/dev/null | cut -d= -f2) || true
+    mode=$(tmux showenv -g _LAUNCHER_MODE 2>/dev/null | cut -d= -f2) || true
+    mode="${mode:---switch}"
+
     # list を 1 回だけ生成して変数に保持し、幅計算と fzf 両方に使い回す
     list=$("$SELF" --list)
 
@@ -276,12 +281,31 @@ run_loop() {
     cache_dir=$(mktemp -d -t launcher-cache.XXXXXX)
     export LAUNCHER_CACHE_DIR="$cache_dir"
 
-    # key bind のヘルプ (footer、1 行 1 bind)
-    footer='j/k  : move
+    # モードに応じたプロンプトとフッター
+    case "$mode" in
+      --move)
+        prompt="move> "
+        footer='j/k  : move
+enter: move window here & follow
+/    : search mode
+q/esc: cancel'
+        ;;
+      --send)
+        prompt="send> "
+        footer='j/k  : move
+enter: send window here & stay
+/    : search mode
+q/esc: cancel'
+        ;;
+      *)
+        prompt="window> "
+        footer='j/k  : move
 enter: switch to window
 /    : search mode
 r    : refresh list & layout
 q/esc: back'
+        ;;
+    esac
 
     sel=$(
       printf '%s\n' "$list" \
@@ -294,7 +318,7 @@ q/esc: back'
             --delimiter=$'\t' \
             --with-nth=2.. \
             --disabled \
-            --prompt "window> " \
+            --prompt "$prompt" \
             --footer "$footer" \
             --footer-border \
             --bind "j:down,k:up" \
@@ -322,14 +346,36 @@ q/esc: back'
         if [ -n "$target" ]; then
           sname="${target%%:*}"
           widx="${target##*:}"
-          tmux switch-client -t "=$sname" 2>/dev/null \
-            && tmux select-window -t "=$sname:$widx" 2>/dev/null \
-            || tmux switch-client -l 2>/dev/null || true
+          case "$mode" in
+            --move)
+              tmux move-window -s "$src_win" -t "=${sname}:" 2>/dev/null || true
+              tmux switch-client -t "=${sname}" 2>/dev/null || true
+              ;;
+            --send)
+              src_sess=$(tmux display-message -p -t "$src_win" '#{session_name}' 2>/dev/null) || true
+              tmux move-window -s "$src_win" -t "=${sname}:" 2>/dev/null || true
+              if [ -n "$src_sess" ] && tmux has-session -t "=${src_sess}" 2>/dev/null; then
+                tmux switch-client -l 2>/dev/null || true
+              else
+                tmux switch-client -t "=${sname}" 2>/dev/null || true
+              fi
+              ;;
+            *)
+              tmux switch-client -t "=$sname" 2>/dev/null \
+                && tmux select-window -t "=$sname:$widx" 2>/dev/null \
+                || tmux switch-client -l 2>/dev/null || true
+              ;;
+          esac
         else
           tmux switch-client -l 2>/dev/null || true
         fi
         ;;
     esac
+
+    # move/send モードは 1 回で完了。モードをリセットして通常の fzf に戻る
+    if [ "$mode" != "--switch" ]; then
+      tmux setenv -g _LAUNCHER_MODE "--switch"
+    fi
   done
 }
 
@@ -351,17 +397,31 @@ case "${1:-}" in
     refresh_action
     exit 0
     ;;
+  --move|--send)
+    # move/send モードはエントリモードへ fall through
+    ;;
 esac
 
 # --- エントリモード ---
+# モード判定 (--move, --send, またはデフォルトの --switch)
+mode="${1:---switch}"
+
+# 呼び出し元 window ID を保存 (move/send で使用、switch でも害はない)
+tmux setenv -g _LAUNCHER_SRC_WIN \
+  "$(tmux display-message -p '#{window_id}')" 2>/dev/null || true
+tmux setenv -g _LAUNCHER_MODE "$mode"
+
+if [ "$mode" != "--switch" ]; then
+  # move/send モード: fzf ループの先頭でモードを読み直す必要があるため再作成
+  tmux kill-session -t "=${LAUNCHER_SESSION}" 2>/dev/null || true
+fi
+
 if ! tmux has-session -t "=${LAUNCHER_SESSION}" 2>/dev/null; then
   tmux new-session -d -s "$LAUNCHER_SESSION" -x 220 -y 60 \
     "bash $SELF --loop"
   tmux set-option -t "$LAUNCHER_SESSION" status off 2>/dev/null || true
 else
-  # 既存の launcher に入る前に fzf に refresh を送って list と preview-window
-  # サイズを再計算する。前回 exit 以降に session が追加/rename されたり、
-  # 端末サイズが変わっていても追従する。
+  # switch モード: 既存の fzf に refresh を送るだけ (高速起動)
   tmux send-keys -t "${LAUNCHER_SESSION}:" r 2>/dev/null || true
 fi
 

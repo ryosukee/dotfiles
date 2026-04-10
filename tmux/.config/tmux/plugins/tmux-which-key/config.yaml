@@ -113,12 +113,15 @@ items:
       - name: Rename
         key: R
         command: command-prompt -I "#W" "renamew -- \"%%\""
-      - name: To new session
+      - name: Move to new session
         key: s
         command: move-window-to-new-session
-      - name: To other session
+      - name: Move to other session
         key: m
-        command: move-window-to-other-session
+        command: move-window-via-launcher-move
+      - name: Send to other session
+        key: M
+        command: move-window-via-launcher-send
       - name: Kill
         key: X
         command: 'confirm -p "Kill window #W? (y/n)" killw'
