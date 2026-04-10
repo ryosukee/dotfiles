@@ -5,7 +5,7 @@ font-size = 17
 adjust-cell-width = -10%
 
 # Window
-macos-titlebar-style = hidden
+macos-titlebar-style = tabs
 macos-option-as-alt = left
 macos-option-as-alt = right
 
