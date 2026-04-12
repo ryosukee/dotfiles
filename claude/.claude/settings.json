@@ -57,7 +57,6 @@
       "Bash(git commit *)",
       "Bash(git checkout *)",
       "Bash(git switch *)",
-      "Bash(/Users/ryosuke/ghq_root/github.com/ryosukee/coin-game/.venv/bin/mkdocs *)",
       "Bash(tmux list-panes *)",
       "Bash(tmux kill-pane *)",
       "Bash(jq *)",
