@@ -1,0 +1,157 @@
+#!/bin/sh
+# ask-dotfiles — Ask Claude about your dotfiles.
+#
+# Usage:
+#   ask-dotfiles "question"                    # one-shot: throwaway fork
+#   ask-dotfiles                               # interactive REPL
+#   ask-dotfiles --session <uuid> "question"   # session-scoped (for UI integrations)
+#
+# Mechanism:
+#   - Builds a "base session" by feeding all tracked dotfiles to `claude -p`.
+#   - Stores the resulting jsonl at $XDG_STATE_HOME/ask-dotfiles/base.jsonl.
+#   - Each query resumes from that jsonl with --fork-session so the base
+#     is never modified.
+#   - Interactive mode pins a new session id on the first turn and resumes
+#     it for follow-ups, so Claude remembers the conversation.
+#   - The --session flag lets a long-lived UI (nvim/tmux popup) manage its
+#     own session id across multiple invocations: first call forks the base,
+#     subsequent calls resume the fork.
+#   - The base is rebuilt automatically when `git ls-files -s` hash changes.
+
+set -eu
+
+DOTFILES="$HOME/ghq_root/github.com/ryosukee/dotfiles"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/ask-dotfiles"
+BACKUP="$STATE_DIR/base.jsonl"
+HASH_FILE="$STATE_DIR/config-hash"
+
+log() { printf '[ask-dotfiles] %s\n' "$*" >&2; }
+die() { log "error: $*"; exit 1; }
+
+[ -d "$DOTFILES/.git" ] || die "dotfiles repo not found at $DOTFILES"
+command -v claude >/dev/null 2>&1 || die "claude CLI not found in PATH"
+command -v uuidgen >/dev/null 2>&1 || die "uuidgen not found"
+
+mkdir -p "$STATE_DIR"
+
+# Pin cwd to the dotfiles dir so every `claude` invocation writes sessions
+# to the same project dir. This keeps --resume <uuid> working consistently
+# across invocations regardless of where the script was called from.
+cd "$DOTFILES" || die "cannot enter $DOTFILES"
+
+# List all dotfiles content we want to feed to Claude: tracked files PLUS
+# untracked-but-not-gitignored files (so new files show up even before they're
+# committed). `git ls-files -co --exclude-standard` does exactly that.
+list_files() {
+    git -C "$DOTFILES" ls-files -co --exclude-standard | sort
+}
+
+# Emit the payload that represents the full dotfiles state. Both `compute_hash`
+# and `rebuild_base` consume this, so the hash always reflects the exact bytes
+# that would be sent to Claude.
+emit_payload() {
+    list_files | while IFS= read -r _f; do
+        printf '=== %s ===\n' "$_f"
+        cat "$DOTFILES/$_f" 2>/dev/null || printf '(binary or unreadable)\n'
+        printf '\n'
+    done
+}
+
+# Deterministic hash of the current dotfiles payload (working tree, not INDEX).
+compute_hash() {
+    emit_payload | { sha256sum 2>/dev/null || shasum -a 256; } | awk '{print $1}'
+}
+
+# Build a new base session from dotfiles content and move its jsonl to $BACKUP.
+rebuild_base() {
+    log "building base session (first run or dotfiles changed)..."
+    _uuid=$(uuidgen | tr '[:upper:]' '[:lower:]')
+    (
+        printf '以下は私の dotfiles リポジトリの全ファイルです。\n'
+        printf '設定の意図・依存関係・ファイル間の競合 (例: tmux と nvim のキーバインド衝突) などについて、\n'
+        printf 'これらの内容を参照して質問に答えてください。\n\n'
+        emit_payload
+    ) | claude -p --session-id "$_uuid" \
+        "Above is my dotfiles. Acknowledge you have read them and reply with just 'ready'." \
+        >/dev/null \
+        || die "failed to build base session"
+    _generated=$(find "$HOME/.claude/projects" -name "${_uuid}.jsonl" -type f 2>/dev/null | head -n 1)
+    [ -n "$_generated" ] && [ -f "$_generated" ] || die "could not locate generated session jsonl"
+    mv "$_generated" "$BACKUP"
+    compute_hash > "$HASH_FILE"
+    log "base session ready at $BACKUP"
+}
+
+# Ensure the base session exists and matches the current dotfiles content.
+ensure_base() {
+    _current=$(compute_hash)
+    _stored=$(cat "$HASH_FILE" 2>/dev/null || printf '')
+    if [ ! -f "$BACKUP" ] || [ "$_current" != "$_stored" ]; then
+        rebuild_base
+    fi
+}
+
+# One-shot question: fork a throwaway session from the base and print the answer.
+one_shot() {
+    printf '%s\n' "$1" | claude -p --resume "$BACKUP" --fork-session
+}
+
+# Session-scoped query. First invocation forks the base into the given
+# session id; subsequent invocations resume that session so Claude keeps
+# conversational context. Used by long-lived UIs (nvim popup, tmux popup).
+session_query() {
+    _sid="$1"
+    _q="$2"
+    _existing=$(find "$HOME/.claude/projects" -name "${_sid}.jsonl" -type f 2>/dev/null | head -n 1)
+    if [ -n "$_existing" ] && [ -f "$_existing" ]; then
+        printf '%s\n' "$_q" | claude -p --resume "$_sid"
+    else
+        printf '%s\n' "$_q" \
+            | claude -p --resume "$BACKUP" --session-id "$_sid" --fork-session
+    fi
+}
+
+# Interactive REPL.
+# The first turn forks the base into a known session id so that subsequent
+# turns can resume it and preserve conversational context.
+interactive() {
+    _session=$(uuidgen | tr '[:upper:]' '[:lower:]')
+    _first=1
+    log "interactive mode — Ctrl+D to exit"
+    while :; do
+        printf '\n[ask-dotfiles] > '
+        if ! IFS= read -r _q; then
+            printf '\n'
+            break
+        fi
+        [ -z "$_q" ] && continue
+        printf '\n'
+        if [ "$_first" -eq 1 ]; then
+            printf '%s\n' "$_q" \
+                | claude -p --resume "$BACKUP" --session-id "$_session" --fork-session
+            _first=0
+        else
+            printf '%s\n' "$_q" | claude -p --resume "$_session"
+        fi
+    done
+    log "bye."
+}
+
+# Parse optional --session flag.
+_session_uuid=""
+if [ "${1:-}" = "--session" ]; then
+    _session_uuid="${2:-}"
+    [ -n "$_session_uuid" ] || die "--session requires a uuid argument"
+    shift 2
+fi
+
+ensure_base
+
+if [ -n "$_session_uuid" ]; then
+    [ $# -gt 0 ] || die "--session requires a question argument"
+    session_query "$_session_uuid" "$*"
+elif [ $# -eq 0 ]; then
+    interactive
+else
+    one_shot "$*"
+fi

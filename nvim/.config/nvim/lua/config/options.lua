@@ -18,6 +18,9 @@ opt.conceallevel = 0
 -- Search
 opt.wrapscan = true
 
+-- Spell: CJK 文字を spell check 対象外にする (日本語の赤線を抑止しつつ英単語のタイポは検出)
+opt.spelllang = { "en", "cjk" }
+
 -- Match pairs
 opt.matchpairs:append("<:>")
 

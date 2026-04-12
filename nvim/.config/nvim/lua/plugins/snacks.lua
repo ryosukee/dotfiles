@@ -157,7 +157,8 @@ return {
     keys = {
       { "<leader>go", function() Snacks.gitbrowse({ what = "file" }) end, desc = "Open in GitHub", mode = { "n", "v" } },
       { "<leader>gO", function() Snacks.gitbrowse({ what = "permalink" }) end, desc = "Open in GitHub (permalink)", mode = { "n", "v" } },
-      { "<leader>ip", image_preview, desc = "Preview image/mermaid at cursor" },
+      -- <leader>ip is wired in lua/config/keymaps.lua to a dispatcher that
+      -- covers image/mermaid AND markdown tables with a single entry point.
     },
     opts = {
       image = {

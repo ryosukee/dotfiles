@@ -164,3 +164,17 @@ local function open_context_menu()
 end
 
 map({ "n", "v" }, "<leader>a", open_context_menu, { desc = "Context menu" })
+
+-- Ask dotfiles (Claude) — floating popup backed by ~/.local/bin/ask-dotfiles
+map("n", "<leader>cq", function()
+  require("config.ask_dotfiles").open()
+end, { desc = "Ask dotfiles (Claude)" })
+
+-- Preview at cursor (image / mermaid / markdown table).
+-- Dispatches to the right handler based on what's under the cursor:
+--   - markdown table -> render-markdown popup on a scratch buffer
+--   - image / mermaid -> snacks.image popup (kitty graphics)
+-- The popup inside either variant shares the same movement / resize / f keys.
+map("n", "<leader>ip", function()
+  require("config.markdown_preview").dispatch()
+end, { desc = "Preview at cursor (image/mermaid/table)" })

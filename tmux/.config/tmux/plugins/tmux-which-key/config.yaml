@@ -36,11 +36,17 @@ items:
   - name: Last pane
     key: "`"
     command: last-pane
-  - name: Copy
+  - name: +Claude
     key: c
     menu:
-      - name: Copy
-        key: c
+      - name: Ask dotfiles
+        key: q
+        command: 'display-popup -d "#{pane_current_path}" -w 80% -h 70% -E "ask-dotfiles"'
+  - name: +Yank
+    key: y
+    menu:
+      - name: Copy mode
+        key: y
         command: copy-mode
       - name: List buffers
         key: "#"

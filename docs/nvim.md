@@ -7,15 +7,20 @@ LazyVim ベースの nvim 環境。プラグイン管理は lazy.nvim。
 ```
 nvim/.config/nvim/
 ├── init.lua                 # lazy.nvim bootstrap + LazyVim 読み込み
+├── lazyvim.json             # LazyVim extras (lang.markdown 有効化)
 ├── lua/config/
 │   ├── options.lua          # エディタ設定 (tabstop=4, conceallevel=0, PUPPETEER_EXECUTABLE_PATH 等)
-│   └── keymaps.lua          # カスタムキーマップ + コンテキストメニュー
+│   ├── keymaps.lua          # カスタムキーマップ + コンテキストメニュー
+│   ├── autocmds.lua         # markdown の format on save 無効化等
+│   ├── ask_dotfiles.lua     # ask-dotfiles 用フロート UI
+│   └── markdown_preview.lua # markdown 要素の popup 描画 (table 等)
 └── lua/plugins/
     ├── diffview.lua         # diffview.nvim + ✓ マーク
     ├── bufferline.lua       # bufferline 無効化 (ネイティブ tab 表示)
     ├── scrollbar.lua        # nvim-scrollbar (gitsigns 連携)
     ├── snacks.lua           # 画像/mermaid プレビュー + dashboard + gitbrowse
     ├── blink-cmp.lua        # prose filetype で補完を無効化
+    ├── render-markdown.lua  # render-markdown.nvim を default off に上書き
     └── claude-fzf.lua       # fzf-lua の Claude Code 連携
 ```
 
@@ -25,18 +30,21 @@ nvim/.config/nvim/
 
 bufferline.nvim は無効化し、neovim ネイティブの tab 表示を使う。`showtabline` のデフォルト値 (`1`: タブが 2 つ以上で表示) で動作。
 
-## 画像/mermaid プレビュー
+## カーソル位置プレビュー (`<Space>ip`)
 
-ghostty の kitty graphics protocol を利用して、nvim 内で画像や mermaid 図をフローティングウィンドウで表示する。snacks.nvim の image 機能を使用。
+カーソル下の要素を popup で描画する統一エントリポイント。画像・mermaid・markdown の table を 1 つのキーから扱う。
 
-自動表示は OFF。キーバインドで必要な時だけ表示する。
+### 動作
 
-### 前提
+`<Space>ip` を押すと、カーソルがどこにあるかで分岐する。
 
-- ターミナル: ghostty (wezterm では画像表示不可)
-- mermaid-cli (`mmdc`): brew でインストール、システム Chrome を使用 (`PUPPETEER_EXECUTABLE_PATH` を options.lua で設定)
+| カーソル位置 | 挙動 |
+|---|---|
+| markdown の table (`|` 行) | scratch buffer + render-markdown.nvim で描画した popup |
+| 画像参照 (`![](...)`) または mermaid コードブロック | snacks.image で kitty graphics の popup |
+| どれでもない | `No image/mermaid at cursor` を notify |
 
-### 操作 (`<Space>ip` でプレビュー表示後、`Ctrl+w w` でフォーカス)
+### 操作 (popup 内共通)
 
 | キー | 機能 |
 |---|---|
@@ -44,14 +52,67 @@ ghostty の kitty graphics protocol を利用して、nvim 内で画像や merma
 | `+` / `-` | 縦横同時リサイズ |
 | `Shift+矢印` | 幅・高さ個別リサイズ |
 | `f` | フルスクリーントグル |
-| `o` | macOS Preview.app で開く |
-| `q` | 閉じる |
+| `o` | macOS Preview.app で開く (画像 popup のみ) |
+| `q` / `<Esc>` | 閉じる |
+
+### 画像 / mermaid 側の前提
+
+- ターミナル: ghostty (wezterm では画像表示不可)
+- mermaid-cli (`mmdc`): brew でインストール、システム Chrome を使用 (`PUPPETEER_EXECUTABLE_PATH` を options.lua で設定)
 
 ### 制約
 
 - 画像の元ピクセルサイズ (セル換算) が表示サイズの上限。元サイズ以上には拡大できない
 - mermaid は `mmdc` の `-s` (scale) で元画像を大きくレンダリングすることで対応 (現在 4x)
 - 複雑な mermaid 図はターミナルのセル数制約で読みづらい。`o` で macOS Preview に開いてズームする方が実用的
+
+### markdown table popup の仕組み
+
+LazyVim の `lang.markdown` extra で render-markdown.nvim を導入している。ただし:
+
+- `lua/plugins/render-markdown.lua` で `opts.enabled = false` に上書き。通常の markdown バッファはインライン描画されず、生のままになる
+- 同じファイルで `iamcco/markdown-preview.nvim` (ブラウザ経由の preview プラグイン) も `enabled = false` で無効化。ブラウザを開かないという方針のため
+- popup は `lua/config/markdown_preview.lua` の `preview_table()` が担当
+    - 連続する `|` 行を検出してテーブル範囲を特定
+    - 同じ内容を scratch buffer に載せて filetype を markdown に
+    - floating window を開き、その scratch buffer に `require("render-markdown").buf_enable()` を呼んで**その buffer だけ**レンダリング有効化
+    - グローバルの `state.enabled` は false のまま。他の markdown バッファには影響しない
+
+### インラインレンダリングを使いたいとき
+
+LazyVim の extra が `<Space>um` で render-markdown のグローバル toggle を提供している (`Snacks.toggle`)。`<Space>um` を一度押すと全 markdown バッファで **インライン描画 ON** になり、もう一度押すと OFF に戻る。普段は popup で十分でも、長めの markdown を一気に俯瞰したい場面で使える。
+
+### 将来の拡張
+
+`popup_markdown(lines, title)` を汎用に切ってあるので、`find_xxx_range()` を書き足すだけで heading ブロック / code block / blockquote / 入れ子 list も同じ流儀で popup 描画できる。dispatch 側にも該当チェックを足せば、`<Space>ip` が一段賢くなる。
+
+## ask-dotfiles (Claude)
+
+dotfiles の全ファイルを読み込ませた Claude セッションに対して floating window から質問を投げる。`<Space>cq` で起動、`i` / `a` / `o` で follow-up、`q` / `<Esc>` で閉じる。nvim から見ると UI レイヤー (lua/config/ask_dotfiles.lua) だけで、実際の Claude 呼び出しは `~/.local/bin/ask-dotfiles` に委譲している。
+
+詳細・仕組みは [ask-dotfiles](./ask-dotfiles.md) を参照。
+
+## markdown lint / formatter
+
+LazyVim の `lang.markdown` extra を有効化しているので、以下が自動で入る。
+
+| 種類 | ツール | 動作 |
+|---|---|---|
+| LSP | marksman | heading / link 補完、section ジャンプ |
+| Linter | markdownlint-cli2 (nvim-lint 経由) | BufEnter / BufWritePost / InsertLeave で diagnostic を出す |
+| Formatter | prettier | `<Space>cf` で markdown を整形 |
+| Formatter | markdownlint-cli2 | violation がある場合のみ auto-fix を試みる |
+| Formatter | markdown-toc | `<!-- toc -->` がある場合のみ目次生成 |
+
+### auto-format on save は markdown だけ無効
+
+`lua/config/autocmds.lua` が markdown / markdown.mdx バッファで `vim.b.autoformat = false` を立てるため、**保存時に prettier が勝手に走ることはない**。既存の docs (このファイル含め) は prettier で整形されていないので、保存のたびに大量の diff が出るのを防ぐため。
+
+手動整形は今まで通り `<Space>cf` で走る。lint (nvim-lint → markdownlint-cli2) の diagnostic 表示は自動で出る。
+
+### ブラウザ preview は無効化
+
+extra は `iamcco/markdown-preview.nvim` (ブラウザで rendered markdown を開く) も入れにくるが、`lua/plugins/render-markdown.lua` で `enabled = false` にして無効化してある。vim 完結で preview する方針のため。
 
 ## コンテキストメニュー
 
@@ -103,7 +164,9 @@ diffview の file tree で `x` キーを押すとファイル/ディレクトリ
 | `<ESC>l` / `<ESC>h` | 折り返し無効/有効 |
 | `s` | ネイティブの s を復元 (flash.nvim を上書き) |
 | `<Space>a` | コンテキストメニュー |
-| `<Space>ip` | 画像/mermaid プレビュー |
+| `<Space>ip` | カーソル位置プレビュー (画像 / mermaid / markdown table) |
+| `<Space>cq` | ask-dotfiles popup |
+| `<Space>um` | render-markdown インライン描画の toggle (LazyVim extra 由来) |
 | `<Space>go` | GitHub で開く |
 | `<Space>gO` | GitHub permalink で開く |
 
