@@ -1,0 +1,63 @@
+/* ─── タブバー ─── */
+.md-tabs {
+  background: #f5f5f5 !important;
+  box-shadow: inset 0 -1px 0 #e0e0e0 !important;
+}
+
+/* ─── タブリンク共通 ─── */
+.md-tabs__link {
+  color: #616161 !important;
+  font-size: 0.76rem !important;
+  font-weight: 500 !important;
+  opacity: 1 !important;
+  transition: color 0.15s !important;
+}
+
+.md-tabs__link:hover {
+  color: var(--md-primary-fg-color) !important;
+  opacity: 1 !important;
+}
+
+/* ─── アクティブタブ: 底辺に太い下線 ─── */
+.md-tabs__item {
+  position: relative;
+}
+
+.md-tabs__item--active .md-tabs__link {
+  color: var(--md-primary-fg-color) !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+}
+
+.md-tabs__item--active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0.6rem;
+  right: 0.6rem;
+  height: 3px;
+  background: var(--md-primary-fg-color);
+  border-radius: 3px 3px 0 0;
+}
+
+/* ─── ダークモード ─── */
+[data-md-color-scheme="slate"] .md-tabs {
+  background: #1e1e2e !important;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-md-color-scheme="slate"] .md-tabs__link {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+[data-md-color-scheme="slate"] .md-tabs__link:hover {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+[data-md-color-scheme="slate"] .md-tabs__item--active .md-tabs__link {
+  color: #fff !important;
+}
+
+[data-md-color-scheme="slate"] .md-tabs__item--active::after {
+  background: #fff;
+}

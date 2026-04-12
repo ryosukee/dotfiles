@@ -1,0 +1,84 @@
+/* 右サイドバー（TOC）の開閉トグル */
+
+/* ヘッダー内のトグルボタン: GitHub リンクの右隣 */
+.toc-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: none;
+  background: transparent;
+  color: currentColor;
+  opacity: 0.7;
+  padding: 0;
+  margin-left: 0.2rem;
+  user-select: none;
+  transition: opacity 0.15s;
+  vertical-align: middle;
+}
+
+.toc-toggle:hover {
+  opacity: 1;
+}
+
+.toc-toggle svg {
+  display: block;
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+/* サイドバー */
+.md-sidebar--secondary {
+  transition: width 0.25s ease;
+  will-change: width;
+  overflow: visible;
+}
+
+/* 閉じた状態: 幅を 0 にして本文領域を拡張 */
+.md-sidebar--secondary.toc-collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+}
+
+.md-sidebar--secondary.toc-collapsed .md-sidebar__scrollwrap {
+  display: none;
+}
+
+/* ピーク状態: サイドバー幅を復元して本文を押し出す */
+.md-sidebar--secondary.toc-peeking {
+  width: 12.1rem !important;
+}
+
+/* ピーク状態: 中身は fixed カードとして描画（右端固定） */
+.md-sidebar--secondary.toc-peeking .md-sidebar__scrollwrap {
+  display: block;
+  position: fixed;
+  top: calc(var(--md-header-height, 3rem) + 0.5rem);
+  right: 0;
+  bottom: 0.5rem;
+  width: 12.1rem;
+  overflow-y: auto;
+  z-index: 4;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* ピーク時: カード内の上余白を確保して目次テキストが見切れないようにする */
+.md-sidebar--secondary.toc-peeking .md-sidebar__inner {
+  padding-top: 1.2rem;
+}
+
+/* ピーク時の背景色: 通常と同じ色（目次ラベルの box-shadow との不整合を防ぐ） */
+.md-sidebar--secondary.toc-peeking .md-sidebar__scrollwrap {
+  background: var(--md-default-bg-color);
+}
+
+/* レスポンシブ: 右サイドバーが消えるブレークポイント (60em) に合わせる */
+@media screen and (max-width: 59.9375em) {
+  .toc-toggle {
+    display: none;
+  }
+}

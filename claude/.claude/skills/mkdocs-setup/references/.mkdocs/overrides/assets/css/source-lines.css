@@ -1,0 +1,78 @@
+/* Source line number display for Markdown editing reference */
+
+/* Content inner: add a left gutter column for line numbers */
+.show-source-lines .md-content__inner {
+  padding-left: 3.5em;
+  position: relative;
+}
+
+/* Line label: placed in the left gutter, vertically aligned with each element */
+.show-source-lines .md-content__inner > [data-source-line]::before {
+  content: "L" attr(data-source-line);
+  position: absolute;
+  left: 0;
+  width: 2.8em;
+  text-align: right;
+  font-size: 0.65rem;
+  font-family: var(--md-code-font-family, monospace);
+  color: var(--md-default-fg-color--lighter);
+  opacity: 0.6;
+  pointer-events: none;
+  user-select: none;
+  line-height: 1.8;
+  white-space: nowrap;
+}
+
+/* Hover highlight */
+.show-source-lines .md-content__inner > [data-source-line]:hover::before {
+  opacity: 1;
+  color: var(--md-accent-fg-color, #526cfe);
+}
+
+/* Header toggle button — same style as toc-toggle */
+.source-lines-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: none;
+  background: transparent;
+  color: currentColor;
+  opacity: 0.7;
+  padding: 0;
+  margin-left: 0.2rem;
+  user-select: none;
+  transition: opacity 0.15s;
+  vertical-align: middle;
+}
+
+.source-lines-toggle:hover {
+  opacity: 1;
+}
+
+.source-lines-toggle svg {
+  display: block;
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+/* Active state */
+.source-lines-toggle.active {
+  opacity: 1;
+  color: #fff;
+}
+
+/* Responsive: hide on small screens */
+@media screen and (max-width: 59.9375em) {
+  .source-lines-toggle {
+    display: none;
+  }
+  .show-source-lines .md-content__inner > [data-source-line]::before {
+    display: none;
+  }
+  .show-source-lines .md-content__inner {
+    padding-left: 0;
+  }
+}

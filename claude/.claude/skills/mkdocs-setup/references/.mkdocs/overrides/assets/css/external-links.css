@@ -1,0 +1,36 @@
+/* 外部リンクに ↗ アイコンを付与 */
+a[href^="http"]::after {
+  content: " ↗";
+  font-size: 0.75em;
+  vertical-align: super;
+  opacity: 0.6;
+}
+
+/* GitHub 編集・閲覧ボタンのラベルはホバー時のみ表示 */
+.md-content__button .md-ellipsis {
+  display: none !important;
+}
+.md-content__button:hover .md-ellipsis {
+  display: inline !important;
+}
+
+/* ヘッダー・ナビゲーション内のリンクは除外 */
+.md-header a[href^="http"]::after,
+.md-nav a[href^="http"]::after,
+.md-source a[href^="http"]::after,
+.md-footer a[href^="http"]::after {
+  content: none;
+}
+
+/* レスポンシブ時: GitHub リンクをアイコンのみで表示 */
+@media screen and (max-width: 59.9375em) {
+  .md-header__source {
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 0.2rem !important;
+  }
+  .md-header__source .md-source__repository {
+    display: none;
+  }
+}

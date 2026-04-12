@@ -19,6 +19,7 @@ dotfiles/
 ├── tig/           # tig
 ├── tmux/          # tmux + claude popup editor
 ├── bin/           # 自作 CLI (~/.local/bin/ask-dotfiles 等)
+├── claude/        # Claude Code 設定 (settings, rules, hooks, skills, statusline)
 ├── Brewfile       # brew パッケージ一覧 (brew bundle dump --describe で生成)
 └── .stow-local-ignore
 ```
@@ -42,7 +43,7 @@ mv ~/.config/git/config ~/.config/git/config.bak
 
 # 4. symlink を作成
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
-stow -t ~ nvim git fish lazygit tig tmux bin
+stow -t ~ nvim git fish lazygit tig tmux bin claude
 
 # 5. nvim プラグインをインストール (初回起動で自動)
 nvim

@@ -1,0 +1,80 @@
+hooks:
+  - .mkdocs/hooks/show_frontmatter.py
+  - .mkdocs/hooks/source_lines.py
+  - .mkdocs/hooks/yaml_to_md.py
+
+extra_css:
+  - assets/css/external-links.css
+  - assets/css/toc-collapse.css
+  - assets/css/source-lines.css
+
+extra_javascript:
+  - assets/js/external-links.js
+  - assets/js/nav-persist.js
+  - assets/js/toc-collapse.js
+  - assets/js/source-lines.js
+
+repo_url: ""   # e.g. https://github.com/org/repo
+repo_name: ""  # e.g. org/repo
+edit_uri: ""   # e.g. edit/main/docs/
+
+theme:
+  name: material
+  custom_dir: .mkdocs/overrides
+  language: ja
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: ダークモードに切替
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: ライトモードに切替
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - content.action.view
+    - content.code.copy
+    - toc.follow
+
+plugins:
+  - search:
+      lang: ja
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - markdown_gfm_admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.mark
+  - pymdownx.caret
+  - pymdownx.tilde
+  - pymdownx.critic
+  - pymdownx.arithmatex:
+      generic: true
+  - footnotes
+  - abbr
+  - def_list
+  - tables
+  - attr_list
+  - md_in_html

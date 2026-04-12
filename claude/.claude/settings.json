@@ -1,0 +1,193 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_NEW_INIT": "1",
+    "CLAUDE_CODE_NO_FLICKER": "1",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "90",
+    "ENABLE_TOOL_SEARCH": "true",
+    "EDITOR": "nvim"
+  },
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch",
+      "LSP",
+      "Task",
+      "Bash(git status *)",
+      "Bash(git status)",
+      "Bash(git log *)",
+      "Bash(git log)",
+      "Bash(git diff *)",
+      "Bash(git diff)",
+      "Bash(git branch *)",
+      "Bash(git branch)",
+      "Bash(git show *)",
+      "Bash(ls *)",
+      "Bash(which *)",
+      "Bash(* --version)",
+      "Bash(* --help)",
+      "Bash(go doc *)",
+      "Bash(go vet *)",
+      "Bash([ -n \"$TMUX\" ] *)",
+      "Bash(git ls-files *)",
+      "Bash(git ls-files)",
+      "Bash(tmpdir=$(mktemp -d) *)",
+      "Write",
+      "Edit",
+      "Bash(tail *)",
+      "Bash(head *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(curl *)",
+      "Bash(open *)",
+      "Bash(mkdir *)",
+      "Bash(mv *)",
+      "Bash(cp *)",
+      "Bash(chmod *)",
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "Bash(godot *)",
+      "Bash(/Applications/Godot.app/Contents/MacOS/Godot *)",
+      "Bash(mkdocs *)",
+      "Bash(.venv/bin/* *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git checkout *)",
+      "Bash(git switch *)",
+      "Bash(/Users/ryosuke/ghq_root/github.com/ryosukee/coin-game/.venv/bin/mkdocs *)",
+      "Bash(tmux list-panes *)",
+      "Bash(tmux kill-pane *)",
+      "Bash(jq *)",
+      "Bash(echo *)",
+      "Bash(wc *)",
+      "Bash(cat *)",
+      "Bash(rm /tmp/*)",
+      "Bash(rm -r /tmp/*)",
+      "Bash(rm -f /tmp/*)",
+      "Bash(rm -rf /tmp/*)",
+      "Bash(ifconfig *)",
+      "Bash(ps *)",
+      "Bash(file *)",
+      "Bash(sed *)",
+      "Bash(sleep *)",
+      "Bash(diff *)",
+      "Bash(du *)",
+      "Bash(tree *)",
+      "Bash(uname *)",
+      "Bash(env *)",
+      "Bash(for *)",
+      "Bash(tmux display-message *)",
+      "Bash(tmux list-sessions *)",
+      "Bash(tmux list-sessions)",
+      "Bash(tmux split-window *)",
+      "Bash(test *)",
+      "Bash(touch *)",
+      "Bash(printf *)",
+      "Bash(sort *)",
+      "Bash(stat *)",
+      "Bash(pip show *)",
+      "Bash(rmdir *)",
+      "Bash(tmux capture-pane *)"
+    ],
+    "deny": [
+      "Read(~/.netrc)",
+      "Bash(*.netrc*)"
+    ]
+  },
+  "model": "opus[1m]",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/plugin-update.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/notify.sh",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/notify.sh",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/notify.sh",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/deny-netrc-write.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/deny-netrc-write.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": []
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline.sh",
+    "refreshInterval": 30
+  },
+  "enabledPlugins": {
+    "gopls-lsp@claude-plugins-official": true,
+    "claude-blueprints@omnis-blueprints": true,
+    "session@cc-tools": true,
+    "version-check@cc-tools": true,
+    "gitdiff@cc-tools": true,
+    "dotclaude@cc-tools": true,
+    "plugin-update@cc-tools": true
+  },
+  "sandbox": {
+    "filesystem": {
+      "denyRead": [
+        "~/.netrc"
+      ]
+    }
+  },
+  "skipDangerousModePermissionPrompt": true
+}
