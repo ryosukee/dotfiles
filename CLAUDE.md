@@ -41,6 +41,27 @@ fish/.config/fish/       → ~/.config/fish/
 - ランタイム生成ファイル
 - パッケージマネージャが自動生成するファイル
 
+### コミット前の個人情報チェック
+
+このリポジトリは public。コミット・push する前に、ステージされた全ファイルを以下の観点でスキャンする。特に設定ファイル (`settings.json` 等) はツールが自動で書き換えるため、ユーザー固有の情報が混入しやすい。
+
+チェック項目:
+
+- 絶対パスに含まれる OS ユーザー名 (`/Users/<name>/`, `/home/<name>/`)
+- プライベートなプロジェクト名やリポジトリ名
+- API キー、トークン、パスワード (`sk-`, `ghp_`, `Bearer` 等)
+- メールアドレス
+- 固有の識別子 (ntfy topic, webhook URL, デバイス ID 等)
+- IP アドレス
+
+検出方法の例:
+
+```bash
+git diff --cached | grep -iE '/Users/[a-z]|/home/[a-z]|api.key|token|secret|password|sk-|ghp_|@[a-z]+\.[a-z]'
+```
+
+見つかった場合は、その行を汎用化するかファイルごと除外する。テンプレート + `.gitignore` パターン (例: `notify-config.example` を追跡し `notify-config` は除外) も選択肢。
+
 ### stow package の作り方
 
 新しいツールの設定を追加するときは、stow package としてトップレベルディレクトリを作る。中身は `~` からの相対パスを再現する。
