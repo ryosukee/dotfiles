@@ -3,4 +3,4 @@ bind diff    B !git rebase -i %(commit)
 bind main    ! ?git revert %(commit)
 bind status  D ?rm %(file)
 set main-view-id = yes
-set editor = "nvim +%d %s"
+set editor-line-number = yes
