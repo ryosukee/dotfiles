@@ -39,6 +39,11 @@ mkdir -p "$STATE_DIR"
 # across invocations regardless of where the script was called from.
 cd "$DOTFILES" || die "cannot enter $DOTFILES"
 
+# Use the Claude Code subscription, not the API key. If ANTHROPIC_API_KEY is
+# set (e.g. via conf.d/secrets.fish for other tools), claude -p would use it
+# and hit API rate limits instead of the subscription quota.
+unset ANTHROPIC_API_KEY
+
 # List all dotfiles content we want to feed to Claude: tracked files PLUS
 # untracked-but-not-gitignored files (so new files show up even before they're
 # committed). `git ls-files -co --exclude-standard` does exactly that.
