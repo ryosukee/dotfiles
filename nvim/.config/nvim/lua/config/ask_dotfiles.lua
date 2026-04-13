@@ -74,7 +74,8 @@ local function run_query(question)
   append({ "", "## > " .. question, "", "_thinking…_", "" })
 
   local cmd = { "cc-ask-dotfiles", "--session", state.session_uuid, question }
-  local has_thinking = true -- initial "thinking…" is showing
+  local has_indicator = true -- initial "thinking…" is showing
+  local rebuild_done = false
 
   vim.system(cmd, {
     text = true,
@@ -84,18 +85,20 @@ local function run_query(question)
       if not data or not data:match("%S") then return end
       vim.schedule(function()
         if not buf_valid() then return end
-        -- Remove current "thinking…" before appending log lines
-        if has_thinking then
+        if has_indicator then
           remove_last_lines(2)
         end
         for _, line in ipairs(vim.split(data, "\n", { plain = true })) do
           if line:match("%S") then
             append({ "_" .. line .. "_" })
+            if line:match("ready") then
+              rebuild_done = true
+            end
           end
         end
-        -- Re-add "thinking…" so user knows query is still running
-        append({ "", "_thinking…_", "" })
-        has_thinking = true
+        local indicator = rebuild_done and "_thinking…_" or "_building…_"
+        append({ "", indicator, "" })
+        has_indicator = true
       end)
     end,
   }, function(result)
@@ -104,7 +107,7 @@ local function run_query(question)
         state.busy = false
         return
       end
-      if has_thinking then
+      if has_indicator then
         remove_last_lines(2)
       end
       local stdout = result.stdout or ""
