@@ -84,5 +84,20 @@ git diff --cached | grep -iE '/Users/[a-z]|/home/[a-z]|api.key|token|secret|pass
 
 ## fish 設定の注意
 
-- `config.fish` にシークレットを書かない。環境変数のシークレットは別の仕組み (direnv, 1Password CLI 等) で管理する
+- `config.fish` にシークレットを書かない
 - fisher プラグインは `fish_plugins` ファイルで宣言。`fisher update` でインストール
+
+### シークレットの管理方針
+
+API キーやトークンは **macOS Keychain + `conf.d/secrets.fish`** で管理する。
+
+- Keychain にキーを保存: `security add-generic-password -s <service> -a $USER -w "<value>"`
+- `~/.config/fish/conf.d/secrets.fish` (stow 管理外) で Keychain から読み出して環境変数に設定
+- `secrets.fish` にはキー本体を書かない。`security find-generic-password -s <service> -w` の呼び出しだけ
+
+この方式を選んだ理由:
+
+- `set -Ux` (fish universal variable) だと `fish_variables` に平文でキーが残り、誤って git add すると漏洩する
+- Keychain 方式なら `secrets.fish` や `fish_variables` を git add しても API キー本体は含まれない
+- ランタイムでは環境変数に載るのでプロセスから読める点は `set -Ux` と同等。ディスク上の平文回避が主な利点
+- `security find-generic-password` は数 ms で完了するので shell 起動速度に影響しない

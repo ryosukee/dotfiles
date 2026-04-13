@@ -138,6 +138,21 @@ fisher update
 | `Ctrl+R` | コマンド履歴を peco で検索 |
 | `y` | yazi 起動、終了時に yazi 内の cwd に fish を cd |
 
+### シークレット (API キー等)
+
+macOS Keychain に保存し、`~/.config/fish/conf.d/secrets.fish` (stow 管理外) から読み出す。
+
+```bash
+# 1. Keychain に保存 (一度だけ)
+security add-generic-password -s anthropic-api-key -a $USER -w "sk-ant-..."
+
+# 2. secrets.fish が起動時に読み出す (既にセットアップ済み)
+# ~/.config/fish/conf.d/secrets.fish:
+#   set -gx ANTHROPIC_API_KEY (security find-generic-password -s anthropic-api-key -w 2>/dev/null)
+```
+
+キーを追加するときは同じパターンで `security add-generic-password` + `secrets.fish` に `set -gx` 行を追加する。
+
 ## tmux
 
 prefix は tmux デフォルト (`Ctrl+B`)。
