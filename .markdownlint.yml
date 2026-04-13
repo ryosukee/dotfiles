@@ -5,19 +5,11 @@
 MD007:
   indent: 4
 
-# MD013: line length — disable. Long lines are common in docs
-# (tables, URLs, Japanese prose). Enforcing 80 would require
-# reflowing everything.
-MD013: false
+# MD013: exclude tables (row width is determined by content,
+# can't be reflowed without breaking the table structure)
+MD013:
+  tables: false
 
 # MD033: inline HTML — allow. <br> is the mandated line break
-# method per markdown-authoring.md ("末尾スペース 2 つは使わない").
+# method per markdown-authoring.md.
 MD033: false
-
-# MD056: table column count — allow mismatched counts for now.
-# Some tables use merged-style rows.
-MD056: false
-
-# MD060: table column style — disable. All tables use compact
-# separator style (|---|---|) which is valid markdown.
-MD060: false

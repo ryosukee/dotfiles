@@ -59,7 +59,7 @@ fisher update
 ### シェル & ターミナル
 
 | ツール | 用途 | インストール |
-|---|---|---|
+| --- | --- | --- |
 | fish | メインシェル (vi キーバインド) | `brew install fish` |
 | starship | プロンプト | `brew install starship` |
 | wezterm | ターミナルエミュレータ | `brew install --cask wezterm` |
@@ -70,13 +70,13 @@ fisher update
 ### エディタ
 
 | ツール | 用途 | インストール |
-|---|---|---|
+| --- | --- | --- |
 | neovim | メインエディタ (LazyVim) | `brew install neovim` |
 
 ### Git
 
 | ツール | 用途 | インストール |
-|---|---|---|
+| --- | --- | --- |
 | git-delta | diff/log の pager (行番号, サイドバイサイド, シンタックスハイライト) | `brew install git-delta` |
 | lazygit | TUI git クライアント (delta 連携, LazyVim 内蔵) | `brew install lazygit` |
 | ghq | リポジトリ管理 (`~/ghq_root/` 配下) | `brew install ghq` |
@@ -88,14 +88,14 @@ fisher update
 ### ランタイム管理
 
 | ツール | 用途 | インストール |
-|---|---|---|
+| --- | --- | --- |
 | mise | 言語ランタイム管理 (Node, Python, Go 等) | `brew install mise` |
 | uv | Python パッケージマネージャ | `brew install uv` |
 
 ### CLI ユーティリティ
 
 | ツール | 用途 | インストール |
-|---|---|---|
+| --- | --- | --- |
 | bat | cat の代替 (シンタックスハイライト) | `brew install bat` |
 | lsd | ls の代替 (アイコン, カラー) | `brew install lsd` |
 | fzf | ファジーファインダー | `brew install fzf` |
@@ -114,14 +114,14 @@ fisher update
 ### AI
 
 | ツール | 用途 | インストール |
-|---|---|---|
+| --- | --- | --- |
 | claude-code | Claude Code CLI + VS Code 拡張 | `brew install anthropic/claude-code/claude-code` / VS Code |
 | codex | OpenAI のコーディングエージェント | `brew install codex` |
 
 ### インフラ & クラウド
 
 | ツール | 用途 | インストール |
-|---|---|---|
+| --- | --- | --- |
 | terraform | IaC | `brew install terraform` |
 | kubernetes-cli | kubectl | `brew install kubernetes-cli` |
 | k9s | Kubernetes TUI | `brew install k9s` |
@@ -131,7 +131,7 @@ fisher update
 ## fish のキーバインド・関数
 
 | キー / コマンド | 機能 |
-|---|---|
+| --- | --- |
 | `Ctrl+G` | git branch を peco で選択して checkout |
 | `Ctrl+H` | ghq リポジトリを peco で選択して cd |
 | `Ctrl+T` | git worktree を peco で選択して cd |
@@ -148,7 +148,8 @@ security add-generic-password -s anthropic-api-key -a $USER -w "sk-ant-..."
 
 # 2. secrets.fish が起動時に読み出す (既にセットアップ済み)
 # ~/.config/fish/conf.d/secrets.fish:
-#   set -gx ANTHROPIC_API_KEY (security find-generic-password -s anthropic-api-key -w 2>/dev/null)
+#   set -gx ANTHROPIC_API_KEY \
+#     (security find-generic-password -s anthropic-api-key -w 2>/dev/null)
 ```
 
 キーを追加するときは同じパターンで `security add-generic-password` + `secrets.fish` に `set -gx` 行を追加する。
@@ -158,7 +159,7 @@ security add-generic-password -s anthropic-api-key -a $USER -w "sk-ant-..."
 prefix は tmux デフォルト (`Ctrl+B`)。
 
 | キー | 機能 |
-|---|---|
+| --- | --- |
 | `prefix + S` | session launcher (自前・choose-tree 風、ツリー表示 + fzf) |
 | `prefix + Tab` | treemux sidebar (Neo-Tree を tmux pane として表示) |
 | `prefix + P` | 作業用 popup ターミナル (`popup` session) |
@@ -174,7 +175,7 @@ LazyVim ベース。プラグイン構成、キーバインド、ワークフロ
 主要キーバインド:
 
 | キー | 機能 |
-|---|---|
+| --- | --- |
 | `<Space>gg` | lazygit |
 | `<Space>e` | ファイルツリー (neo-tree) |
 | `<Space><Space>` | ファイル検索 |
@@ -186,10 +187,12 @@ LazyVim ベース。プラグイン構成、キーバインド、ワークフロ
 
 ## cc-ask-dotfiles
 
-dotfiles の全ファイルを読み込ませた Claude セッションに対して、fish / tmux popup / nvim float から横断的な質問を投げるための自作ツール。設定の意図や tmux と nvim のキー衝突などを 1 つのセッションから聞ける。
+dotfiles の全ファイルを読み込ませた Claude セッションに対して、fish / tmux popup
+/ nvim float から横断的な質問を投げるための自作ツール。設定の意図や tmux と nvim
+のキー衝突などを 1 つのセッションから聞ける。
 
 | 起動口 | 呼び方 |
-|---|---|
+| --- | --- |
 | fish | `cc-ask-dotfiles "質問"` (one-shot) または `cc-ask-dotfiles` (対話) |
 | tmux | `prefix + Space → C → a` |
 | nvim | `<Space>Ca` (floating window、`i` で follow-up、`q` で閉じる) |
