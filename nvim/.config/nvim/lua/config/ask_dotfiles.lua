@@ -74,31 +74,42 @@ local function run_query(question)
   append({ "", "## > " .. question, "", "_thinking…_", "" })
 
   local cmd = { "cc-ask-dotfiles", "--session", state.session_uuid, question }
-  vim.system(cmd, { text = true }, function(result)
+  local rebuild_shown = false
+
+  vim.system(cmd, {
+    text = true,
+    -- Stream stderr so rebuild progress appears in real-time instead of
+    -- blocking for 20-30 seconds with no feedback.
+    stderr = function(_, data)
+      if not data or not data:match("%S") then return end
+      vim.schedule(function()
+        if not buf_valid() then return end
+        if not rebuild_shown then
+          rebuild_shown = true
+          remove_last_lines(2) -- replace "thinking…" with live progress
+        end
+        for _, line in ipairs(vim.split(data, "\n", { plain = true })) do
+          if line:match("%S") then
+            append({ "_" .. line .. "_" })
+          end
+        end
+      end)
+    end,
+  }, function(result)
     vim.schedule(function()
       if not buf_valid() then
         state.busy = false
         return
       end
-      remove_last_lines(2) -- remove "_thinking…_" + blank
+      if not rebuild_shown then
+        remove_last_lines(2) -- remove "thinking…" + blank
+      end
       local stdout = result.stdout or ""
-      local stderr = result.stderr or ""
-      -- The script emits rebuild progress to stderr (e.g. "building base
-      -- session..."). Prioritize stdout (the actual answer) for display.
-      -- Only fall back to stderr as an error when stdout is empty.
       if stdout:match("%S") then
-        -- Show informational stderr (rebuild log) as dimmed prefix if present.
-        if stderr:match("%S") then
-          for _, line in ipairs(vim.split(stderr, "\n", { plain = true })) do
-            if line:match("%S") then
-              append({ "_" .. line .. "_" })
-            end
-          end
-          append({ "" })
-        end
+        if rebuild_shown then append({ "" }) end
         append(vim.split(stdout, "\n", { plain = true }))
       elseif result.code ~= 0 then
-        append(vim.split("**Error (exit " .. result.code .. "):** " .. stderr, "\n", { plain = true }))
+        append({ "**Error (exit " .. result.code .. ")**" })
       end
       append({ "", "---", "" })
       state.busy = false
