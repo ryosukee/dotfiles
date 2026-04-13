@@ -81,11 +81,24 @@ local function run_query(question)
         return
       end
       remove_last_lines(2) -- remove "_thinking…_" + blank
-      if result.code ~= 0 then
-        local err = result.stderr or result.stdout or "unknown error"
-        append(vim.split("**Error:** " .. err, "\n", { plain = true }))
-      else
-        append(vim.split(result.stdout or "", "\n", { plain = true }))
+      local stdout = result.stdout or ""
+      local stderr = result.stderr or ""
+      -- The script emits rebuild progress to stderr (e.g. "building base
+      -- session..."). Prioritize stdout (the actual answer) for display.
+      -- Only fall back to stderr as an error when stdout is empty.
+      if stdout:match("%S") then
+        -- Show informational stderr (rebuild log) as dimmed prefix if present.
+        if stderr:match("%S") then
+          for _, line in ipairs(vim.split(stderr, "\n", { plain = true })) do
+            if line:match("%S") then
+              append({ "_" .. line .. "_" })
+            end
+          end
+          append({ "" })
+        end
+        append(vim.split(stdout, "\n", { plain = true }))
+      elseif result.code ~= 0 then
+        append(vim.split("**Error (exit " .. result.code .. "):** " .. stderr, "\n", { plain = true }))
       end
       append({ "", "---", "" })
       state.busy = false
