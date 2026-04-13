@@ -21,7 +21,7 @@ git/.config/git/         → ~/.config/git/
 fish/.config/fish/       → ~/.config/fish/
 ```
 
-デプロイ: `stow nvim tmux ghostty git fish`
+デプロイ: `stow -t ~ nvim git fish lazygit tig tmux bin claude`
 
 ## 設定変更時のルール
 
@@ -69,6 +69,8 @@ git diff --cached | grep -iE '/Users/[a-z]|/home/[a-z]|api.key|token|secret|pass
 ## 問題解決の進め方
 
 最初の試行は直感で進めてよい。ただし一度詰まったら場当たり的な修正を繰り返さず、立ち止まって全体を整理する。
+
+仕様が不確かなものは推測で断定せず、公式ドキュメント・ソースコード・man page 等で確認してから回答する。「たぶんこう」で進めて間違えると手戻りが大きい。
 
 1. 現状の事実を整理する (設定値、実装の流れ、エラーメッセージ、使える API)
 2. 問題を体系的に分析する (何が起きていて、原因の候補は何か、どの仮説を検証すべきか)
