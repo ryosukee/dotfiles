@@ -71,34 +71,23 @@ local function run_query(question)
     return
   end
   state.busy = true
-  append({ "", "## > " .. question, "", "_thinking…_", "" })
+  append({ "", "## > " .. question, "" })
 
   local cmd = { "cc-ask-dotfiles", "--session", state.session_uuid, question }
-  local has_indicator = true -- initial "thinking…" is showing
-  local rebuild_done = false
 
   vim.system(cmd, {
     text = true,
-    -- Stream stderr so rebuild progress appears in real-time instead of
-    -- blocking for 20-30 seconds with no feedback.
+    -- Stream stderr: the script emits "building...", "ready", "thinking..."
+    -- as progress. Display them as italic lines in real-time.
     stderr = function(_, data)
       if not data or not data:match("%S") then return end
       vim.schedule(function()
         if not buf_valid() then return end
-        if has_indicator then
-          remove_last_lines(2)
-        end
         for _, line in ipairs(vim.split(data, "\n", { plain = true })) do
           if line:match("%S") then
             append({ "_" .. line .. "_" })
-            if line:match("ready") then
-              rebuild_done = true
-            end
           end
         end
-        local indicator = rebuild_done and "_thinking…_" or "_building…_"
-        append({ "", indicator, "" })
-        has_indicator = true
       end)
     end,
   }, function(result)
@@ -107,15 +96,12 @@ local function run_query(question)
         state.busy = false
         return
       end
-      if has_indicator then
-        remove_last_lines(2)
-      end
       local stdout = result.stdout or ""
       if stdout:match("%S") then
-        if rebuild_shown then append({ "" }) end
+        append({ "" })
         append(vim.split(stdout, "\n", { plain = true }))
       elseif result.code ~= 0 then
-        append({ "**Error (exit " .. result.code .. ")**" })
+        append({ "", "**Error (exit " .. result.code .. ")**" })
       end
       append({ "", "---", "" })
       state.busy = false

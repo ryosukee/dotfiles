@@ -98,6 +98,7 @@ ensure_base() {
 
 # One-shot question: fork a throwaway session from the base and print the answer.
 one_shot() {
+    log "thinking..."
     printf '%s\n' "$1" | claude -p --resume "$BACKUP" --fork-session
 }
 
@@ -108,6 +109,7 @@ session_query() {
     _sid="$1"
     _q="$2"
     _existing=$(find "$HOME/.claude/projects" -name "${_sid}.jsonl" -type f 2>/dev/null | head -n 1)
+    log "thinking..."
     if [ -n "$_existing" ] && [ -f "$_existing" ]; then
         printf '%s\n' "$_q" | claude -p --resume "$_sid"
     else
@@ -131,6 +133,7 @@ interactive() {
         fi
         [ -z "$_q" ] && continue
         printf '\n'
+        log "thinking..."
         if [ "$_first" -eq 1 ]; then
             printf '%s\n' "$_q" \
                 | claude -p --resume "$BACKUP" --session-id "$_session" --fork-session
