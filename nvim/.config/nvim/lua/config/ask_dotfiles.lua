@@ -1,5 +1,5 @@
--- ask-dotfiles floating UI
--- Opens a markdown-rendered popup backed by the ~/.local/bin/ask-dotfiles script.
+-- cc-ask-dotfiles floating UI
+-- Opens a markdown-rendered popup backed by the ~/.local/bin/cc-ask-dotfiles script.
 -- Each popup session pins a new UUID so follow-up questions stay in the same fork.
 
 local M = {}
@@ -67,13 +67,13 @@ end
 
 local function run_query(question)
   if state.busy then
-    vim.notify("ask-dotfiles: still waiting for previous answer", vim.log.levels.WARN)
+    vim.notify("cc-ask-dotfiles: still waiting for previous answer", vim.log.levels.WARN)
     return
   end
   state.busy = true
   append({ "", "## > " .. question, "", "_thinking…_", "" })
 
-  local cmd = { "ask-dotfiles", "--session", state.session_uuid, question }
+  local cmd = { "cc-ask-dotfiles", "--session", state.session_uuid, question }
   vim.system(cmd, { text = true }, function(result)
     vim.schedule(function()
       if not buf_valid() then
@@ -108,10 +108,10 @@ end
 
 local function prompt()
   if state.busy then
-    vim.notify("ask-dotfiles: still waiting for previous answer", vim.log.levels.WARN)
+    vim.notify("cc-ask-dotfiles: still waiting for previous answer", vim.log.levels.WARN)
     return
   end
-  vim.ui.input({ prompt = "ask-dotfiles > " }, function(q)
+  vim.ui.input({ prompt = "cc-ask-dotfiles > " }, function(q)
     if not q or q == "" then return end
     run_query(q)
   end)
@@ -134,7 +134,7 @@ function M.open()
 
   state.session_uuid = gen_uuid()
   if not state.session_uuid then
-    vim.notify("ask-dotfiles: failed to generate UUID (uuidgen missing?)", vim.log.levels.ERROR)
+    vim.notify("cc-ask-dotfiles: failed to generate UUID (uuidgen missing?)", vim.log.levels.ERROR)
     return
   end
 
@@ -153,7 +153,7 @@ function M.open()
     row = math.floor((vim.o.lines - height) / 2),
     col = math.floor((vim.o.columns - width) / 2),
     border = "rounded",
-    title = " ask-dotfiles  (i: follow-up / q: close) ",
+    title = " cc-ask-dotfiles  (i: follow-up / q: close) ",
     title_pos = "center",
     style = "minimal",
   })

@@ -12,7 +12,7 @@
 
 stow ベース。各トップレベルディレクトリが stow package で、中身は `~` からの相対パスを再現している。
 
-```
+```text
 nvim/.config/nvim/       → ~/.config/nvim/
 tmux/.config/tmux/       → ~/.config/tmux/
 tmux/.tmux.conf          → ~/.tmux.conf

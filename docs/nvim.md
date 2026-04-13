@@ -4,7 +4,7 @@ LazyVim ベースの nvim 環境。プラグイン管理は lazy.nvim。
 
 ## ファイル構成
 
-```
+```text
 nvim/.config/nvim/
 ├── init.lua                 # lazy.nvim bootstrap + LazyVim 読み込み
 ├── lazyvim.json             # LazyVim extras (lang.markdown 有効化)
@@ -12,7 +12,7 @@ nvim/.config/nvim/
 │   ├── options.lua          # エディタ設定 (tabstop=4, conceallevel=0, PUPPETEER_EXECUTABLE_PATH 等)
 │   ├── keymaps.lua          # カスタムキーマップ + コンテキストメニュー
 │   ├── autocmds.lua         # markdown の format on save 無効化等
-│   ├── ask_dotfiles.lua     # ask-dotfiles 用フロート UI
+│   ├── ask_dotfiles.lua     # cc-ask-dotfiles 用フロート UI
 │   └── markdown_preview.lua # markdown 要素の popup 描画 (table 等)
 └── lua/plugins/
     ├── diffview.lua         # diffview.nvim + ✓ マーク
@@ -86,11 +86,11 @@ LazyVim の extra が `<Space>um` で render-markdown のグローバル toggle 
 
 `popup_markdown(lines, title)` を汎用に切ってあるので、`find_xxx_range()` を書き足すだけで heading ブロック / code block / blockquote / 入れ子 list も同じ流儀で popup 描画できる。dispatch 側にも該当チェックを足せば、`<Space>ip` が一段賢くなる。
 
-## ask-dotfiles (Claude)
+## cc-ask-dotfiles (Claude)
 
-dotfiles の全ファイルを読み込ませた Claude セッションに対して floating window から質問を投げる。`<Space>cq` で起動、`i` / `a` / `o` で follow-up、`q` / `<Esc>` で閉じる。nvim から見ると UI レイヤー (lua/config/ask_dotfiles.lua) だけで、実際の Claude 呼び出しは `~/.local/bin/ask-dotfiles` に委譲している。
+dotfiles の全ファイルを読み込ませた Claude セッションに対して floating window から質問を投げる。`<Space>Ca` で起動、`i` / `a` / `o` で follow-up、`q` / `<Esc>` で閉じる。nvim から見ると UI レイヤー (lua/config/ask_dotfiles.lua) だけで、実際の Claude 呼び出しは `~/.local/bin/cc-ask-dotfiles` に委譲している。
 
-詳細・仕組みは [ask-dotfiles](./ask-dotfiles.md) を参照。
+詳細・仕組みは [cc-ask-dotfiles](./cc-ask-dotfiles.md) を参照。
 
 ## markdown lint / formatter
 
@@ -165,7 +165,7 @@ diffview の file tree で `x` キーを押すとファイル/ディレクトリ
 | `s` | ネイティブの s を復元 (flash.nvim を上書き) |
 | `<Space>a` | コンテキストメニュー |
 | `<Space>ip` | カーソル位置プレビュー (画像 / mermaid / markdown table) |
-| `<Space>cq` | ask-dotfiles popup |
+| `<Space>Ca` | cc-ask-dotfiles popup |
 | `<Space>um` | render-markdown インライン描画の toggle (LazyVim extra 由来) |
 | `<Space>go` | GitHub で開く |
 | `<Space>gO` | GitHub permalink で開く |

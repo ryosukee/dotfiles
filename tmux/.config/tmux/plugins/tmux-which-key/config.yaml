@@ -37,11 +37,11 @@ items:
     key: "`"
     command: last-pane
   - name: +Claude
-    key: c
+    key: C
     menu:
       - name: Ask dotfiles
-        key: q
-        command: 'display-popup -d "#{pane_current_path}" -w 80% -h 70% -E "ask-dotfiles"'
+        key: a
+        command: 'display-popup -d "#{pane_current_path}" -w 80% -h 70% -E "cc-ask-dotfiles"'
   - name: +Yank
     key: y
     menu:
@@ -255,7 +255,7 @@ items:
         key: r
         command: command-prompt -I "#S" "rename-session -- \"%%\""
   - name: +Client
-    key: C
+    key: c
     menu:
       - name: Choose
         key: c

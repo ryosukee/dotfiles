@@ -165,7 +165,18 @@
         ]
       }
     ],
-    "PostToolUse": []
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/markdownlint-post.sh",
+            "statusMessage": "markdownlint checking..."
+          }
+        ]
+      }
+    ]
   },
   "statusLine": {
     "type": "command",
@@ -179,7 +190,8 @@
     "version-check@cc-tools": true,
     "gitdiff@cc-tools": true,
     "dotclaude@cc-tools": true,
-    "plugin-update@cc-tools": true
+    "plugin-update@cc-tools": true,
+    "session-retrospective@cc-tools": true
   },
   "sandbox": {
     "filesystem": {

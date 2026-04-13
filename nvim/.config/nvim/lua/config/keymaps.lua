@@ -165,8 +165,8 @@ end
 
 map({ "n", "v" }, "<leader>a", open_context_menu, { desc = "Context menu" })
 
--- Ask dotfiles (Claude) — floating popup backed by ~/.local/bin/ask-dotfiles
-map("n", "<leader>cq", function()
+-- Ask dotfiles (Claude) — floating popup backed by ~/.local/bin/cc-ask-dotfiles
+map("n", "<leader>Ca", function()
   require("config.ask_dotfiles").open()
 end, { desc = "Ask dotfiles (Claude)" })
 

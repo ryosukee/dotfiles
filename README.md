@@ -10,7 +10,7 @@
 
 ## 構造
 
-```
+```text
 dotfiles/
 ├── nvim/          # Neovim (LazyVim)
 ├── git/           # gitconfig, gitignore
@@ -18,7 +18,7 @@ dotfiles/
 ├── lazygit/       # lazygit (delta 連携)
 ├── tig/           # tig
 ├── tmux/          # tmux + claude popup editor
-├── bin/           # 自作 CLI (~/.local/bin/ask-dotfiles 等)
+├── bin/           # 自作 CLI (~/.local/bin/cc-ask-dotfiles 等)
 ├── claude/        # Claude Code 設定 (settings, rules, hooks, skills, statusline)
 ├── Brewfile       # brew パッケージ一覧 (brew bundle dump --describe で生成)
 └── .stow-local-ignore
@@ -163,7 +163,7 @@ prefix は tmux デフォルト (`Ctrl+B`)。
 | `prefix + Tab` | treemux sidebar (Neo-Tree を tmux pane として表示) |
 | `prefix + P` | 作業用 popup ターミナル (`popup` session) |
 | `prefix + e` | Claude Code プロンプト編集用の popup nvim |
-| `prefix + Space → c → q` | ask-dotfiles popup (後述) |
+| `prefix + Space → C → a` | cc-ask-dotfiles popup (後述) |
 
 詳細・内部仕様は [tmux 設定](./docs/tmux.md) を参照。
 
@@ -181,20 +181,20 @@ LazyVim ベース。プラグイン構成、キーバインド、ワークフロ
 | `<Space>/` | プロジェクト内 grep |
 | `<Space>do` | diffview open |
 | `<Space>dc` | diffview close |
-| `<Space>cq` | ask-dotfiles popup (後述) |
+| `<Space>Ca` | cc-ask-dotfiles popup (後述) |
 | `x` (diffview file tree) | レビュー済み ✓ マークをトグル |
 
-## ask-dotfiles
+## cc-ask-dotfiles
 
 dotfiles の全ファイルを読み込ませた Claude セッションに対して、fish / tmux popup / nvim float から横断的な質問を投げるための自作ツール。設定の意図や tmux と nvim のキー衝突などを 1 つのセッションから聞ける。
 
 | 起動口 | 呼び方 |
 |---|---|
-| fish | `ask-dotfiles "質問"` (one-shot) または `ask-dotfiles` (対話) |
-| tmux | `prefix + Space → c → q` |
-| nvim | `<Space>cq` (floating window、`i` で follow-up、`q` で閉じる) |
+| fish | `cc-ask-dotfiles "質問"` (one-shot) または `cc-ask-dotfiles` (対話) |
+| tmux | `prefix + Space → C → a` |
+| nvim | `<Space>Ca` (floating window、`i` で follow-up、`q` で閉じる) |
 
-詳細・仕組み・既知の注意点は [ask-dotfiles](./docs/ask-dotfiles.md) を参照。
+詳細・仕組み・既知の注意点は [cc-ask-dotfiles](./docs/cc-ask-dotfiles.md) を参照。
 
 ## Brewfile の更新
 

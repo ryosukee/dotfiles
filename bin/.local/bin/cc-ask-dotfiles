@@ -21,7 +21,7 @@
 set -eu
 
 DOTFILES="$HOME/ghq_root/github.com/ryosukee/dotfiles"
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/ask-dotfiles"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/cc-ask-dotfiles"
 BACKUP="$STATE_DIR/base.jsonl"
 HASH_FILE="$STATE_DIR/config-hash"
 
