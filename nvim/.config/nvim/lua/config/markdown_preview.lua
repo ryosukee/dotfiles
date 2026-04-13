@@ -283,4 +283,38 @@ function M.dispatch()
   end
 end
 
+-- Split preview: left = raw markdown, right = rendered.
+-- render-markdown.nvim's built-in preview expects the buffer to be
+-- enabled first. With our global opts.enabled = false, the scratch
+-- buffer would also stay raw. This wrapper enables the source buffer,
+-- opens the preview (which disables source and renders the copy),
+-- then force-enables the scratch buffer.
+function M.split_preview()
+  local rm = require("render-markdown")
+  local manager = require("render-markdown.core.manager")
+  local preview = require("render-markdown.core.preview")
+  local state = require("render-markdown.state")
+
+  local src = vim.api.nvim_get_current_buf()
+
+  -- If preview is already open, toggle it off.
+  if preview.buffers[src] then
+    rm.preview()
+    return
+  end
+
+  -- Enable source so preview() passes the attached+enabled check.
+  rm.buf_enable()
+
+  -- Open the split (disables source, creates rendered scratch copy).
+  rm.preview()
+
+  -- Force-enable the scratch buffer (global enabled=false means it
+  -- attached but didn't render).
+  local dst = preview.buffers[src]
+  if dst and manager.attached(dst) then
+    manager.set_buf(dst, true)
+  end
+end
+
 return M

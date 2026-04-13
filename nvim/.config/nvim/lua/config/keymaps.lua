@@ -178,3 +178,10 @@ end, { desc = "Ask dotfiles (Claude)" })
 map("n", "<leader>ip", function()
   require("config.markdown_preview").dispatch()
 end, { desc = "Preview at cursor (image/mermaid/table)" })
+
+-- Markdown split preview: left = raw, right = rendered.
+-- Toggle: press again to close the preview split.
+-- um = inline toggle (LazyVim extra), uM = split preview toggle.
+map("n", "<leader>uM", function()
+  require("config.markdown_preview").split_preview()
+end, { desc = "Markdown Split Preview" })

@@ -90,6 +90,21 @@ LazyVim の extra が `<Space>um` で render-markdown のグローバル toggle 
 インライン描画 ON になり、もう一度押すと OFF に戻る。普段は popup で十分でも、
 長めの markdown を一気に俯瞰したい場面で使える。
 
+### split preview
+
+`<Space>uM` で左右分割プレビューを toggle する。
+左が生 markdown (編集用)、右が render-markdown で描画されたコピー。
+カーソル位置と編集内容がリアルタイムに右ペインへ同期される。
+render-markdown.nvim の built-in preview 機能
+(`lua/render-markdown/core/preview.lua`) を
+`enabled = false` 環境で動くようラップしている。
+
+制約: render-markdown の overlay extmark は水平スクロール
+(leftcol > 0) に対応していない。
+preview 側で nowrap にして右にスクロールすると描画が壊れる。
+preview 側は wrap のまま使うのが安全。
+テーブルを正確に見たいときは `<Space>ip` の popup を併用する。
+
 ### 将来の拡張
 
 `popup_markdown(lines, title)` を汎用に切ってあるので、`find_xxx_range()` を
@@ -187,6 +202,7 @@ diffview の file tree で `x` キーを押すとファイル/ディレクトリ
 | `<Space>ip` | カーソル位置プレビュー (画像 / mermaid / markdown table) |
 | `<Space>Ca` | cc-ask-dotfiles popup |
 | `<Space>um` | render-markdown インライン描画の toggle (LazyVim extra 由来) |
+| `<Space>uM` | markdown split preview toggle (左 raw / 右 rendered) |
 | `<Space>go` | GitHub で開く |
 | `<Space>gO` | GitHub permalink で開く |
 
