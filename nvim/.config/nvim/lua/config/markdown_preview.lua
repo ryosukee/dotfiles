@@ -166,6 +166,7 @@ local function popup_markdown(lines, title)
   vim.wo[win].conceallevel = 3
   vim.wo[win].concealcursor = "nvic"
   vim.wo[win].cursorline = false
+  vim.wo[win].spell = false
 
   -- Per-buffer enable: rendering applies only to this scratch buffer and
   -- does not change the global render-markdown state, so other markdown
@@ -314,6 +315,17 @@ function M.split_preview()
   local dst = preview.buffers[src]
   if dst and manager.attached(dst) then
     manager.set_buf(dst, true)
+  end
+
+  -- LazyVim's markdown FileType autocmd re-enables spell on the scratch
+  -- buffer's window. Turn it off so SpellBad underlines don't appear on
+  -- proper nouns (Auth0, UserInfo, ...) in the rendered view.
+  if dst then
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      if vim.api.nvim_win_get_buf(win) == dst then
+        vim.wo[win].spell = false
+      end
+    end
   end
 end
 
