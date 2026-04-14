@@ -43,7 +43,7 @@
 #
 # 出力レイアウト（左側 │ で区切って並べる。右側は端末右端に寄せる）:
 #   例:
-#     ⚡ Opus 4.6 │ NORMAL │ ████░░░░░░ 40% │ ██░░░░░░░░ 20% → 14:30 │ T:5% ⏳6h30m 18%/d │ W:██░░░░░░░░ 15% → 󰇡:3/28 󰔟:4d18h │ v2.1.83
+#     ⚡ Opus 4.6 │ NORMAL │ ████░░░░░░ 40% │ ██░░░░░░░░ 20% → 14:30 │ T:5pp ⏳6h30m 18pp/d │ W:██░░░░░░░░ 15% → 󰇡:3/28 󰔟:4d18h │ v2.1.83
 #      main +3 !2 ?1 ⇡2 │ 📁 ~/ghq_root/github.com/foo/bar
 #
 #   左側（4セクション構成）:
@@ -51,9 +51,11 @@
 #     - Vim:          NORMAL（vim モード有効時のみ）
 #     - Ctx Window:   ████░░░░░░ 40%（コンテキストウィンドウ使用率、10段階バー）
 #     - 5h Rate:      ██░░░░░░░░ 20% → 14:30（5時間レートリミット使用率 + リセット時刻）
-#     - Today:        T:5% ⏳6h30m 18%/d
-#                     当日消費ポイント + 経過時間 + per day 予算
-#                     per day = 残り% ÷ 残り日数（小数）でリアルタイム再計算
+#     - Today:        T:5pp ⏳6h30m 18pp/d
+#                     当日消費ポイント (pp) + 経過時間 + per day 予算 (pp/d)
+#                     pp = percentage points: weekly used% の差分単位
+#                       (weekly 全体に対する割合ではなく「何 pp 増えたか」を表す)
+#                     per day = 残り pp ÷ 残り日数（小数）でリアルタイム再計算
 #                     Nerd Font アイコン: ⏳ (U+F252) 経過時間 /  (U+F200) per day
 #     - Weekly Rate:  W:██░░░░░░░░ 15% → 󰇡:3/28 󰔟:4d18h
 #                     10段階バー + 使用率 + リセット日 + 残り時間
@@ -71,7 +73,7 @@
 #     - 50% 以下: 緑  (\033[92m)
 #     - 75% 以下: 黄  (\033[93m)
 #     - 75% 超:   赤  (\033[91m)
-#   Today（per day 予算に対する消費率ベース）:
+#   Today（per day 予算に対する消費率ベース — pp を pp で割るので無次元=%）:
 #     - 予算の 50% 以下: 緑  (\033[92m)
 #     - 予算の 75% 以下: 黄  (\033[93m)
 #     - 予算の 75% 超:   赤  (\033[91m)
@@ -204,7 +206,7 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
   weekly_reset=""          # リセット日時の表示文字列 (例: 3/28)
   weekly_remaining=""      # 残り時間の表示文字列 (例: 4d18h)
   weekly_remaining_secs=0  # 残り秒数（per day 計算用）
-  weekly_per_day=""        # 1日あたりの予算 % (例: 18)
+  weekly_per_day=""        # 1日あたりの予算 pp (例: 18)
 
   if [ -n "$weekly_resets_at" ] && [ "$weekly_resets_at" != "null" ]; then
     weekly_reset=$(date -r "${weekly_resets_at%.*}" "+%-m/%-d" 2>/dev/null)
@@ -230,15 +232,16 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
   # ---------------------------------------------------------------------------
   # 左側: 今日の消費ポイント (today セクション)
   # 暦日 0:00 基準でスナップショットを取り、現在の weekly used% との差分を表示する。
+  # 差分は「percentage points (pp)」なので表示単位は pp。
   # スナップショットは /tmp/claude-status/weekly-snapshot.json に保存。
   # 先勝ち方式: 当日の日付が既に記録されていれば上書きしない。
   # 経過時間はスナップショット取得からの経過を最大単位＋次単位で表示する。
   # 色分けは per day 予算に対する消費率で緑→黄→赤。
   # 依存: jq, date
   # 読み書き: /tmp/claude-status/weekly-snapshot.json
-  # 出力例: T:5% ⏳6h
+  # 出力例: T:5pp ⏳6h
   # ---------------------------------------------------------------------------
-  today_used=""        # 今日の消費 % (例: 5)
+  today_used=""        # 今日の消費 pp (例: 5)
   today_elapsed=""     # スナップショットからの経過時間 (例: 6h30m)
   SNAPSHOT_FILE="/tmp/claude-status/weekly-snapshot.json"
 
@@ -269,7 +272,7 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
       snap_base="$weekly_pct_num"
     fi
 
-    # 今日の消費 % = 現在の used% - スナップショットの base%
+    # 今日の消費 pp = 現在の used% - スナップショットの base% (差分なので pp)
     if [ -n "$snap_base" ]; then
       today_used=$(( weekly_pct_num - ${snap_base%.*} ))
       [ "$today_used" -lt 0 ] && today_used=0
@@ -290,16 +293,16 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
       fi
     fi
 
-    # per day 予算の計算: 残り% ÷ 残り日数（小数）
-    # 残り秒数を86400で割って小数日を求め、残り% を割る。
+    # per day 予算の計算: 残り pp ÷ 残り日数（小数）
+    # 残り秒数を86400で割って小数日を求め、残り pp (= 100 - weekly_pct) を割る。
     if [ "$weekly_remaining_secs" -gt 0 ]; then
       remaining_pct=$(( 100 - weekly_pct_num ))
       weekly_per_day=$(printf '%.0f' "$(echo "$remaining_pct / ($weekly_remaining_secs / 86400)" | bc -l 2>/dev/null || echo 0)")
     fi
 
     # today セクションの描画
-    # T:消費% + 経過時間 + per day 予算を1セクションにまとめる。
-    # 出力例: T:5% ⏳6h30m 18%/d
+    # T:消費pp + 経過時間 + per day 予算 (pp/d) を1セクションにまとめる。
+    # 出力例: T:5pp ⏳6h30m 18pp/d
     if [ -n "$today_used" ] && [ -n "$today_elapsed" ]; then
       hourglass=$'\xef\x89\x92'  # nf-fa-hourglass_half (U+F252)
       pie_chart=$'\xef\x88\x80'  # nf-fa-pie_chart (U+F200)
@@ -318,12 +321,12 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
         fi
       fi
 
-      t_text="T:${today_used}% ${hourglass}${today_elapsed}"
-      t_fmt=$(printf '%bT:%s%%\033[0m \033[2m%s%s\033[0m' "$tcolor" "$today_used" "$hourglass" "$today_elapsed")
+      t_text="T:${today_used}pp ${hourglass}${today_elapsed}"
+      t_fmt=$(printf '%bT:%spp\033[0m \033[2m%s%s\033[0m' "$tcolor" "$today_used" "$hourglass" "$today_elapsed")
 
       if [ -n "$weekly_per_day" ]; then
-        t_text="${t_text} ${pie_chart}${weekly_per_day}%/d"
-        t_fmt="${t_fmt}$(printf ' \033[2m%s%s%%/d\033[0m' "$pie_chart" "$weekly_per_day")"
+        t_text="${t_text} ${pie_chart}${weekly_per_day}pp/d"
+        t_fmt="${t_fmt}$(printf ' \033[2m%s%spp/d\033[0m' "$pie_chart" "$weekly_per_day")"
       fi
 
       left_text="${left_text} │ ${t_text}"
