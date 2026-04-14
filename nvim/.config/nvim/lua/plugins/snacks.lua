@@ -191,6 +191,16 @@ return {
             { icon = " ", key = "q", desc = "Quit", action = ":qa" },
           },
         },
+        -- 1-pane 縦一列: header → keys → Recent Files → Projects → startup
+        -- snacks docs の 'files' example ベース。Recent Files と Projects を
+        -- dashboard に直接表示する (`r` キーは picker 起動、section は一覧表示)。
+        sections = {
+          { section = "header" },
+          { section = "keys", gap = 1, padding = 1 },
+          { icon = " ", title = "Recent Files", section = "recent_files", indent = 2, padding = { 2, 2 } },
+          { icon = " ", title = "Projects", section = "projects", indent = 2, padding = 2 },
+          { section = "startup" },
+        },
       },
     },
   },
