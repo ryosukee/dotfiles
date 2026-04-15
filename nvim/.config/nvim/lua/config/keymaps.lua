@@ -37,6 +37,19 @@ local function open_context_menu()
   -- 静的メニュー項目 + カーソル位置に応じた動的項目を構築
   local items = vim.deepcopy(context_menu_items)
 
+  -- カーソル位置に URL がある場合に項目を追加
+  -- (markdown の [text](url) も vim.ui._get_urls が解決する。PopUp.Open\ in\ web\ browser と同じ仕組み)
+  local ok_ui, ui = pcall(require, "vim.ui")
+  if ok_ui and ui._get_urls then
+    local urls = ui._get_urls()
+    local url = urls and urls[1]
+    if url and vim.startswith(url, "http") then
+      table.insert(items, { label = "Open in web browser", desc = "カーソル位置の URL / Markdown リンクをブラウザで開く", action = function()
+        vim.ui.open(url)
+      end })
+    end
+  end
+
   -- カーソル位置に画像/mermaid がある場合に項目を追加
   local has_image = false
   local image_src = nil
