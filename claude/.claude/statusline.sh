@@ -58,17 +58,20 @@
 #
 # 出力レイアウト（line1/line2 を │ で区切って並べる）:
 #   例:
-#     line1: 󰍛 ⣿⣇⣿⣿ 40% │ 󱇹 ⣿⣿⣿⣿ 20% 󰔟4h → 14:30 │ 󰃶 5pp 󰔟18h → 4:50 │ 󰨳 18pp/d ⣿²⁰⣇⁸▸⣇⁸⡀⁰⡀⁰⡀⁰⡀⁰ │ 󰨳 ⣿⣿⣇⣿ 15% 󰔟4d18h → 3/28·21:45
+#     line1: 󰁿 60% │ 󱇹 ⣿⣿⣿⣿ 20% 󰔟 4ʰ02ᵐ ➤ 14:30 │ 󰃶 5pp 󰔟 17ʰ59ᵐ ➤ 4:50 │ 󰨳 18pp/d ⣿²⁰⣇⁸▸⣇⁸⡀⁰⡀⁰⡀⁰⡀⁰ │ 󰨳 ⣿⣿⣇⣿ 15% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
 #     line2: ⚡ Opus 4.6 │ NORMAL │  main +3 !2 ?1 ⇡2 │ 📁 ~/ghq_root/github.com/foo/bar │ v2.1.83
 #
 #   line1（使用量系セクション、budget 専用）:
-#     - Ctx Window:   󰍛 ⣿⣇⣿⣿ 40%
-#                     icon (nf-md-memory U+F035B) + 4-char Braille (32 レベル解像度、
-#                     dim empty、subtle bg)
-#     - 5h Rate:      󱇹 ⣿⣿⣿⣿ 20% 󰔟4h → 14:30
+#     - Ctx Window:   󰁿 60%
+#                     battery glyph (nf-md-battery-* 10 段階 + alert) + 残量 % で表示。
+#                     used 0% → 󰁹 100% / used 100% → 󰂃 0% と inverted mapping。
+#                     視覚 (battery) と数値 (残量 %) が一致してスマホ感覚で読める。
+#                     memory icon は廃止し、battery 自体が section identifier を兼ねる。
+#     - 5h Rate:      󱇹 ⣿⣿⣿⣿ 20% 󰔟 4ʰ02ᵐ ➤ 14:30
 #                     icon (nf-md-clock-time-five U+F11F9) + Braille 4-char 使用率 +
-#                     5-cell progress block (1h/cell) + 残り時間 + 終了時刻
-#     - Today:        󰃶 5pp 󰔟18h → 4:50
+#                     残り時間 (hourglass + superscript 表記 `Nʰ NNᵐ`) + 終了時刻 (➤ + `HH:MM`)
+#                     残り時間は muted cyan、終了時刻は muted amber、icon は dim で色分け
+#     - Today:        󰃶 5pp 󰔟 17ʰ59ᵐ ➤ 4:50
 #                     T icon (nf-md U+F00F6) + 消費 pp +
 #                     6-cell progress block (elapsed/24h 比例) +
 #                     残り時間 (nf-md-hourglass + ラベル) + cycle day 終了時刻
@@ -85,10 +88,11 @@
 #                     過去・未来は薄色、today は通常色 (色は per-day budget 比で緑/黄/赤)。
 #                     󱞩 (nf-md U+F17A9) は today の位置を示すマーカー。
 #                     週次リセット検出時は全クリアされて Day 1 からやり直しになる。
-#     - Weekly Rate:  󰨳 ⣿⣿⣇⣿ 15% 󰔟4d18h → 3/28·21:45
+#     - Weekly Rate:  󰨳 ⣿⣿⣇⣿ 15% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
 #                     W icon (nf-md U+F0A33) + Braille 4-char 使用率 +
-#                     残り時間 (砂時計アイコン + ラベル) + リセット日
-#                     残り時間は最大単位＋次単位で表示 (4d18h / 18h30m / 45m)
+#                     残り時間 (砂時計アイコン + superscript ラベル) + リセット日
+#                     最大単位＋次単位を superscript で繋ぐ (4ᵈ18ʰ / 18ʰ30ᵐ / 45ᵐ)
+#                     分/時は 2 桁 zero-pad で幅を揃える (10ʰ02ᵐ 等)
 #                     Nerd Font アイコン: 󰔟 (U+F051F) 砂時計
 #   line2（環境情報系）:
 #     - Model:        ⚡ Opus 4.6
@@ -179,13 +183,54 @@ fi
 braille_levels=(⠀ ⡀ ⣀ ⣄ ⣤ ⣦ ⣶ ⣷ ⣿)
 BRAILLE_BG='\033[48;5;234m'
 
-# 期日/残り時間系 (Today/5h/Weekly の remaining・end time) 用のマイルドカラー
-# italic + 256-103 (muted violet)。dim より明るく section color より控えめ。
+# 期日/残り時間系のマイルドカラー (Today/5h/Weekly で共通)。
+# 数値に色を寄せて icon は dim にするほうが視線誘導しやすいので、
+# remaining (Nh Nm) / end time (HH:MM や M/D) / icon (󰔟・➤) で 3 分割する。
+META_REMAINING='\033[3;38;5;110m'  # italic + muted cyan (残り時間)
+META_ENDTIME='\033[3;38;5;179m'    # italic + muted amber (リセット時刻)
+META_ICON='\033[2;38;5;244m'       # dim gray (icon マーカー)
+
+# 7d sparkline の today マーカー (󱞩) 用。使用量系の meta 色とは別立てで、
+# 「現在位置を指すポインタ」として violet italic に残している。
 SOFT_META='\033[3;38;5;103m'
 
 # セクション識別アイコン用の固定色 (bright green = severity 緑と同色、非 severity な固定色)
 # Ctx / 5h / Today / 7d / Weekly のアイコンに共通適用。
 SECTION_ICON='\033[92m'
+
+# 使用率 (0-100) を battery glyph に変換する。
+# Nerd Font Material Design Icons の battery は 0%〜100% を 10 刻みの
+# 10 段階 + alert (空) の計 11 段階。used_percentage を 100-used = 残量に
+# 反転してマップする。残量 0 (=used 100%) は alert glyph で警告表現。
+_battery_for_used() {
+  local used="$1"
+  if [ "$used" -ge 95 ]; then printf '\xf3\xb0\x82\x83'   # 󰂃 alert (rem 0-5%)
+  elif [ "$used" -ge 85 ]; then printf '\xf3\xb0\x81\xba' # 󰁺 10%
+  elif [ "$used" -ge 75 ]; then printf '\xf3\xb0\x81\xbb' # 󰁻 20%
+  elif [ "$used" -ge 65 ]; then printf '\xf3\xb0\x81\xbc' # 󰁼 30%
+  elif [ "$used" -ge 55 ]; then printf '\xf3\xb0\x81\xbd' # 󰁽 40%
+  elif [ "$used" -ge 45 ]; then printf '\xf3\xb0\x81\xbe' # 󰁾 50%
+  elif [ "$used" -ge 35 ]; then printf '\xf3\xb0\x81\xbf' # 󰁿 60%
+  elif [ "$used" -ge 25 ]; then printf '\xf3\xb0\x82\x80' # 󰂀 70%
+  elif [ "$used" -ge 15 ]; then printf '\xf3\xb0\x82\x81' # 󰂁 80%
+  elif [ "$used" -ge 5 ]; then printf '\xf3\xb0\x82\x82'  # 󰂂 90%
+  else printf '\xf3\xb0\x81\xb9'                          # 󰁹 100% (full)
+  fi
+}
+
+# remaining 文字列を superscript 表記に変換する。
+# 例: "4h 29m" → "4ʰ29ᵐ"、"4d 17h" → "4ᵈ17ʰ"、"45m" → "45ᵐ"
+# Unicode superscript: ʰ (U+02B0) / ᵐ (U+1D50) / ᵈ (U+1D48)。
+# 単位文字を上付きに落として数字主体にすると、`h` / `m` / `d` / space の
+# ノイズが減って一瞥で読める。wall clock `HH:MM` とも形が被らない。
+_to_superscript() {
+  local s="$1"
+  s="${s// /}"
+  s="${s//h/ʰ}"
+  s="${s//m/ᵐ}"
+  s="${s//d/ᵈ}"
+  printf '%s' "$s"
+}
 
 _braille_color_for() {
   local p="$1"
@@ -229,12 +274,15 @@ _render_braille_bar() {
 # -----------------------------------------------------------------------------
 if [ -n "$used" ] && [ "$used" != "null" ]; then
   pct=$(printf '%.0f' "$used")
-  ctx_bar_fmt=$(_render_braille_bar "$pct")
+  ctx_battery=$(_battery_for_used "$pct")
   ctx_color=$(_braille_color_for "$pct")
-  ctx_icon=$'\xf3\xb0\x8d\x9b'  # nf-md-memory (U+F035B)
-  # icon は SECTION_ICON (固定色、非 severity)、bar と % のみ severity
-  left_text="${left_text} │ ${ctx_icon} ⣿⣿⣿⣿ ${pct}%"
-  left_fmt="${left_fmt} \033[2m│\033[0m $(printf '%b%s\033[0m' "$SECTION_ICON" "$ctx_icon") ${ctx_bar_fmt} $(printf '%b%s%%\033[0m' "$ctx_color" "$pct")"
+  # 数値も battery glyph と揃えて残量 % で表示する。視覚 (battery 残量) と
+  # 数値 (残量 %) が一致してスマホ/ノート PC のバッテリー UI と同じ規約になる。
+  ctx_remaining=$(( 100 - pct ))
+  [ "$ctx_remaining" -lt 0 ] && ctx_remaining=0
+  left_text="${left_text} │ ${ctx_battery} ${ctx_remaining}%"
+  left_fmt="${left_fmt} \033[2m│\033[0m $(printf '%b%s\033[0m %b%s%%\033[0m' \
+    "$ctx_color" "$ctx_battery" "$ctx_color" "$ctx_remaining")"
 fi
 
 # -----------------------------------------------------------------------------
@@ -269,12 +317,13 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     five_rem=$(( ${five_resets_at%.*} - five_now ))
     [ "$five_rem" -lt 0 ] && five_rem=0
     [ "$five_rem" -gt "$five_cycle_sec" ] && five_rem=$five_cycle_sec
-    # 残り時間 (Nh / NhMm / Nm)
+    # 残り時間 (Nh / Nh NNm / Nm)。単位間は空白 + 分は zero-pad で幅を揃える。
     fr_h=$(( five_rem / 3600 ))
     fr_m=$(( (five_rem % 3600) / 60 ))
-    if [ "$fr_h" -gt 0 ]; then
+    if [ "$fr_h" -gt 0 ] && [ "$fr_m" -gt 0 ]; then
+      five_remaining_str=$(printf '%dh %02dm' "$fr_h" "$fr_m")
+    elif [ "$fr_h" -gt 0 ]; then
       five_remaining_str="${fr_h}h"
-      [ "$fr_m" -gt 0 ] && five_remaining_str="${five_remaining_str}${fr_m}m"
     else
       five_remaining_str="${fr_m}m"
     fi
@@ -290,14 +339,16 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
   left_fmt="${left_fmt} \033[2m│\033[0m $(printf '%b%s\033[0m %s %b%s%%\033[0m' "$SECTION_ICON" "$five_icon" "$five_braille" "$scolor" "$session_pct")"
 
   if [ -n "$five_remaining_str" ]; then
-    left_text="${left_text} ${hourglass_5h}${five_remaining_str}"
-    left_fmt="${left_fmt}$(printf ' %b%s%s\033[0m' "$SOFT_META" "$hourglass_5h" "$five_remaining_str")"
+    five_remaining_sup=$(_to_superscript "$five_remaining_str")
+    left_text="${left_text} ${hourglass_5h} ${five_remaining_sup}"
+    left_fmt="${left_fmt}$(printf ' %b%s\033[0m %b%s\033[0m' \
+      "$META_ICON" "$hourglass_5h" "$META_REMAINING" "$five_remaining_sup")"
   fi
 
   if [ -n "$session_reset" ]; then
-    # 5h のみ arrowhead 左だけスペース (hourglass から離す)、右は詰める
-    left_text="${left_text} ➤${session_reset}"
-    left_fmt="${left_fmt}$(printf ' %b➤%s\033[0m' "$SOFT_META" "$session_reset")"
+    left_text="${left_text} ➤ ${session_reset}"
+    left_fmt="${left_fmt}$(printf ' %b➤\033[0m %b%s\033[0m' \
+      "$META_ICON" "$META_ENDTIME" "$session_reset")"
   fi
 
   # ---------------------------------------------------------------------------
@@ -318,17 +369,19 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     weekly_remaining_secs=$(( ${weekly_resets_at%.*} - $(date +%s) ))
     [ "$weekly_remaining_secs" -lt 0 ] && weekly_remaining_secs=0
 
-    # 残り時間を最大単位＋次単位にフォーマットする。
-    # 1日以上: XdYh (0h なら Xd)  /  1時間以上: XhYm (0m なら Xh)  /  1時間未満: Xm
+    # 残り時間を最大単位＋次単位にフォーマットする。単位間は空白 + 2桁 zero-pad で揃える。
+    # 1日以上: `Nd NNh` (0h なら Nd) / 1時間以上: `Nh NNm` (0m なら Nh) / 1時間未満: Nm
     wr_days=$(( weekly_remaining_secs / 86400 ))
     wr_hours=$(( (weekly_remaining_secs % 86400) / 3600 ))
     wr_mins=$(( (weekly_remaining_secs % 3600) / 60 ))
-    if [ "$wr_days" -gt 0 ]; then
+    if [ "$wr_days" -gt 0 ] && [ "$wr_hours" -gt 0 ]; then
+      weekly_remaining=$(printf '%dd %02dh' "$wr_days" "$wr_hours")
+    elif [ "$wr_days" -gt 0 ]; then
       weekly_remaining="${wr_days}d"
-      [ "$wr_hours" -gt 0 ] && weekly_remaining="${weekly_remaining}${wr_hours}h"
+    elif [ "$wr_hours" -gt 0 ] && [ "$wr_mins" -gt 0 ]; then
+      weekly_remaining=$(printf '%dh %02dm' "$wr_hours" "$wr_mins")
     elif [ "$wr_hours" -gt 0 ]; then
       weekly_remaining="${wr_hours}h"
-      [ "$wr_mins" -gt 0 ] && weekly_remaining="${weekly_remaining}${wr_mins}m"
     else
       weekly_remaining="${wr_mins}m"
     fi
@@ -462,9 +515,10 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     [ "$elapsed_secs" -gt 86400 ] && elapsed_secs=86400
     el_hours=$(( elapsed_secs / 3600 ))
     el_mins=$(( (elapsed_secs % 3600) / 60 ))
-    if [ "$el_hours" -gt 0 ]; then
+    if [ "$el_hours" -gt 0 ] && [ "$el_mins" -gt 0 ]; then
+      today_elapsed=$(printf '%dh %02dm' "$el_hours" "$el_mins")
+    elif [ "$el_hours" -gt 0 ]; then
       today_elapsed="${el_hours}h"
-      [ "$el_mins" -gt 0 ] && today_elapsed="${today_elapsed}${el_mins}m"
     else
       today_elapsed="${el_mins}m"
     fi
@@ -548,9 +602,10 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
       [ "$today_remaining_secs" -lt 0 ] && today_remaining_secs=0
       tr_h=$(( today_remaining_secs / 3600 ))
       tr_m=$(( (today_remaining_secs % 3600) / 60 ))
-      if [ "$tr_h" -gt 0 ]; then
+      if [ "$tr_h" -gt 0 ] && [ "$tr_m" -gt 0 ]; then
+        today_remaining_str=$(printf '%dh %02dm' "$tr_h" "$tr_m")
+      elif [ "$tr_h" -gt 0 ]; then
         today_remaining_str="${tr_h}h"
-        [ "$tr_m" -gt 0 ] && today_remaining_str="${today_remaining_str}${tr_m}m"
       else
         today_remaining_str="${tr_m}m"
       fi
@@ -559,13 +614,18 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
       today_end_time=$(date -r "$today_end_epoch" "+%-H:%M" 2>/dev/null)
 
       # T-icon + Npp + remaining + 終了時刻
-      # severity color は Npp のみに適用。
-      # icon は SECTION_ICON、remaining/end time は SOFT_META。
-      t_text="${today_icon} ${today_used}pp ${hourglass}${today_remaining_str} ➤${today_end_time}"
-      t_fmt=$(printf '%b%s\033[0m %b%spp\033[0m %b%s%s ➤%s\033[0m' \
+      # severity color は Npp のみ。icon は SECTION_ICON、
+      # 󰔟/➤ は META_ICON (dim gray)、残り時間は META_REMAINING (cyan)、
+      # 終了時刻は META_ENDTIME (amber) で色分けして数値を主役にする。
+      today_remaining_sup=$(_to_superscript "$today_remaining_str")
+      t_text="${today_icon} ${today_used}pp ${hourglass} ${today_remaining_sup} ➤ ${today_end_time}"
+      t_fmt=$(printf '%b%s\033[0m %b%spp\033[0m %b%s\033[0m %b%s\033[0m %b➤\033[0m %b%s\033[0m' \
         "$SECTION_ICON" "$today_icon" \
         "$tcolor" "$today_used" \
-        "$SOFT_META" "$hourglass" "$today_remaining_str" "$today_end_time")
+        "$META_ICON" "$hourglass" \
+        "$META_REMAINING" "$today_remaining_sup" \
+        "$META_ICON" \
+        "$META_ENDTIME" "$today_end_time")
 
       left_text="${left_text} │ ${t_text}"
       left_fmt="${left_fmt} \033[2m│\033[0m ${t_fmt}"
@@ -591,13 +651,16 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     w_fmt=$(printf '%b%s\033[0m %s %b%s%%\033[0m' "$SECTION_ICON" "$week_icon" "$weekly_braille" "$wcolor" "$weekly_pct")
 
     if [ -n "$weekly_remaining" ]; then
-      w_text="${w_text} ${hourglass_r}${weekly_remaining}"
-      w_fmt="${w_fmt}$(printf ' %b%s%s\033[0m' "$SOFT_META" "$hourglass_r" "$weekly_remaining")"
+      weekly_remaining_sup=$(_to_superscript "$weekly_remaining")
+      w_text="${w_text} ${hourglass_r} ${weekly_remaining_sup}"
+      w_fmt="${w_fmt}$(printf ' %b%s\033[0m %b%s\033[0m' \
+        "$META_ICON" "$hourglass_r" "$META_REMAINING" "$weekly_remaining_sup")"
     fi
 
     if [ -n "$weekly_reset" ]; then
-      w_text="${w_text} ➤${weekly_reset}"
-      w_fmt="${w_fmt}$(printf ' %b➤%s\033[0m' "$SOFT_META" "$weekly_reset")"
+      w_text="${w_text} ➤ ${weekly_reset}"
+      w_fmt="${w_fmt}$(printf ' %b➤\033[0m %b%s\033[0m' \
+        "$META_ICON" "$META_ENDTIME" "$weekly_reset")"
     fi
 
     # weekly は 7d sparkline の後に append する (順序: 7d → weekly)
