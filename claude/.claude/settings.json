@@ -97,40 +97,6 @@
     ]
   },
   "model": "opus[1m]",
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/hooks/deny-netrc-write.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/hooks/deny-netrc-write.sh"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/hooks/markdownlint-post.sh",
-            "statusMessage": "markdownlint checking..."
-          }
-        ]
-      }
-    ]
-  },
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh",
@@ -144,7 +110,10 @@
     "gitdiff@cc-tools": true,
     "dotclaude@cc-tools": true,
     "plugin-update@cc-tools": true,
-    "session-retrospective@cc-tools": true
+    "session-retrospective@cc-tools": true,
+    "markdownlint@cc-tools": true,
+    "mkdocs-setup@cc-tools": true,
+    "security-guards@cc-tools": true
   },
   "sandbox": {
     "filesystem": {
