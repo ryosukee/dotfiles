@@ -2,8 +2,9 @@
 -- diffview.nvim 設定
 --
 -- Claude Code のローカルレビューワークフロー用カスタマイズ:
---   - file_panel での `x` トグルで「既読 (✓)」マークを付ける
---   - マーク状態は blob hash 付きで `.git/claude-review/checked.json` に永続化
+--   - file_panel での `x` トグルで「既読 (✓)」マークを付ける (file 行のみ; dir 行は no-op)
+--   - dir の ✓ は配下 file の状態から毎回 derive される (AND 集約; 1 つでも未 viewed なら外れる)
+--   - マーク状態は blob hash 付きで `.git/claude-review/checked.json` に永続化 (file のみ)
 --     → 同じ内容なら ✓ 復元、内容が変わったら自動で ✓ 消える
 --   - `<leader>dM` で working tree を snapshot し `refs/claude-review/head` として保存
 --     → 以降の `<leader>do` は前回 mark との差分を表示 (GitHub "Viewed since last review" 相当)
@@ -80,6 +81,57 @@ local function state_file()
   local d = git_dir()
   if not d then return nil end
   return d .. "/claude-review/checked.json"
+end
+
+-- 指定 comp 以下の leaf file が全て viewed なら true、1 つでも未 viewed なら false。
+-- leaf が無い subtree は nil (親側の AND で無視)。
+-- 副作用: directory comp の key (ctx.path) を配下ファイルの AND 結果で更新する。
+-- file 側の viewed 状態は読み取るだけ (書き換えない)。
+local function recompute_subtree(comp, viewed)
+  if not comp then return nil end
+
+  if comp.name == "file" then
+    local path = comp.context and comp.context.path
+    if not path then return nil end
+    return viewed[path] == true
+  end
+
+  if comp.name == "directory" then
+    local items = comp.components and comp.components[2]
+    local all_viewed = recompute_subtree(items, viewed)
+    local ctx = comp.context
+    local key = ctx and (ctx.path or ctx.name)
+    if key then
+      if all_viewed == true then viewed[key] = true else viewed[key] = nil end
+    end
+    return all_viewed
+  end
+
+  -- "files" / "items" コンテナ: 子の AND
+  if not comp.components or #comp.components == 0 then return nil end
+  local has_leaf, all = false, true
+  for _, child in ipairs(comp.components) do
+    local r = recompute_subtree(child, viewed)
+    if r ~= nil then
+      has_leaf = true
+      if r == false then all = false end
+    end
+  end
+  if not has_leaf then return nil end
+  return all
+end
+
+-- view 内の全セクション (working/staged/conflicting) に対して dir viewed を再計算
+local function recompute_all_dirs(view)
+  if not view or not view.panel or not view.panel.components then return end
+  _G._diffview_viewed = _G._diffview_viewed or {}
+  for _, section in ipairs({ "working", "staged", "conflicting" }) do
+    local root = view.panel.components[section]
+    local files_comp = root and root.files and root.files.comp
+    if files_comp then
+      recompute_subtree(files_comp, _G._diffview_viewed)
+    end
+  end
 end
 
 -- 単一 path の blob hash を非同期に計算して cb(sha, err) を呼ぶ
@@ -377,6 +429,9 @@ return {
             local key = get_comp_key(comp)
             if not key then return end
 
+            -- dir 行は no-op (dir の ✓ は配下 file の状態から derive されるだけ)
+            if not comp_is_file(comp) then return end
+
             _G._diffview_viewed = _G._diffview_viewed or {}
             local now_viewed
             if _G._diffview_viewed[key] then
@@ -386,14 +441,15 @@ return {
               _G._diffview_viewed[key] = true
               now_viewed = true
             end
+            persist_toggle_async(comp, key, now_viewed)
 
-            -- 1. 描画を先に反映 (in-memory 状態だけで描ける)
+            -- dir aggregate を file 状態から再計算
+            recompute_all_dirs(view)
+
+            -- 描画反映 (in-memory 状態だけで描ける)
             vim.schedule(function()
               _G._diffview_refresh_marks(view)
             end)
-
-            -- 2. 永続化は非同期 (git hash-object spawn が重いため)。エラー時のみ notify。
-            persist_toggle_async(comp, key, now_viewed)
           end,
         },
         file_history_panel = { ["q"] = "<Cmd>DiffviewClose<CR>" },
@@ -439,6 +495,9 @@ return {
 
         -- 常に既存マークをクリア (viewed が空でもクリアが必要)
         vim.api.nvim_buf_clear_namespace(bufid, ns, 0, -1)
+
+        -- 描画前に dir aggregate を再計算 (expand/collapse や flatten 変化で key がズレた場合も追従)
+        recompute_all_dirs(view)
 
         if not _G._diffview_viewed or not next(_G._diffview_viewed) then return end
 
