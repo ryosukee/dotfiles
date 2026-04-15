@@ -60,17 +60,17 @@
 #
 # 出力レイアウト（line1/line2 を │ で区切って並べる）:
 #   例:
-#     line1: 󰍛 ⣿⣇⣿⣿ 40% │ 󱇹 ⣿⣿⣿⣿ 20% ▰▱▱▱▱ 󰔟4h → 14:30 │ 󰃶 5pp ▰▰▰▱▱▱ 󰔟18h → 4:50 │ 󰨳 18pp/d ⣿²⁰⣇⁸▸⣇⁸⡀⁰⡀⁰⡀⁰⡀⁰ │ 󰨳 ⣿⣿⣇⣿ 15% 󰔟4d18h → 3/28
+#     line1: 󰍛 ⣿⣇⣿⣿ 40% │ 󱇹 ⣿⣿⣿⣿ 20% 󰔟4h → 14:30 │ 󰃶 5pp 󰔟18h → 4:50 │ 󰨳 18pp/d ⣿²⁰⣇⁸▸⣇⁸⡀⁰⡀⁰⡀⁰⡀⁰ │ 󰨳 ⣿⣿⣇⣿ 15% 󰔟4d18h → 3/28·21:45
 #     line2: ⚡ Opus 4.6 │ NORMAL │  main +3 !2 ?1 ⇡2 │ 📁 ~/ghq_root/github.com/foo/bar │ v2.1.83
 #
 #   line1（使用量系セクション、budget 専用）:
 #     - Ctx Window:   󰍛 ⣿⣇⣿⣿ 40%
 #                     icon (nf-md-memory U+F035B) + 4-char Braille (32 レベル解像度、
 #                     dim empty、subtle bg)
-#     - 5h Rate:      󱇹 ⣿⣿⣿⣿ 20% ▰▱▱▱▱ 󰔟4h → 14:30
+#     - 5h Rate:      󱇹 ⣿⣿⣿⣿ 20% 󰔟4h → 14:30
 #                     icon (nf-md-clock-time-five U+F11F9) + Braille 4-char 使用率 +
 #                     5-cell progress block (1h/cell) + 残り時間 + 終了時刻
-#     - Today:        󰃶 5pp ▰▰▰▱▱▱ 󰔟18h → 4:50
+#     - Today:        󰃶 5pp 󰔟18h → 4:50
 #                     T icon (nf-md U+F00F6) + 消費 pp +
 #                     6-cell progress block (elapsed/24h 比例) +
 #                     残り時間 (nf-md-hourglass + ラベル) + cycle day 終了時刻
@@ -87,7 +87,7 @@
 #                     過去・未来は薄色、today は通常色 (色は per-day budget 比で緑/黄/赤)。
 #                     󱞩 (nf-md U+F17A9) は today の位置を示すマーカー。
 #                     週次リセット検出時は全クリアされて Day 1 からやり直しになる。
-#     - Weekly Rate:  󰨳 ⣿⣿⣇⣿ 15% 󰔟4d18h → 3/28
+#     - Weekly Rate:  󰨳 ⣿⣿⣇⣿ 15% 󰔟4d18h → 3/28·21:45
 #                     W icon (nf-md U+F0A33) + Braille 4-char 使用率 +
 #                     残り時間 (砂時計アイコン + ラベル) + リセット日
 #                     残り時間は最大単位＋次単位で表示 (4d18h / 18h30m / 45m)
@@ -240,12 +240,10 @@ if [ -n "$used" ] && [ "$used" != "null" ]; then
 fi
 
 # -----------------------------------------------------------------------------
-# 左側: 5時間レートリミット使用率 + progress block + remaining icon + リセット時刻
-# 形式: 5h:NN% ⟨▰▱▱▱▱⟩ 󰔟Nh → HH:MM
-#   - ⟨progress⟩ : 5-cell progress block (1 cell = 1h、▰=elapsed、▱=remaining)
+# 左側: 5時間レートリミット使用率 + remaining icon + リセット時刻
+# 形式: 5h:NN% 󰔟Nh → HH:MM
 #   - 󰔟Nh        : 残り時間 (nf-md-hourglass + 時間ラベル)
 #   - → HH:MM    : cycle 終了時刻 (= five_resets_at の wall clock)
-# cycle_start = five_resets_at - 5*3600 と仮定 (5h cycle)。
 # 依存: jq, date
 # -----------------------------------------------------------------------------
 session_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
@@ -266,10 +264,6 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     scolor="\033[91m"
   fi
 
-  # 5h progress block: 5 cells、resets_at から逆算した elapsed を比例充填
-  five_pbar_w=5
-  five_filled_bar=""
-  five_empty_bar=""
   five_remaining_str=""
   if [ -n "$five_resets_at" ] && [ "$five_resets_at" != "null" ]; then
     five_cycle_sec=18000  # 5h = 5 * 3600
@@ -277,12 +271,6 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     five_rem=$(( ${five_resets_at%.*} - five_now ))
     [ "$five_rem" -lt 0 ] && five_rem=0
     [ "$five_rem" -gt "$five_cycle_sec" ] && five_rem=$five_cycle_sec
-    five_elapsed=$(( five_cycle_sec - five_rem ))
-    five_filled=$(( five_elapsed * five_pbar_w / five_cycle_sec ))
-    [ "$five_filled" -lt 0 ] && five_filled=0
-    [ "$five_filled" -gt "$five_pbar_w" ] && five_filled=$five_pbar_w
-    for ((i=0; i<five_filled; i++)); do five_filled_bar+="▰"; done
-    for ((i=five_filled; i<five_pbar_w; i++)); do five_empty_bar+="▱"; done
     # 残り時間 (Nh / NhMm / Nm)
     fr_h=$(( five_rem / 3600 ))
     fr_m=$(( (five_rem % 3600) / 60 ))
@@ -303,13 +291,6 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
   left_text="${left_text} │ ${five_icon} ⣿⣿⣿⣿ ${session_pct}%"
   left_fmt="${left_fmt} \033[2m│\033[0m $(printf '%b%s\033[0m %s %b%s%%\033[0m' "$SECTION_ICON" "$five_icon" "$five_braille" "$scolor" "$session_pct")"
 
-  if [ -n "$five_filled_bar$five_empty_bar" ]; then
-    # 囲みなし (▰▱ の形状で境界明確)、severity 色なし (時間経過は severity 概念外)
-    left_text="${left_text} ${five_filled_bar}${five_empty_bar}"
-    left_fmt="${left_fmt}$(printf ' %s\033[2m%s\033[0m' \
-      "$five_filled_bar" "$five_empty_bar")"
-  fi
-
   if [ -n "$five_remaining_str" ]; then
     left_text="${left_text} ${hourglass_5h}${five_remaining_str}"
     left_fmt="${left_fmt}$(printf ' %b%s%s\033[0m' "$SOFT_META" "$hourglass_5h" "$five_remaining_str")"
@@ -329,13 +310,13 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
   # ---------------------------------------------------------------------------
   weekly_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
   weekly_resets_at=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
-  weekly_reset=""          # リセット日時の表示文字列 (例: 3/28)
+  weekly_reset=""          # リセット日時の表示文字列 (例: 3/28·21:45)
   weekly_remaining=""      # 残り時間の表示文字列 (例: 4d18h)
   weekly_remaining_secs=0  # 残り秒数（per day 計算用）
   weekly_per_day=""        # 1日あたりの予算 pp (例: 18)
 
   if [ -n "$weekly_resets_at" ] && [ "$weekly_resets_at" != "null" ]; then
-    weekly_reset=$(date -r "${weekly_resets_at%.*}" "+%-m/%-d" 2>/dev/null)
+    weekly_reset=$(date -r "${weekly_resets_at%.*}" "+%-m/%-d·%H:%M" 2>/dev/null)
     weekly_remaining_secs=$(( ${weekly_resets_at%.*} - $(date +%s) ))
     [ "$weekly_remaining_secs" -lt 0 ] && weekly_remaining_secs=0
 
@@ -512,14 +493,13 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
       weekly_per_day=$(printf '%.0f' "$(echo "$remaining_pct / ($weekly_remaining_secs / 86400)" | bc -l 2>/dev/null || echo 0)")
     fi
 
-    # today セクションの描画 (progress block + remaining icon)
-    # 形式: <T-icon>Npp ⟨▰...▱⟩ 󰔟Nh → HH:MM
+    # today セクションの描画 (remaining icon + 終了時刻)
+    # 形式: <T-icon>Npp 󰔟Nh → HH:MM
     #   - <T-icon>Npp  : 今日の消費 (T icon = nf-md U+F00F6)
-    #   - ⟨progress⟩   : 6-cell progress block (▰=elapsed 比例、▱=remaining)
     #   - 󰔟Nh          : 残り時間 (nf-md-hourglass + 時間ラベル)
     #   - → HH:MM      : cycle day 終了時刻 (wall clock)
     # per day 予算 (pp/d) は 7d Spark セクションの先頭に配置。
-    # 色分け: per day 予算比で緑→黄→赤 (progress 塗り + Npp に適用)
+    # 色分け: per day 予算比で緑→黄→赤 (Npp に適用)
     if [ -n "$today_used" ]; then
       hourglass=$'\xf3\xb0\x94\x9f'  # nf-md-hourglass (U+F051F)
       today_icon=$'\xf3\xb0\x83\xb6'  # nf-md U+F00F6 (today)
@@ -537,16 +517,6 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
         fi
       fi
 
-      # Progress block: 6 cells、elapsed_secs / 86400 比例で ▰ 充填
-      today_pbar_w=6
-      today_filled=$(( elapsed_secs * today_pbar_w / 86400 ))
-      [ "$today_filled" -lt 0 ] && today_filled=0
-      [ "$today_filled" -gt "$today_pbar_w" ] && today_filled=$today_pbar_w
-      today_pbar_filled=""
-      today_pbar_empty=""
-      for ((i=0; i<today_filled; i++)); do today_pbar_filled+="▰"; done
-      for ((i=today_filled; i<today_pbar_w; i++)); do today_pbar_empty+="▱"; done
-
       # 残り時間と終了時刻
       today_remaining_secs=$(( 86400 - elapsed_secs ))
       [ "$today_remaining_secs" -lt 0 ] && today_remaining_secs=0
@@ -562,16 +532,13 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
       today_end_epoch=$(( current_day_start + 86400 ))
       today_end_time=$(date -r "$today_end_epoch" "+%-H:%M" 2>/dev/null)
 
-      # T-icon + Npp + progress block + remaining + 終了時刻 (pp/d は 7d セクションへ移動)
-      # progress block は囲みなし (▰▱ の形状で境界明確)、severity 色なし (時間経過は
-      # severity 概念に該当しない)。severity color は Npp のみに適用。
-      # icon は SECTION_ICON、filled progress は default、empty progress は dim、
-      # remaining/end time は SOFT_META。
-      t_text="${today_icon} ${today_used}pp ${today_pbar_filled}${today_pbar_empty} ${hourglass}${today_remaining_str} ➤${today_end_time}"
-      t_fmt=$(printf '%b%s\033[0m %b%spp\033[0m %s\033[2m%s\033[0m %b%s%s ➤%s\033[0m' \
+      # T-icon + Npp + remaining + 終了時刻
+      # severity color は Npp のみに適用。
+      # icon は SECTION_ICON、remaining/end time は SOFT_META。
+      t_text="${today_icon} ${today_used}pp ${hourglass}${today_remaining_str} ➤${today_end_time}"
+      t_fmt=$(printf '%b%s\033[0m %b%spp\033[0m %b%s%s ➤%s\033[0m' \
         "$SECTION_ICON" "$today_icon" \
         "$tcolor" "$today_used" \
-        "$today_pbar_filled" "$today_pbar_empty" \
         "$SOFT_META" "$hourglass" "$today_remaining_str" "$today_end_time")
 
       left_text="${left_text} │ ${t_text}"
@@ -583,7 +550,7 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     # 使用率を Braille 4-char バー (Ctx/5h と同じヘルパ) で表示。
     # 色分けは使用率で緑→黄→赤（他バーと共通）。
     # 依存: _render_braille_bar, _braille_color_for
-    # 出力例: 󰨳 ⣿⣿⣇⣿ 15% 󰔟4d18h → 3/28
+    # 出力例: 󰨳 ⣿⣿⣇⣿ 15% 󰔟4d18h → 3/28·21:45
     # -------------------------------------------------------------------------
     weekly_pct=$(printf '%.0f' "$weekly_pct")
     weekly_braille=$(_render_braille_bar "$weekly_pct")
