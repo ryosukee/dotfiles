@@ -29,27 +29,25 @@
 #       ステータスライン表示には不要だが、毎回 GitHub API を叩かないための最適化。
 #       削除しても次回実行時に再生成される。
 #   - $XDG_STATE_HOME/claude-status/weekly-snapshot.json (デフォルト ~/.local/state/)
-#       現 weekly cycle 内の cycle day 別 pp 消費スナップショット。
-#       再起動で消えないよう /tmp ではなく state dir に置く。旧 /tmp/claude-status/
-#       のスナップショット (v1/v2) はスキーマ非互換のため削除して仕切り直す。
-#       スキーマ v3:
+#       各 cycle day の「朝 (day 境界時) の weekly_pct」のスタック。
+#       再起動で消えないよう /tmp ではなく state dir に置く。旧スキーマ (v1/v2/v3)
+#       は削除して v4 で仕切り直す。
+#       スキーマ v4:
 #         {
-#           "version": 3,
-#           "cycle": {
-#             "ends_at": 1714089600,          現 cycle の resets_at (検出キー)
-#             "day_idx": 3,                   現 cycle day (1..7)
-#             "day_start_epoch": 1713657600,  この cycle day スロット開始 epoch
-#             "base_pct": 8,                  day_start 時点の weekly used%
-#             "last_pct": 20,                 最後に観測した weekly used%
-#             "ts_observed": 1713700800       最終観測 epoch
-#           },
-#           "days": [                         最大 6 件 (最新が先頭)
-#             { "day_idx": 2, "pp": 8 },
-#             { "day_idx": 1, "pp": 20 }
+#           "version": 4,
+#           "history": [                     newest-first、最大 7 件
+#             { "day_start_ts": 1713657600, "morning_pct": 24 },  // 今日
+#             { "day_start_ts": 1713571200, "morning_pct": 18 },  // 昨日
+#             ...
 #           ]
 #         }
-#       Cycle 整合性: current_resets_at > cycle.ends_at を検出したら cycle 丸ごと
-#       クリアして Day 1 から再スタート (sparkline も全クリア)。
+#       設計方針: cycle_end (ends_at), day_idx, day_start_epoch, 現 weekly_pct,
+#       ts_observed 等は state に持たず、毎回 Claude Code の JSON から derive する。
+#       状態として持つと整合性ズレが起きやすい (旧 v3 で ends_at だけ新 cycle、
+#       day_idx は旧 cycle に残るバグが発生した)。
+#       更新トリガ: (a) 初回、(b) day 進行、(c) cycle 切替 (head が前 cycle 所属)。
+#       それ以外は書き込みゼロ。
+#       Sparkline の gap 日は空バー、diff は earlier entry に集約して計算。
 #       削除しても次回実行時に再生成される。
 #
 # 外部ファイル（書き出しのみ — 外部ツール連携用）:
@@ -340,19 +338,36 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
   # 左側: 今日の消費ポイント (today セクション) + cycle day 履歴
   # weekly cycle (7 日) 内の 24h スロットを 1 day として扱う。
   # Day 境界は resets_at から逆算した 24h 間隔 (カレンダー 0:00 ではない)。
-  # 週次リセット検出 (current_resets_at が snap_ends_at より進む) → cycle 丸ごと
-  # クリアし Day 1 からやり直し。sparkline も全クリア。
-  # Day 境界検出 (current_day_idx > snap_day_idx) → 旧 day を finalize し days[]
-  # に prepend、新 day 開始。
+  #
+  # === State 設計 (v4) ===
+  # 持つべき状態: 各 day の「朝 (= day 境界時) の weekly_pct」のスタックのみ。
+  #   history: [{day_start_ts, morning_pct}, ...] newest-first、最大 7 エントリ
+  # cycle 情報 (ends_at, day_idx, day_start) や現時点の weekly_pct は JSON から
+  # 毎回 derive。state に持たない (持つと整合性ズレが起きる、旧 v3 で発生した
+  # 「ends_at は新 cycle なのに day_idx は旧 cycle」等のバグの元)。
+  #
+  # === State 更新ルール ===
+  # 1. history 空                               → push 新 entry
+  # 2. head.day_start_ts < cycle_start         → 前 cycle 所属。破棄して新 cycle
+  #                                              初日として仕切り直し
+  # 3. current_day_start > head.day_start_ts   → day 進行 (同 cycle)。push
+  # 4. current_day_start < head.day_start_ts   → backward (stale 入力) → skip
+  # 5. 同日                                      → skip (書き込みゼロ)
+  #
+  # Cycle 跨ぎでは旧 cycle の最終日を finalize しない (不正確な値になる)。
+  # Sparkline で gap がある日は空バー表示、diff は earlier (古い) entry の使用量
+  # として計上 (user 指定動作)。
+  #
   # 統計情報永続化のため /tmp ではなく $XDG_STATE_HOME/claude-status/ に置く。
-  # 旧 /tmp/claude-status/weekly-snapshot.json (v1/v2) があれば破棄して仕切り直し。
+  # 旧 /tmp/claude-status/weekly-snapshot.json (v1/v2) および v3 snap があれば
+  # 破棄して v4 で仕切り直し。
   # 依存: jq, date, bc
-  # 読み書き: $XDG_STATE_HOME/claude-status/weekly-snapshot.json (v3 スキーマ)
+  # 読み書き: $XDG_STATE_HOME/claude-status/weekly-snapshot.json (v4 スキーマ)
   # 出力例: T:5pp ⏳6h30m 18pp/d
   # ---------------------------------------------------------------------------
-  today_used=""            # 今日 (cycle day) の消費 pp
+  today_used=""            # 今日の消費 pp (= weekly_pct - history[0].morning_pct)
   today_elapsed=""         # cycle day の開始からの経過時間 (例: 6h30m)
-  today_history_json="[]"  # sparkline 描画用 (JSON array、newest-first、{day_idx, pp})
+  today_history_json="[]"  # JSON 出力用 (per-day pp list、v3 互換形式)
 
   STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/claude-status"
   SNAPSHOT_FILE="${STATE_DIR}/weekly-snapshot.json"
@@ -373,107 +388,75 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
 
     mkdir -p "$STATE_DIR"
 
-    # 旧 /tmp スナップショット (v1/v2) があれば削除 (スキーマ非互換のため仕切り直し)
-    if [ -f "$OLD_SNAPSHOT_FILE" ]; then
-      rm -f "$OLD_SNAPSHOT_FILE"
-    fi
+    # legacy snapshot 掃除
+    [ -f "$OLD_SNAPSHOT_FILE" ] && rm -f "$OLD_SNAPSHOT_FILE"
+    # 古い tmp ファイル掃除 (5 分以上放置されてるものは orphan とみなす)
+    find "$STATE_DIR" -name "weekly-snapshot.json.tmp.*" -mmin +5 -delete 2>/dev/null || true
 
-    # スナップショット読み取り (v3 以外は fresh start)
-    snap_version=0
-    snap_ends_at=""
-    snap_day_idx=""
-    snap_day_start=""
-    snap_base=""
-    snap_last=""
-    snap_ts_obs=""
-    snap_days="[]"
+    # スナップショット読み取り (v4 のみ、それ以外は fresh start)
+    history_json="[]"
     if [ -f "$SNAPSHOT_FILE" ]; then
       snap_version=$(jq -r '.version // 0' "$SNAPSHOT_FILE" 2>/dev/null)
-      if [ "$snap_version" = "3" ]; then
-        snap_ends_at=$(jq -r '.cycle.ends_at // empty' "$SNAPSHOT_FILE" 2>/dev/null)
-        snap_day_idx=$(jq -r '.cycle.day_idx // empty' "$SNAPSHOT_FILE" 2>/dev/null)
-        snap_day_start=$(jq -r '.cycle.day_start_epoch // empty' "$SNAPSHOT_FILE" 2>/dev/null)
-        snap_base=$(jq -r '.cycle.base_pct // empty' "$SNAPSHOT_FILE" 2>/dev/null)
-        snap_last=$(jq -r '.cycle.last_pct // empty' "$SNAPSHOT_FILE" 2>/dev/null)
-        snap_ts_obs=$(jq -r '.cycle.ts_observed // empty' "$SNAPSHOT_FILE" 2>/dev/null)
-        snap_days=$(jq -c '.days // []' "$SNAPSHOT_FILE" 2>/dev/null)
+      if [ "$snap_version" = "4" ]; then
+        loaded=$(jq -c '.history // []' "$SNAPSHOT_FILE" 2>/dev/null)
+        [ -n "$loaded" ] && history_json="$loaded"
       fi
     fi
 
-    # === Cycle 整合性チェック ===
-    # 初回 / 週次リセット検出 (current > snap_ends_at) → cycle 全リセット
-    # Cycle 開始時の weekly_pct は 0 なので base=0 で統一 (mid-cycle で初回観測した
-    # 場合も pre-observation 分は今日に合算される: last - 0 = current_pct)
-    if [ -z "$snap_ends_at" ] || [ "$snap_ends_at" = "0" ] \
-       || [ "$current_resets_at" -gt "$snap_ends_at" ] 2>/dev/null; then
-      snap_ends_at=$current_resets_at
-      snap_day_idx=$current_day_idx
-      snap_day_start=$current_day_start
-      snap_base=0
-      snap_last=$weekly_pct_num
-      snap_ts_obs=$now_ts
-      snap_days="[]"
-    # === Day 境界チェック ===
-    # cycle 内で day が進んだ → 旧 day を finalize
-    elif [ "$current_day_idx" -gt "${snap_day_idx:-0}" ] 2>/dev/null; then
-      finalized_pp=$(( ${snap_last%.*} - ${snap_base%.*} ))
-      [ "$finalized_pp" -lt 0 ] && finalized_pp=0
-      snap_days=$(jq -c \
-        --argjson day_idx "${snap_day_idx:-0}" \
-        --argjson pp "$finalized_pp" \
-        '([{day_idx: $day_idx, pp: $pp}] + .)[:6]' <<< "$snap_days" 2>/dev/null || echo "$snap_days")
-      # 新 day を開始 (cycle 内)
-      snap_day_idx=$current_day_idx
-      snap_day_start=$current_day_start
-      snap_base=$weekly_pct_num
-      snap_last=$weekly_pct_num
-      snap_ts_obs=$now_ts
+    # head (newest entry) 取得
+    head_day_start=$(jq -r '.[0].day_start_ts // empty' <<< "$history_json" 2>/dev/null)
+    head_morning_pct=$(jq -r '.[0].morning_pct // empty' <<< "$history_json" 2>/dev/null)
+
+    # === State 更新判定 ===
+    skip_write=false
+    new_history="$history_json"
+
+    if [ -z "$head_day_start" ]; then
+      # 初回: 新 entry で start
+      new_history=$(jq -n \
+        --argjson ts "$current_day_start" \
+        --argjson pct "$weekly_pct_num" \
+        '[{day_start_ts: $ts, morning_pct: $pct}]')
+    elif [ "$head_day_start" -lt "$cycle_start" ] 2>/dev/null; then
+      # head が前 cycle 所属 = cycle 切替検知。history 破棄、新 cycle 初日として仕切り直し
+      new_history=$(jq -n \
+        --argjson ts "$current_day_start" \
+        --argjson pct "$weekly_pct_num" \
+        '[{day_start_ts: $ts, morning_pct: $pct}]')
+    elif [ "$current_day_start" -gt "$head_day_start" ] 2>/dev/null; then
+      # 同 cycle 内 day 進行。push + 現 cycle の entry のみ保持 + 7 件まで
+      new_history=$(jq -c \
+        --argjson ts "$current_day_start" \
+        --argjson pct "$weekly_pct_num" \
+        --argjson cs "$cycle_start" \
+        '([{day_start_ts: $ts, morning_pct: $pct}] + [.[] | select(.day_start_ts >= $cs)])[:7]' \
+        <<< "$history_json")
+    elif [ "$current_day_start" -lt "$head_day_start" ] 2>/dev/null; then
+      # backward: stale 入力 → state 触らずスキップ。次の正常 run で回復
+      skip_write=true
     else
-      # 通常更新 (同 cycle 同 day)
-      snap_last=$weekly_pct_num
-      snap_ts_obs=$now_ts
-      # snap_day_start も current 基準で最新化 (外部 consumer の一貫性確保)
-      snap_day_start=$current_day_start
+      # 同日: 書き込みゼロ (history 不変)
+      skip_write=true
     fi
 
-    # snap_base の並行汚染防御: stored base が現 weekly_pct より大きければ異常なので
-    # 現値を採用 (同じ cycle なら base <= last <= current_pct が成立するはず)
-    if [ "${snap_base:-0}" -gt "$weekly_pct_num" ] 2>/dev/null; then
-      snap_base=$weekly_pct_num
+    # 書き出し (必要なときだけ)
+    if [ "$skip_write" != "true" ]; then
+      SNAPSHOT_TMP="${SNAPSHOT_FILE}.tmp.$$"
+      # trap で tmp をクリーンアップ (jq 成功後 mv 前に process kill された場合の残留防止)
+      trap 'rm -f "$SNAPSHOT_TMP" 2>/dev/null' EXIT
+      jq -n --argjson history "$new_history" \
+        '{version: 4, history: $history}' \
+        > "$SNAPSHOT_TMP" && mv "$SNAPSHOT_TMP" "$SNAPSHOT_FILE"
+      history_json="$new_history"
     fi
 
-    # スナップショット書き出し (v3) — tmp 経由の atomic write で並行読取の不整合防止
-    SNAPSHOT_TMP="${SNAPSHOT_FILE}.tmp.$$"
-    jq -n \
-      --argjson ends_at "${snap_ends_at:-0}" \
-      --argjson day_idx "${snap_day_idx:-1}" \
-      --argjson day_start "${snap_day_start:-0}" \
-      --argjson base_pct "${snap_base:-0}" \
-      --argjson last_pct "${snap_last:-0}" \
-      --argjson ts_obs "${snap_ts_obs:-0}" \
-      --argjson days "$snap_days" \
-      '{
-        version: 3,
-        cycle: {
-          ends_at: $ends_at,
-          day_idx: $day_idx,
-          day_start_epoch: $day_start,
-          base_pct: $base_pct,
-          last_pct: $last_pct,
-          ts_observed: $ts_obs
-        },
-        days: $days
-      }' > "$SNAPSHOT_TMP" && mv "$SNAPSHOT_TMP" "$SNAPSHOT_FILE"
-
-    today_history_json="$snap_days"
-
-    # today_used = last - base (cycle day 内の消費)。リセット跨ぎが起きれば上で
-    # cycle がリセットされて base=current になるので、ここでの引き算は常に 0 以上。
-    today_used=$(( weekly_pct_num - ${snap_base%.*} ))
+    # === Display 派生 ===
+    # today_used = 現 weekly_pct - history[0].morning_pct (clamp 0)
+    head_morning_pct_eff=$(jq -r '.[0].morning_pct // "0"' <<< "$history_json" 2>/dev/null)
+    today_used=$(( weekly_pct_num - ${head_morning_pct_eff%.*} ))
     [ "$today_used" -lt 0 ] && today_used=0
 
-    # 経過時間は必ず入力由来の current_day_start で算出する (stored snap_day_start は
-    # 並行書き込みで陳腐化しうるため信頼しない)
+    # 経過時間
     elapsed_secs=$(( now_ts - current_day_start ))
     [ "$elapsed_secs" -lt 0 ] && elapsed_secs=0
     [ "$elapsed_secs" -gt 86400 ] && elapsed_secs=86400
@@ -485,6 +468,49 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     else
       today_elapsed="${el_mins}m"
     fi
+
+    # Per-day pp 配列を history から構築 (sparkline 用)。
+    # ルール: 各 entry の pp = 次に newer な entry の morning_pct との差分。
+    #   (newest = history[0]) の pp は weekly_pct - morning_pct (= today_used)。
+    # gap (day_idx に entry なし) は 0 で空バー表示。
+    # JSON output 用に v3 互換の days array も構築。
+    declare -A pp_by_day_v4
+    declare -A has_data_v4
+    for ((i=1; i<=7; i++)); do
+      pp_by_day_v4[$i]=0
+      has_data_v4[$i]=0
+    done
+
+    hist_len=$(jq 'length' <<< "$history_json" 2>/dev/null || echo 0)
+    for ((h=0; h<hist_len; h++)); do
+      ent_ts=$(jq -r ".[$h].day_start_ts" <<< "$history_json")
+      ent_pct=$(jq -r ".[$h].morning_pct" <<< "$history_json")
+      # 現 cycle 外の entry は除外 (stale)
+      [ "$ent_ts" -lt "$cycle_start" ] 2>/dev/null && continue
+      d=$(( (ent_ts - cycle_start) / 86400 + 1 ))
+      [ "$d" -lt 1 ] || [ "$d" -gt 7 ] && continue
+      if [ "$h" -eq 0 ]; then
+        pp=$today_used
+      else
+        prev_pct=$(jq -r ".[$((h-1))].morning_pct" <<< "$history_json")
+        pp=$(( ${prev_pct%.*} - ${ent_pct%.*} ))
+        [ "$pp" -lt 0 ] && pp=0
+      fi
+      pp_by_day_v4[$d]=$pp
+      has_data_v4[$d]=1
+    done
+
+    # v3 互換の days array (JSON output の weeklyHistory 用)。
+    # newest-first、今日を除く過去 day のみ (today は todayUsed フィールドにある)。
+    today_history_json="[]"
+    for ((d=7; d>=1; d--)); do
+      if [ "${has_data_v4[$d]}" = "1" ] && [ "$d" -ne "$current_day_idx" ]; then
+        today_history_json=$(jq -c \
+          --argjson day_idx "$d" \
+          --argjson pp "${pp_by_day_v4[$d]}" \
+          '. + [{day_idx: $day_idx, pp: $pp}]' <<< "$today_history_json")
+      fi
+    done
 
     # per day 予算の計算: 残り pp ÷ 残り日数（小数）
     if [ "$weekly_remaining_secs" -gt 0 ]; then
@@ -647,19 +673,9 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
       spark_fmt+=$(printf '\033[96m%spp/d\033[0m ' "$weekly_per_day")
     fi
 
-    # days[] から day_idx をキーに pp を配列に展開 (欠損日は 0 のまま)。
-    # これにより、例えば days=[{1:10},{2:5}] で current_day_idx=5 のとき、
-    # 位置 3, 4 は「日 3, 4 は活動なし」として 0 のままになる。
-    pp_by_day=(0 0 0 0 0 0 0)
-    while IFS=$'\t' read -r didx pp; do
-      [ -z "$didx" ] && continue
-      idx=$(( didx - 1 ))
-      if [ "$idx" -ge 0 ] && [ "$idx" -lt 7 ]; then
-        pp_by_day[$idx]="${pp%.*}"
-      fi
-    done < <(jq -r '.[] | "\(.day_idx)\t\(.pp)"' <<< "$today_history_json" 2>/dev/null)
-
     # cycle day 1..7 を順に描画。today は 󱞩 マーカー直後、未来は薄色。
+    # pp_by_day_v4 は state 更新セクションで既に構築済み (history から derive)。
+    # gap day (has_data_v4[d]=0) は pp=0 で空バー表示 (user 指定動作)。
     # today_marker = nf-md U+F17A9 (指さし系)。SOFT_META (italic muted violet) で控えめに目立たせる。
     today_marker=$'\xf3\xb1\x9e\xa9'
     for ((i=1; i<=7; i++)); do
@@ -669,8 +685,8 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
         spark_fmt+=$(printf '%b%s\033[0m' "$SOFT_META" "$today_marker")
         spark_append_bar "${today_used:-0}" 0
       elif [ "$i" -lt "$current_day_idx" ]; then
-        # 過去 day (薄色、データがあればその pp、なければ 0)
-        spark_append_bar "${pp_by_day[$((i-1))]}" 1
+        # 過去 day (薄色、データあれば pp、なければ 0 = 空バー)
+        spark_append_bar "${pp_by_day_v4[$i]:-0}" 1
       else
         # 未来 day (薄色、常に 0)
         spark_append_bar 0 1
