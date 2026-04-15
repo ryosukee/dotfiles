@@ -58,7 +58,7 @@
 #
 # 出力レイアウト（line1/line2 を │ で区切って並べる）:
 #   例:
-#     line1: 󰁿 60% │ 󱇹 ⣿⣿⣿⣿ 20% 󰔟 4ʰ02ᵐ ➤ 14:30 │ 󰃶 5pp 󰔟 17ʰ59ᵐ ➤ 4:50 │ 󰨳 18pp/d ⣿²⁰⣇⁸▸⣇⁸⡀⁰⡀⁰⡀⁰⡀⁰ │ 󰨳 ⣿⣿⣇⣿ 15% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
+#     line1: 󰁿 60% │ 󱇹 󰂁 80% 󰔟 4ʰ02ᵐ ➤ 14:30 │ 󱑸 5pp 󰔟 17ʰ59ᵐ ➤ 4:50 │ 󰎷 18pp/d ⣿²⁰⣇⁸▸⣇⁸⡀⁰⡀⁰⡀⁰⡀⁰ │ 󰎸 ⣿⣿⣇⣿ 15% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
 #     line2: ⚡ Opus 4.6 │ NORMAL │  main +3 !2 ?1 ⇡2 │ 📁 ~/ghq_root/github.com/foo/bar │ v2.1.83
 #
 #   line1（使用量系セクション、budget 専用）:
@@ -67,18 +67,20 @@
 #                     used 0% → 󰁹 100% / used 100% → 󰂃 0% と inverted mapping。
 #                     視覚 (battery) と数値 (残量 %) が一致してスマホ感覚で読める。
 #                     memory icon は廃止し、battery 自体が section identifier を兼ねる。
-#     - 5h Rate:      󱇹 ⣿⣿⣿⣿ 20% 󰔟 4ʰ02ᵐ ➤ 14:30
-#                     icon (nf-md-clock-time-five U+F11F9) + Braille 4-char 使用率 +
+#     - 5h Rate:      󱇹 󰂁 80% 󰔟 4ʰ02ᵐ ➤ 14:30
+#                     icon (nf-md-clock-time-five U+F11F9) + battery glyph + 残量 % +
 #                     残り時間 (hourglass + superscript 表記 `Nʰ NNᵐ`) + 終了時刻 (➤ + `HH:MM`)
+#                     Ctx と同じ battery 表記。clock icon はセクション識別 (SECTION_ICON)、
+#                     battery glyph と % は severity 色 (_battery_color_for)。
 #                     残り時間は muted cyan、終了時刻は muted amber、icon は dim で色分け
-#     - Today:        󰃶 5pp 󰔟 17ʰ59ᵐ ➤ 4:50
-#                     T icon (nf-md U+F00F6) + 消費 pp +
+#     - Today:        󱑸 5pp 󰔟 17ʰ59ᵐ ➤ 4:50
+#                     T icon (nf-md U+F1478) + 消費 pp +
 #                     6-cell progress block (elapsed/24h 比例) +
 #                     残り時間 (nf-md-hourglass + ラベル) + cycle day 終了時刻
 #                     pp = percentage points: weekly used% の差分単位
 #                     per day 予算は 7d Spark セクションに移動
-#     - 7d Spark:     󰨳 18pp/d ⣇₈⣿₂₀󱞩⣇₈⡀₀⡀₀⡀₀⡀₀ (cycle day 3 の例)
-#                     icon (nf-md U+F0A33、weekly と共通) + per day 予算 (pp/d) +
+#     - 7d Spark:     󰎷 18pp/d ⣇₈⣿₂₀󱞩⣇₈⡀₀⡀₀⡀₀⡀₀ (cycle day 3 の例)
+#                     icon (nf-md U+F03B7、7d 専用) + per day 予算 (pp/d) +
 #                     weekly cycle (7 日) の cycle day 別 pp 消費 sparkline。
 #                     常時 7 本。過去 (day 1..day_idx-1) + 󱞩 + today (day_idx) +
 #                     未来 (day_idx+1..7、薄色パディング)。
@@ -88,8 +90,8 @@
 #                     過去・未来は薄色、today は通常色 (色は per-day budget 比で緑/黄/赤)。
 #                     󱞩 (nf-md U+F17A9) は today の位置を示すマーカー。
 #                     週次リセット検出時は全クリアされて Day 1 からやり直しになる。
-#     - Weekly Rate:  󰨳 ⣿⣿⣇⣿ 15% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
-#                     W icon (nf-md U+F0A33) + Braille 4-char 使用率 +
+#     - Weekly Rate:  󰎸 ⣿⣿⣇⣿ 15% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
+#                     W icon (nf-md U+F03B8、weekly 専用) + Braille 4-char 使用率 +
 #                     残り時間 (砂時計アイコン + superscript ラベル) + リセット日
 #                     最大単位＋次単位を superscript で繋ぐ (4ᵈ18ʰ / 18ʰ30ᵐ / 45ᵐ)
 #                     分/時は 2 桁 zero-pad で幅を揃える (10ʰ02ᵐ 等)
@@ -104,7 +106,11 @@
 #   端末幅に収まれば line1/line2 を 1 行にまとめて出力、足りなければ 2 行に分ける。
 #
 # 色分けルール:
-#   Ctx Window / 5h Rate / Weekly Rate（使用率ベース）:
+#   Ctx Window / 5h Rate（battery 表記、使用率ベース）:
+#     - 50% 以下: blue  (\033[38;5;117m  #87d7ff sky blue)
+#     - 75% 以下: 黄   (\033[93m)
+#     - 75% 超:   赤   (\033[91m)
+#   Weekly Rate（Braille バー、使用率ベース）:
 #     - 50% 以下: 緑  (\033[92m)
 #     - 75% 以下: 黄  (\033[93m)
 #     - 75% 超:   赤  (\033[91m)
@@ -240,6 +246,19 @@ _braille_color_for() {
   fi
 }
 
+# battery glyph / 残量 % 用の severity 色。_braille_color_for の緑段階を
+# blue (256-color 117 #87d7ff、sky blue) に差し替えた派生。
+# Ctx / 5h の battery セクションで使う。黄・赤は共通 (severity 情報を維持しつつ
+# blue 基調で揃える)。META_REMAINING (110 muted cyan) より彩度が高く明るいので
+# 階層判別可能。
+_battery_color_for() {
+  local p="$1"
+  if [ "$p" -le 50 ]; then printf '\033[38;5;117m'
+  elif [ "$p" -le 75 ]; then printf '\033[93m'
+  else printf '\033[91m'
+  fi
+}
+
 # 4-char Braille バー。$1=pct。fmt エスケープ (literal \033) を返す。
 _render_braille_bar() {
   local pct="$1"
@@ -275,7 +294,7 @@ _render_braille_bar() {
 if [ -n "$used" ] && [ "$used" != "null" ]; then
   pct=$(printf '%.0f' "$used")
   ctx_battery=$(_battery_for_used "$pct")
-  ctx_color=$(_braille_color_for "$pct")
+  ctx_color=$(_battery_color_for "$pct")
   # 数値も battery glyph と揃えて残量 % で表示する。視覚 (battery 残量) と
   # 数値 (残量 %) が一致してスマホ/ノート PC のバッテリー UI と同じ規約になる。
   ctx_remaining=$(( 100 - pct ))
@@ -301,14 +320,10 @@ fi
 
 if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
   session_pct=$(printf '%.0f' "$session_pct")
-
-  if [ "$session_pct" -le 50 ]; then
-    scolor="\033[92m"
-  elif [ "$session_pct" -le 75 ]; then
-    scolor="\033[93m"
-  else
-    scolor="\033[91m"
-  fi
+  scolor=$(_battery_color_for "$session_pct")
+  five_battery=$(_battery_for_used "$session_pct")
+  five_remaining_pct=$(( 100 - session_pct ))
+  [ "$five_remaining_pct" -lt 0 ] && five_remaining_pct=0
 
   five_remaining_str=""
   if [ -n "$five_resets_at" ] && [ "$five_resets_at" != "null" ]; then
@@ -332,11 +347,11 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
   hourglass_5h=$'\xf3\xb0\x94\x9f'  # nf-md-hourglass (U+F051F)
   five_icon=$'\xf3\xb1\x87\xb9'     # nf-md-clock-time-five (U+F11F9)
 
-  # 使用率を Braille 4-char バーで表示 (Ctx と同じヘルパ)
-  # icon は SECTION_ICON (固定色)、bar と % のみ severity
-  five_braille=$(_render_braille_bar "$session_pct")
-  left_text="${left_text} │ ${five_icon} ⣿⣿⣿⣿ ${session_pct}%"
-  left_fmt="${left_fmt} \033[2m│\033[0m $(printf '%b%s\033[0m %s %b%s%%\033[0m' "$SECTION_ICON" "$five_icon" "$five_braille" "$scolor" "$session_pct")"
+  # Ctx と同じ battery 表記 (glyph + 残量 %)。clock icon はセクション識別として残し、
+  # battery glyph と % に severity 色 (_battery_color_for) を適用する。
+  left_text="${left_text} │ ${five_icon} ${five_battery} ${five_remaining_pct}%"
+  left_fmt="${left_fmt} \033[2m│\033[0m $(printf '%b%s\033[0m %b%s\033[0m %b%s%%\033[0m' \
+    "$SECTION_ICON" "$five_icon" "$scolor" "$five_battery" "$scolor" "$five_remaining_pct")"
 
   if [ -n "$five_remaining_str" ]; then
     five_remaining_sup=$(_to_superscript "$five_remaining_str")
@@ -582,7 +597,7 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     # 色分け: per day 予算比で緑→黄→赤 (Npp に適用)
     if [ -n "$today_used" ]; then
       hourglass=$'\xf3\xb0\x94\x9f'  # nf-md-hourglass (U+F051F)
-      today_icon=$'\xf3\xb0\x83\xb6'  # nf-md U+F00F6 (today)
+      today_icon=$'\xf3\xb1\x91\xb8'  # nf-md U+F1478 (today)
 
       # 色分け
       tcolor="\033[92m"
@@ -643,7 +658,7 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     wcolor=$(_braille_color_for "$weekly_pct")
 
     hourglass_r=$'\xf3\xb0\x94\x9f'  # nf-md-hourglass (U+F051F)
-    week_icon=$'\xf3\xb0\xa8\xb3'    # nf-md U+F0A33 (week)
+    week_icon=$'\xf3\xb0\x8e\xb8'    # nf-md U+F03B8 (weekly)
 
     # 形式: <W-icon> <Braille 4-char> NN% 󰔟<残り> → <日付>
     # icon は SECTION_ICON (固定色)、bar と % のみ severity
@@ -725,10 +740,10 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
       spark_fmt+=$(printf '%b%s\033[0m\033[2m%s\033[0m' "$color" "$bar" "$sub")
     }
 
-    # icon: week と同じ nf-md U+F0A33 (󰨳) を使う
+    # icon: nf-md U+F03B7 (7d 専用、weekly とは別グリフで視覚的に区別)
     # 並び順: icon + pp/d + sparkline
     # icon は SECTION_ICON (green)、pp/d は別色 (bright cyan) で区別。
-    spark_icon=$'\xf3\xb0\xa8\xb3'
+    spark_icon=$'\xf3\xb0\x8e\xb7'
     spark_text="${spark_icon} "
     spark_fmt=$(printf '%b%s\033[0m ' "$SECTION_ICON" "$spark_icon")
     if [ -n "$weekly_per_day" ]; then
