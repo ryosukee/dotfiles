@@ -62,7 +62,7 @@ fisher update
 | --- | --- | --- |
 | fish | メインシェル (vi キーバインド) | `brew install fish` |
 | starship | プロンプト | `brew install starship` |
-| wezterm | ターミナルエミュレータ | `brew install --cask wezterm` |
+| ghostty | ターミナルエミュレータ | `brew install --cask ghostty` |
 | tmux | ターミナルマルチプレクサ | `brew install tmux` |
 | direnv | ディレクトリ単位の環境変数 | `brew install direnv` |
 | zoxide | cd の高速化 | `brew install zoxide` |

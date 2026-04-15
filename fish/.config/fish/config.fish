@@ -1,8 +1,6 @@
 alias ls='lsd -a -F'
 alias cat='bat'
 alias vim='nvim'
-alias wezterm-temp='open -a WezTermTemp'
-alias wezterm-temp-info='bat ~/work/temp/wezterm-dictation/README-for-ryosuke.md'
 
 alias sshm='ssh marujirou@marujirou.local'
 

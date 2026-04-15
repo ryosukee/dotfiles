@@ -107,7 +107,6 @@ echo やパイプで小さいサンプルに対してテストしてから
 ## ターミナル環境
 
 - ターミナル: ghostty (kitty graphics protocol 対応、画像/mermaid プレビュー用)
-- wezterm も併用可だが画像表示は ghostty が必要
 - tmux + fish shell
 
 ## fish 設定の注意

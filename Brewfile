@@ -186,8 +186,6 @@ cask "ngrok"
 cask "qmk-toolbox"
 # Control your tools with a few keystrokes
 cask "raycast"
-# GPU-accelerated cross-platform terminal emulator and multiplexer
-cask "wezterm"
 vscode "anthropic.claude-code"
 vscode "bierner.markdown-mermaid"
 vscode "dbaeumer.vscode-eslint"

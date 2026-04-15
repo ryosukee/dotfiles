@@ -156,9 +156,9 @@ preview は `--preview LAUNCHER_CACHE_DIR='...' bash session-launcher.sh --previ
 
 さらに `_pad_output` が `FZF_PREVIEW_LINES` まで空行 (full-width space) で埋めて、preview pane の下部まで完全に上書きする。
 
-### wezterm 側のセル状態残り対策
+### ターミナル側のセル状態残り対策
 
-tmux は client への出力を差分描画で最適化するため、content が変わらないセルは再送しない。過去の preview で設定された SGR 状態が wezterm のセルに残っていると、空白を書いても残骸として見える (特に curly underline の点線)。
+tmux は client への出力を差分描画で最適化するため、content が変わらないセルは再送しない。過去の preview で設定された SGR 状態がターミナル側のセルに残っていると、空白を書いても残骸として見える (特に curly underline の点線)。
 
 これを防ぐため、各 preview 生成の末尾で `tmux run-shell -b` 経由で非同期に `sleep 0.05 && tmux refresh-client -t <client>` を発火する。server プロセス側で実行されるため fzf の kill に影響されず、preview script 自体は即 exit できて navigation の体感遅延がない。
 

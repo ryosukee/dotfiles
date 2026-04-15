@@ -247,7 +247,7 @@ gen_preview() {
     _compute_preview "$target" | _pad_output
   fi
 
-  # tmux の差分描画で wezterm 側のセル状態が古いまま残る問題への対策。
+  # tmux の差分描画でターミナル側のセル状態が古いまま残る問題への対策。
   # cache hit/miss どちらの path でも必ず通るようにここに置く。
   # tmux run-shell -b で server 側に sleep + refresh-client を投げるので
   # preview script 自体は即 exit できて navigation の体感遅延ゼロ。
