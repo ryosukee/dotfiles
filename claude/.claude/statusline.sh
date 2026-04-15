@@ -58,7 +58,7 @@
 #
 # 出力レイアウト（line1/line2 を │ で区切って並べる）:
 #   例:
-#     line1: 󰁿 60% │ 󱇹 󰂁 80% 󰔟 4ʰ02ᵐ ➤ 14:30 │ 󱑸 5pp 󰔟 17ʰ59ᵐ ➤ 4:50 │ 󰎷 18pp/d ⣿²⁰⣇⁸▸⣇⁸⡀⁰⡀⁰⡀⁰⡀⁰ │ 󰎸 ⣿⣿⣇⣿ 15% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
+#     line1: 󰁿 60% │ 󱇹 󰂁 80% 󰔟 4ʰ02ᵐ ➤ 14:30 │ 󱑸 5pp 󰔟 17ʰ59ᵐ ➤ 4:50 │ 󰎷 18pp/d ⣿²⁰⣇⁸▸⣇⁸⡀⁰⡀⁰⡀⁰⡀⁰ │ 󰎸 ⣿⣿⣿⣄ 85% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
 #     line2: ⚡ Opus 4.6 │ NORMAL │  main +3 !2 ?1 ⇡2 │ 📁 ~/ghq_root/github.com/foo/bar │ v2.1.83
 #
 #   line1（使用量系セクション、budget 専用）:
@@ -90,9 +90,12 @@
 #                     過去・未来は薄色、today は通常色 (色は per-day budget 比で緑/黄/赤)。
 #                     󱞩 (nf-md U+F17A9) は today の位置を示すマーカー。
 #                     週次リセット検出時は全クリアされて Day 1 からやり直しになる。
-#     - Weekly Rate:  󰎸 ⣿⣿⣇⣿ 15% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
-#                     W icon (nf-md U+F03B8、weekly 専用) + Braille 4-char 使用率 +
+#     - Weekly Rate:  󰎸 ⣿⣿⣿⣄ 85% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
+#                     W icon (nf-md U+F03B8、weekly 専用) + Braille 4-char 残量バー +
+#                     残量 % (100 から減る、battery 表記と統一) +
 #                     残り時間 (砂時計アイコン + superscript ラベル) + リセット日
+#                     bar fill は remaining、色は usage 由来 severity なので
+#                     usage 増加でバーが右から減りつつ 緑→黄→赤 と切り替わる。
 #                     最大単位＋次単位を superscript で繋ぐ (4ᵈ18ʰ / 18ʰ30ᵐ / 45ᵐ)
 #                     分/時は 2 桁 zero-pad で幅を揃える (10ʰ02ᵐ 等)
 #                     Nerd Font アイコン: 󰔟 (U+F051F) 砂時計
@@ -110,10 +113,10 @@
 #     - 50% 以下: blue  (\033[38;5;117m  #87d7ff sky blue)
 #     - 75% 以下: 黄   (\033[93m)
 #     - 75% 超:   赤   (\033[91m)
-#   Weekly Rate（Braille バー、使用率ベース）:
-#     - 50% 以下: 緑  (\033[92m)
-#     - 75% 以下: 黄  (\033[93m)
-#     - 75% 超:   赤  (\033[91m)
+#   Weekly Rate（Braille バー、表示は残量だが色は usage ベース severity）:
+#     - used 50% 以下: 緑  (\033[92m)
+#     - used 75% 以下: 黄  (\033[93m)
+#     - used 75% 超:   赤  (\033[91m)
 #   Today / 7d Spark（per day 予算に対する消費率ベース — pp を pp で割るので無次元=%）:
 #     - 予算の 50% 以下: 緑  (\033[92m)
 #     - 予算の 75% 以下: 黄  (\033[93m)
@@ -259,11 +262,14 @@ _battery_color_for() {
   fi
 }
 
-# 4-char Braille バー。$1=pct。fmt エスケープ (literal \033) を返す。
+# 4-char Braille バー。$1=fill_pct、$2=color (optional)。
+# color を省略した場合は fill_pct から severity を自動計算する。
+# 残量表示したい場合は fill_pct=残量 % + color=used ベースの severity を明示的に渡す
+# (severity は usage に基づき、bar は残量で fill したいケース。例: weekly)。
 _render_braille_bar() {
   local pct="$1"
-  local color
-  color=$(_braille_color_for "$pct")
+  local color="${2:-}"
+  [ -z "$color" ] && color=$(_braille_color_for "$pct")
   local total=32
   local lvl=$(( (pct * total + 50) / 100 ))
   [ "$lvl" -gt 32 ] && lvl=32
@@ -654,16 +660,20 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     # 出力例: 󰨳 ⣿⣿⣇⣿ 15% 󰔟4d18h → 3/28·21:45
     # -------------------------------------------------------------------------
     weekly_pct=$(printf '%.0f' "$weekly_pct")
-    weekly_braille=$(_render_braille_bar "$weekly_pct")
+    weekly_remaining_pct=$(( 100 - weekly_pct ))
+    [ "$weekly_remaining_pct" -lt 0 ] && weekly_remaining_pct=0
     wcolor=$(_braille_color_for "$weekly_pct")
+    # bar は残量で fill (100% 始まりで usage 増で減る、battery と同じ減衰感)。
+    # 色は usage ベースの severity を維持するので _render_braille_bar の 2nd arg で上書き。
+    weekly_braille=$(_render_braille_bar "$weekly_remaining_pct" "$wcolor")
 
     hourglass_r=$'\xf3\xb0\x94\x9f'  # nf-md-hourglass (U+F051F)
     week_icon=$'\xf3\xb0\x8e\xb8'    # nf-md U+F03B8 (weekly)
 
     # 形式: <W-icon> <Braille 4-char> NN% 󰔟<残り> → <日付>
-    # icon は SECTION_ICON (固定色)、bar と % のみ severity
-    w_text="${week_icon} ⣿⣿⣿⣿ ${weekly_pct}%"
-    w_fmt=$(printf '%b%s\033[0m %s %b%s%%\033[0m' "$SECTION_ICON" "$week_icon" "$weekly_braille" "$wcolor" "$weekly_pct")
+    # icon は SECTION_ICON (固定色)、bar と % は残量表示だが色は usage 由来 severity
+    w_text="${week_icon} ⣿⣿⣿⣿ ${weekly_remaining_pct}%"
+    w_fmt=$(printf '%b%s\033[0m %s %b%s%%\033[0m' "$SECTION_ICON" "$week_icon" "$weekly_braille" "$wcolor" "$weekly_remaining_pct")
 
     if [ -n "$weekly_remaining" ]; then
       weekly_remaining_sup=$(_to_superscript "$weekly_remaining")
