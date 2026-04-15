@@ -146,6 +146,10 @@ function M.open()
   vim.bo[state.buf].buftype = "nofile"
   vim.bo[state.buf].bufhidden = "wipe"
   vim.bo[state.buf].modifiable = false
+  -- Streamed content starts with "## > ...", which trips markdownlint MD041
+  -- (first-line-heading). This buffer is a scratch transcript, not a document
+  -- to lint — opt it out of diagnostics entirely.
+  vim.diagnostic.enable(false, { bufnr = state.buf })
 
   local width = math.floor(vim.o.columns * 0.8)
   local height = math.floor(vim.o.lines * 0.8)
