@@ -321,9 +321,14 @@ function M.split_preview()
   -- buffer's window. Turn it off so SpellBad underlines don't appear on
   -- proper nouns (Auth0, UserInfo, ...) in the rendered view.
   if dst then
+    local src_win = vim.api.nvim_get_current_win()
+    vim.wo[src_win].scrollbind = true
+    vim.wo[src_win].cursorbind = true
     for _, win in ipairs(vim.api.nvim_list_wins()) do
       if vim.api.nvim_win_get_buf(win) == dst then
         vim.wo[win].spell = false
+        vim.wo[win].scrollbind = true
+        vim.wo[win].cursorbind = true
       end
     end
   end
