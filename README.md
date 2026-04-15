@@ -19,7 +19,7 @@ dotfiles/
 ├── tig/           # tig
 ├── tmux/          # tmux + claude popup editor
 ├── bin/           # 自作 CLI (~/.local/bin/cc-ask-dotfiles 等)
-├── claude/        # Claude Code 設定 (settings, rules, hooks, skills, statusline)
+├── claude/        # Claude Code 設定 (settings, statusline)
 ├── Brewfile       # brew パッケージ一覧 (brew bundle dump --describe で生成)
 └── .stow-local-ignore
 ```

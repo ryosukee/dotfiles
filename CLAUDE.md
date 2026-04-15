@@ -63,8 +63,8 @@ git diff --cached | grep -iE '/Users/[a-z]|/home/[a-z]|api.key|token|secret|pass
 ```
 
 見つかった場合は、その行を汎用化するかファイルごと除外する。テンプレート +
-`.gitignore` パターン (例: `notify-config.example` を追跡し `notify-config`
-は除外) も選択肢。
+`.gitignore` パターン (public テンプレートを追跡し local 実体は除外) も
+選択肢。
 
 ### stow package の作り方
 
