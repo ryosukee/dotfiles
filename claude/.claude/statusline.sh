@@ -43,8 +43,9 @@
 #         }
 #       設計方針: cycle_end (ends_at), day_idx, day_start_epoch, 現 weekly_pct,
 #       ts_observed 等は state に持たず、毎回 Claude Code の JSON から derive する。
-#       状態として持つと整合性ズレが起きやすい (旧 v3 で ends_at だけ新 cycle、
-#       day_idx は旧 cycle に残るバグが発生した)。
+#       これらを state に持たせると、複数の値を原子的に更新できないので部分的に
+#       古いフィールドが残って整合性が崩れる (例: ends_at だけ新 cycle 反映、
+#       day_idx は前 cycle の値のまま、といった不整合が発生する)。
 #       更新トリガ: (a) 初回、(b) day 進行、(c) cycle 切替 (head が前 cycle 所属)。
 #       それ以外は書き込みゼロ。
 #       Sparkline の gap 日は空バー、diff は earlier entry に集約して計算。
@@ -417,16 +418,28 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
   # 持つべき状態: 各 day の「朝 (= day 境界時) の weekly_pct」のスタックのみ。
   #   history: [{day_start_ts, morning_pct}, ...] newest-first、最大 7 エントリ
   # cycle 情報 (ends_at, day_idx, day_start) や現時点の weekly_pct は JSON から
-  # 毎回 derive。state に持たない (持つと整合性ズレが起きる、旧 v3 で発生した
-  # 「ends_at は新 cycle なのに day_idx は旧 cycle」等のバグの元)。
+  # 毎回 derive。これらを state に持たせると複数フィールドを原子的に更新できず、
+  # 「ends_at は新 cycle なのに day_idx は前 cycle の値」のような部分更新の不整合が
+  # 起きる。毎回 derive なら単一入力 (resets_at) から一貫性が保たれる。
   #
   # === State 更新ルール ===
+  # 0. 5h.resets_at < now (= 入力 stale)        → skip (全ルールより先に評価)
   # 1. history 空                               → push 新 entry
   # 2. head.day_start_ts < cycle_start         → 前 cycle 所属。破棄して新 cycle
   #                                              初日として仕切り直し
   # 3. current_day_start > head.day_start_ts   → day 進行 (同 cycle)。push
   # 4. current_day_start < head.day_start_ts   → backward (stale 入力) → skip
-  # 5. 同日                                      → skip (書き込みゼロ)
+  # 5. 同日, 境界 +60s 以内, input_pct > head  → max-update (境界 race 補正)
+  # 6. 同日, それ以外                            → skip (書き込みゼロ)
+  #
+  # ルール 0 の理由: 複数セッション環境で Claude Code 本体は rate_limits を
+  # プロセス内にキャッシュし、API 呼び出し時のみ refresh する。アイドル session
+  # は古い weekly_pct を送り続けるため、5h cycle が切り替わっても自分の
+  # resets_at が更新されない → これを stale signal として使う。
+  # ルール 5 の理由: day 境界で stale-low な session が先に push してしまった
+  # ケースに対する補正。60s = refresh 2 周期で全 session が 1 回は走る想定。
+  # 60s 以降は input pct に今日の成長が乗ってくるので max-update すると
+  # morning_pct が膨らんで today_used が消える → 許可しない。
   #
   # Cycle 跨ぎでは旧 cycle の最終日を finalize しない (不正確な値になる)。
   # Sparkline で gap がある日は空バー表示、diff は earlier (古い) entry の使用量
@@ -485,7 +498,17 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     skip_write=false
     new_history="$history_json"
 
-    if [ -z "$head_day_start" ]; then
+    # Stale 入力ガード: 5h.resets_at が過去 = この session の Claude Code 本体は
+    # rate_limits を refresh しておらず、weekly_pct も古い値が固定で来ている。
+    # 詳細: アイドルセッション (API 未呼び出し) は rate_limits がプロセス内
+    # キャッシュのまま更新されないため、複数セッション環境では古い stale 値が
+    # snapshot に push されて morning_pct を壊す。5h cycle が切り替わっても
+    # 自分の resets_at が更新されないことを stale signal として使う。
+    five_resets_int="${five_resets_at%.*}"
+    if [ -n "$five_resets_int" ] && [ "$five_resets_int" != "0" ] \
+       && [ "$five_resets_int" -lt "$now_ts" ] 2>/dev/null; then
+      skip_write=true
+    elif [ -z "$head_day_start" ]; then
       # 初回: 新 entry で start
       new_history=$(jq -n \
         --argjson ts "$current_day_start" \
@@ -509,8 +532,23 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
       # backward: stale 入力 → state 触らずスキップ。次の正常 run で回復
       skip_write=true
     else
-      # 同日: 書き込みゼロ (history 不変)
-      skip_write=true
+      # 同日: 通常は書き込みゼロ。
+      # ただし境界直後 60s 以内なら max-update 許可: 14:00 境界での race で
+      # stale-low (5h fresh だが weekly が古い session) が先に push してしまった
+      # 場合に、同 60s 窓内の他 fresh session が観測した高い pct で head を
+      # 上書きする。60s = refresh 2 周期 ≒ 全 session が 1 回は走る時間。
+      # 60s 以降は input pct に「今日の成長」が乗ってくるので max-update すると
+      # morning_pct が膨らむ → skip。
+      elapsed=$(( now_ts - current_day_start ))
+      if [ "$elapsed" -ge 0 ] && [ "$elapsed" -le 60 ] \
+         && [ "$weekly_pct_num" -gt "${head_morning_pct%.*}" ] 2>/dev/null; then
+        new_history=$(jq -c \
+          --argjson pct "$weekly_pct_num" \
+          '.[0].morning_pct = $pct' \
+          <<< "$history_json")
+      else
+        skip_write=true
+      fi
     fi
 
     # 書き出し (必要なときだけ)
@@ -587,11 +625,20 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
       fi
     done
 
-    # per day 予算の計算: 残り pp ÷ 残り日数（小数）
-    if [ "$weekly_remaining_secs" -gt 0 ]; then
-      remaining_pct=$(( 100 - weekly_pct_num ))
-      [ "$remaining_pct" -lt 0 ] && remaining_pct=0  # weekly_pct > 100 の異常値ガード
-      weekly_per_day=$(printf '%.0f' "$(echo "$remaining_pct / ($weekly_remaining_secs / 86400)" | bc -l 2>/dev/null || echo 0)")
+    # per day 予算の計算: head (= 今日の朝) の morning_pct と残り日数から整数除算。
+    # pp/d = (100 - head.morning_pct) / (8 - current_day_idx)
+    # 日境界で一度確定したら 1 日中安定、翌朝に morning_pct が更新されて再計算。
+    # 現在の remaining_pct を remaining_secs/86400 で割る方式にすると小数除算に
+    # なって、残り時間 < 1d のときに pp/d > remaining_pct (例: 残り 23% なのに
+    # 25pp/d) という直感に反する表示になる。整数除算ベースだと最終日でも
+    # pp/d = remaining_pct で収まる。
+    days_remaining=$(( 8 - current_day_idx ))
+    [ "$days_remaining" -lt 1 ] && days_remaining=1
+    morning_for_budget=${head_morning_pct_eff%.*}
+    if [ -n "$morning_for_budget" ] && [ "$morning_for_budget" -ge 0 ] 2>/dev/null; then
+      budget_remaining=$(( 100 - morning_for_budget ))
+      [ "$budget_remaining" -lt 0 ] && budget_remaining=0
+      weekly_per_day=$(( budget_remaining / days_remaining ))
     fi
 
     # today セクションの描画 (remaining icon + 終了時刻)
@@ -880,7 +927,6 @@ if [ -n "$ver" ] && [ "$ver" != "null" ]; then
 fi
 
 # NOTE: Model/Vim は git/cwd ブロック直後 (version の前) に append 済み。
-# 旧実装では先頭 prepend だったが、レイアウト変更で中央配置に移行。
 # 右側順: Branch │ CWD │ Model [│ Vim] [│ Version]
 
 # left_text は先頭の " │ " を持つ (budget セクションが空の left_text に append した結果)。
