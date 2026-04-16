@@ -43,14 +43,14 @@ gen_list() {
           branch = last ? "└─ " : "├─ "
           if (first) {
             # 先頭 window 行に session 名を inline
-            printf "%s:%s\t%s%-*s%s %s%s%s%s: %s%s %s(%s)%s\n", \
+            printf "%s:%s\t%s%-*s%s %s%s%s%s%s %s(%s)%s\n", \
               sess[i], idx[i], SESS, maxw, sess[i], RST, \
-              DIM, branch, RST, idx[i], wname[i], RST, DIM, cmd[i], RST
+              DIM, branch, RST, wname[i], RST, DIM, cmd[i], RST
           } else {
             # 2 本目以降は session 名をスペースでパディング
-            printf "%s:%s\t%-*s %s%s%s%s: %s%s %s(%s)%s\n", \
+            printf "%s:%s\t%-*s %s%s%s%s%s %s(%s)%s\n", \
               sess[i], idx[i], maxw, "", \
-              DIM, branch, RST, idx[i], wname[i], RST, DIM, cmd[i], RST
+              DIM, branch, RST, wname[i], RST, DIM, cmd[i], RST
           }
         }
       }
