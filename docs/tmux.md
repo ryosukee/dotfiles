@@ -89,12 +89,12 @@ tmux 組み込みの `choose-tree` にインスパイアされた自前のラン
 
 ```text
 window>
-  0  ├─ 0: idp-main (nvim)              <preview area>
-     ├─ 1: Python (Python)
-     └─ 4: blueprint-bot (2.1.97)
-  59 ├─ 0: cc-market (2.1.96)
-     ├─ 1: dotfiles (fish)
-     └─ 3: nvim (nvim)
+  0_idp        ├─ idp-main (2.1.110)    <preview area>
+               └─ Python (Python)
+  1_blueprints ├─ nvim (nvim)
+               └─ managed-claude (2.1.111)
+  3_others     ├─ cc-market (fish)
+               └─ dotfiles (2.1.110)
 ```
 
 - session ごとに window を `├─` / `└─` でツリー表示
