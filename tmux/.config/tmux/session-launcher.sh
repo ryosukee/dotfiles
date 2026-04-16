@@ -26,12 +26,10 @@ SELF="$HOME/.config/tmux/session-launcher.sh"
 # fzf 側は --delimiter=$'\t' --with-nth=2.. で 2 列目以降だけ表示し、
 # 選択時には 1 列目 (session:index) がそのまま返る。
 gen_list() {
-  # session_activity (最終出力時刻) 降順でソート。同値時は session 単位で
-  # contiguous を保つため session_name, window_index を tiebreak に使う。
+  # tmux デフォルトの順 (session 名の昇順 + session 内 window_index 昇順)
+  # で出す。session 側で `0-`, `1-` のような prefix を付けて並び順を制御する。
   tmux list-windows -a \
-    -F '#{session_activity}	#{session_name}	#{window_index}	#{window_name}	#{pane_current_command}' \
-    | sort -t$'\t' -k1,1nr -k2,2 -k3,3n \
-    | cut -f2- \
+    -F '#{session_name}	#{window_index}	#{window_name}	#{pane_current_command}' \
     | grep -vx "$(printf '%s\t.*' "$LAUNCHER_SESSION")" \
     | awk -F'\t' -v DIM=$'\033[38;5;244m' -v RST=$'\033[0m' -v SESS=$'\033[1;36m' '
       {

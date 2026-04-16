@@ -99,8 +99,8 @@ window>
 
 - session ごとに window を `├─` / `└─` でツリー表示
 - session 名は先頭 window 行に inline、2 行目以降はスペースでパディング
-- session の並び順: `session_activity` (最終 pane 出力時刻) の降順。最近動きのあった session が上に来る
-- window の並び順: session 内で `window_index` の昇順
+- 並び順は tmux デフォルト (session 名の昇順 + session 内 window_index 昇順)。
+  session 名に `0-`, `1-` のような prefix を付けて任意の順に制御する
 - 右側に選択中 window のライブプレビュー (ANSI 色保持、CJK 幅対応)
 - 複数 pane の window は pane ごとにヘッダ付きで縦連結表示
 
