@@ -72,7 +72,7 @@
 #                     icon (nf-md-clock-time-five U+F11F9) + battery glyph + 残量 % +
 #                     残り時間 (hourglass + superscript 表記 `Nʰ NNᵐ`) + 終了時刻 (➤ + `HH:MM`)
 #                     Ctx と同じ battery 表記。clock icon はセクション識別 (SECTION_ICON)、
-#                     battery glyph と % は severity 色 (_battery_color_for)。
+#                     battery glyph と % は severity 色 (_braille_color_for)。
 #                     残り時間は muted cyan、終了時刻は muted amber、icon は dim で色分け
 #     - Today:        󱑸 5pp 󰔟 17ʰ59ᵐ ➤ 4:50
 #                     T icon (nf-md U+F1478) + 消費 pp +
@@ -111,7 +111,7 @@
 #
 # 色分けルール:
 #   Ctx Window / 5h Rate（battery 表記、使用率ベース）:
-#     - 50% 以下: blue  (\033[38;5;117m  #87d7ff sky blue)
+#     - 50% 以下: 緑   (\033[92m)
 #     - 75% 以下: 黄   (\033[93m)
 #     - 75% 超:   赤   (\033[91m)
 #   Weekly Rate（Braille バー、表示は残量だが色は usage ベース severity）:
@@ -163,19 +163,18 @@ fi
 cols=$(tput cols 2>/dev/null || echo "${COLUMNS:-80}")
 
 # -----------------------------------------------------------------------------
-# Model/Vim は line 2 (右側) の先頭に配置するため、ここでは変数に保持するだけ。
-# line 1 は budget 系専用 (Ctx / 5h / Today / Weekly / 7d spark) になる。
-# 出力例 (line 2 先頭): ⚡ Opus 4.6 │ NORMAL │ ... (branch 以降が続く)
+# Model は line 1 の左端 (budget 系の前) に配置。
+# Vim mode は line 2 の branch と cwd の間に配置する (下の branch/cwd ブロックで挿入)。
+# 出力例
+#   line 1: ⚡ Opus 4.6 │ Ctx │ 5h │ Today │ Weekly │ 7d
+#   line 2: Branch [│ NORMAL] │ 📁 cwd
 # -----------------------------------------------------------------------------
-left_text=""
-left_fmt=""
-
-model_text="⚡ ${model}"
-model_fmt=$(printf "\033[96m⚡ %s\033[0m" "$model")
-
-if [ -n "$vim_mode" ] && [ "$vim_mode" != "null" ]; then
-  model_text="${model_text} │ ${vim_mode}"
-  model_fmt="${model_fmt} \033[2m│\033[0m ${vim_mode}"
+if [ -n "$model" ] && [ "$model" != "null" ]; then
+  left_text="⚡ ${model}"
+  left_fmt=$(printf "\033[96m⚡ %s\033[0m" "$model")
+else
+  left_text=""
+  left_fmt=""
 fi
 
 # -----------------------------------------------------------------------------
@@ -198,15 +197,20 @@ BRAILLE_BG='\033[48;5;234m'
 # remaining (Nh Nm) / end time (HH:MM や M/D) / icon (󰔟・➤) で 3 分割する。
 META_REMAINING='\033[3;38;5;110m'  # italic + muted cyan (残り時間)
 META_ENDTIME='\033[3;38;5;179m'    # italic + muted amber (リセット時刻)
-META_ICON='\033[2;38;5;244m'       # dim gray (icon マーカー)
+META_ICON='\033[2;38;5;244m'       # dim gray (icon マーカー、矢印 ➤ 用)
+# 砂時計 (󰔟) は残り時間 (META_REMAINING) と同系統の 110 を dim で薄くした色。
+# 残り時間の数値を主役にしつつ、icon も同じ色系統で「残り時間セクション」
+# としての塊感を出す。矢印 ➤ とは別色にして役割を分ける。
+META_HOURGLASS='\033[2;38;5;110m'  # dim + muted cyan (残り時間の砂時計)
 
 # 7d sparkline の today マーカー (󱞩) 用。使用量系の meta 色とは別立てで、
 # 「現在位置を指すポインタ」として violet italic に残している。
 SOFT_META='\033[3;38;5;103m'
 
-# セクション識別アイコン用の固定色 (bright green = severity 緑と同色、非 severity な固定色)
-# Ctx / 5h / Today / 7d / Weekly のアイコンに共通適用。
-SECTION_ICON='\033[92m'
+# セクション識別アイコン用の固定色 (sky blue #87d7ff、非 severity な固定色)
+# Ctx / 5h / Today / 7d / Weekly のアイコンに共通適用。severity 色 (緑/黄/赤)
+# とは別系統の色にして、アイコン自体が severity シグナルと誤読されないようにする。
+SECTION_ICON='\033[38;5;117m'
 
 # 使用率 (0-100) を battery glyph に変換する。
 # Nerd Font Material Design Icons の battery は 0%〜100% を 10 刻みの
@@ -250,19 +254,6 @@ _braille_color_for() {
   fi
 }
 
-# battery glyph / 残量 % 用の severity 色。_braille_color_for の緑段階を
-# blue (256-color 117 #87d7ff、sky blue) に差し替えた派生。
-# Ctx / 5h の battery セクションで使う。黄・赤は共通 (severity 情報を維持しつつ
-# blue 基調で揃える)。META_REMAINING (110 muted cyan) より彩度が高く明るいので
-# 階層判別可能。
-_battery_color_for() {
-  local p="$1"
-  if [ "$p" -le 50 ]; then printf '\033[38;5;117m'
-  elif [ "$p" -le 75 ]; then printf '\033[93m'
-  else printf '\033[91m'
-  fi
-}
-
 # 4-char Braille バー。$1=fill_pct、$2=color (optional)。
 # color を省略した場合は fill_pct から severity を自動計算する。
 # 残量表示したい場合は fill_pct=残量 % + color=used ベースの severity を明示的に渡す
@@ -301,7 +292,7 @@ _render_braille_bar() {
 if [ -n "$used" ] && [ "$used" != "null" ]; then
   pct=$(printf '%.0f' "$used")
   ctx_battery=$(_battery_for_used "$pct")
-  ctx_color=$(_battery_color_for "$pct")
+  ctx_color=$(_braille_color_for "$pct")
   # 数値も battery glyph と揃えて残量 % で表示する。視覚 (battery 残量) と
   # 数値 (残量 %) が一致してスマホ/ノート PC のバッテリー UI と同じ規約になる。
   ctx_remaining=$(( 100 - pct ))
@@ -327,7 +318,7 @@ fi
 
 if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
   session_pct=$(printf '%.0f' "$session_pct")
-  scolor=$(_battery_color_for "$session_pct")
+  scolor=$(_braille_color_for "$session_pct")
   five_battery=$(_battery_for_used "$session_pct")
   five_remaining_pct=$(( 100 - session_pct ))
   [ "$five_remaining_pct" -lt 0 ] && five_remaining_pct=0
@@ -355,16 +346,16 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
   five_icon=$'\xf3\xb1\x87\xb9'     # nf-md-clock-time-five (U+F11F9)
 
   # Ctx と同じ battery 表記 (glyph + 残量 %)。clock icon はセクション識別として残し、
-  # battery glyph と % に severity 色 (_battery_color_for) を適用する。
-  left_text="${left_text} │ ${five_icon} ${five_battery} ${five_remaining_pct}%"
-  left_fmt="${left_fmt} \033[2m│\033[0m $(printf '%b%s\033[0m %b%s\033[0m %b%s%%\033[0m' \
+  # battery glyph と % に severity 色 (_braille_color_for) を適用する。
+  left_text="${left_text} │ ${five_icon}  ${five_battery} ${five_remaining_pct}%"
+  left_fmt="${left_fmt} \033[2m│\033[0m $(printf '%b%s\033[0m  %b%s\033[0m %b%s%%\033[0m' \
     "$SECTION_ICON" "$five_icon" "$scolor" "$five_battery" "$scolor" "$five_remaining_pct")"
 
   if [ -n "$five_remaining_str" ]; then
     five_remaining_sup=$(_to_superscript "$five_remaining_str")
-    left_text="${left_text} ${hourglass_5h} ${five_remaining_sup}"
-    left_fmt="${left_fmt}$(printf ' %b%s\033[0m %b%s\033[0m' \
-      "$META_ICON" "$hourglass_5h" "$META_REMAINING" "$five_remaining_sup")"
+    left_text="${left_text}  ${hourglass_5h} ${five_remaining_sup}"
+    left_fmt="${left_fmt}$(printf '  %b%s\033[0m %b%s\033[0m' \
+      "$META_HOURGLASS" "$hourglass_5h" "$META_REMAINING" "$five_remaining_sup")"
   fi
 
   if [ -n "$session_reset" ]; then
@@ -381,13 +372,13 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
   # ---------------------------------------------------------------------------
   weekly_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
   weekly_resets_at=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
-  weekly_reset=""          # リセット日時の表示文字列 (例: 3/28·21:45)
+  weekly_reset=""          # リセット日時の表示文字列 (例: 3/28 21:45)
   weekly_remaining=""      # 残り時間の表示文字列 (例: 4d18h)
   weekly_remaining_secs=0  # 残り秒数（per day 計算用）
   weekly_per_day=""        # 1日あたりの予算 pp (例: 18)
 
   if [ -n "$weekly_resets_at" ] && [ "$weekly_resets_at" != "null" ]; then
-    weekly_reset=$(date -r "${weekly_resets_at%.*}" "+%-m/%-d·%H:%M" 2>/dev/null)
+    weekly_reset=$(date -r "${weekly_resets_at%.*}" "+%-m/%-d %H:%M" 2>/dev/null)
     weekly_remaining_secs=$(( ${weekly_resets_at%.*} - $(date +%s) ))
     [ "$weekly_remaining_secs" -lt 0 ] && weekly_remaining_secs=0
 
@@ -686,11 +677,11 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
       # 󰔟/➤ は META_ICON (dim gray)、残り時間は META_REMAINING (cyan)、
       # 終了時刻は META_ENDTIME (amber) で色分けして数値を主役にする。
       today_remaining_sup=$(_to_superscript "$today_remaining_str")
-      t_text="${today_icon} ${today_used}pp ${hourglass} ${today_remaining_sup} ➤ ${today_end_time}"
-      t_fmt=$(printf '%b%s\033[0m %b%spp\033[0m %b%s\033[0m %b%s\033[0m %b➤\033[0m %b%s\033[0m' \
+      t_text="${today_icon}  ${today_used}pp  ${hourglass} ${today_remaining_sup} ➤ ${today_end_time}"
+      t_fmt=$(printf '%b%s\033[0m  %b%spp\033[0m  %b%s\033[0m %b%s\033[0m %b➤\033[0m %b%s\033[0m' \
         "$SECTION_ICON" "$today_icon" \
         "$tcolor" "$today_used" \
-        "$META_ICON" "$hourglass" \
+        "$META_HOURGLASS" "$hourglass" \
         "$META_REMAINING" "$today_remaining_sup" \
         "$META_ICON" \
         "$META_ENDTIME" "$today_end_time")
@@ -719,14 +710,14 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
 
     # 形式: <W-icon> <Braille 4-char> NN% 󰔟<残り> → <日付>
     # icon は SECTION_ICON (固定色)、bar と % は残量表示だが色は usage 由来 severity
-    w_text="${week_icon} ⣿⣿⣿⣿ ${weekly_remaining_pct}%"
-    w_fmt=$(printf '%b%s\033[0m %s %b%s%%\033[0m' "$SECTION_ICON" "$week_icon" "$weekly_braille" "$wcolor" "$weekly_remaining_pct")
+    w_text="${week_icon}  ⣿⣿⣿⣿ ${weekly_remaining_pct}%"
+    w_fmt=$(printf '%b%s\033[0m  %s %b%s%%\033[0m' "$SECTION_ICON" "$week_icon" "$weekly_braille" "$wcolor" "$weekly_remaining_pct")
 
     if [ -n "$weekly_remaining" ]; then
       weekly_remaining_sup=$(_to_superscript "$weekly_remaining")
-      w_text="${w_text} ${hourglass_r} ${weekly_remaining_sup}"
-      w_fmt="${w_fmt}$(printf ' %b%s\033[0m %b%s\033[0m' \
-        "$META_ICON" "$hourglass_r" "$META_REMAINING" "$weekly_remaining_sup")"
+      w_text="${w_text}  ${hourglass_r} ${weekly_remaining_sup}"
+      w_fmt="${w_fmt}$(printf '  %b%s\033[0m %b%s\033[0m' \
+        "$META_HOURGLASS" "$hourglass_r" "$META_REMAINING" "$weekly_remaining_sup")"
     fi
 
     if [ -n "$weekly_reset" ]; then
@@ -801,8 +792,8 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     # 並び順: icon + pp/d + sparkline
     # icon は SECTION_ICON (green)、pp/d は別色 (bright cyan) で区別。
     spark_icon=$'\xf3\xb0\x8e\xb7'
-    spark_text="${spark_icon} "
-    spark_fmt=$(printf '%b%s\033[0m ' "$SECTION_ICON" "$spark_icon")
+    spark_text="${spark_icon}  "
+    spark_fmt=$(printf '%b%s\033[0m  ' "$SECTION_ICON" "$spark_icon")
     if [ -n "$weekly_per_day" ]; then
       spark_text+="${weekly_per_day}pp/d "
       spark_fmt+=$(printf '\033[96m%spp/d\033[0m ' "$weekly_per_day")
@@ -886,16 +877,25 @@ if [ -n "$git_branch" ]; then
     wt_marker=" ${wt_icon}"
     wt_marker_fmt=$(printf ' \033[32m%s\033[0m' "$wt_icon")
   fi
-  right_text="${branch_icon} ${git_branch}${wt_marker}${git_status_text} │ 📁 ${cwd}"
-  right_fmt=$(printf "\033[35m%s %s\033[0m%b%b \033[2m│\033[0m \033[94m📁 %s\033[0m" "$branch_icon" "$git_branch" "$wt_marker_fmt" "$git_status_fmt" "$cwd")
+  # vim_mode があれば branch と cwd の間に挿入
+  vim_seg_text=""
+  vim_seg_fmt=""
+  if [ -n "$vim_mode" ] && [ "$vim_mode" != "null" ]; then
+    vim_seg_text=" │ ${vim_mode}"
+    vim_seg_fmt=" \033[2m│\033[0m ${vim_mode}"
+  fi
+  right_text="${branch_icon} ${git_branch}${wt_marker}${git_status_text}${vim_seg_text} │ 📁 ${cwd}"
+  right_fmt=$(printf "\033[35m%s %s\033[0m%b%b%b \033[2m│\033[0m \033[94m📁 %s\033[0m" "$branch_icon" "$git_branch" "$wt_marker_fmt" "$git_status_fmt" "$vim_seg_fmt" "$cwd")
 else
-  right_text="📁 ${cwd}"
-  right_fmt=$(printf "\033[94m📁 %s\033[0m" "$cwd")
+  # branch なし: vim があれば cwd の前に、なければ cwd のみ
+  if [ -n "$vim_mode" ] && [ "$vim_mode" != "null" ]; then
+    right_text="${vim_mode} │ 📁 ${cwd}"
+    right_fmt=$(printf "%s \033[2m│\033[0m \033[94m📁 %s\033[0m" "$vim_mode" "$cwd")
+  else
+    right_text="📁 ${cwd}"
+    right_fmt=$(printf "\033[94m📁 %s\033[0m" "$cwd")
+  fi
 fi
-
-# Model/Vim を CWD の後に append (Version の前)
-right_text="${right_text} │ ${model_text}"
-right_fmt="${right_fmt} \033[2m│\033[0m ${model_fmt}"
 
 # -----------------------------------------------------------------------------
 # 右側: バージョン情報 (cwd の右に append)
@@ -926,8 +926,8 @@ if [ -n "$ver" ] && [ "$ver" != "null" ]; then
   fi
 fi
 
-# NOTE: Model/Vim は git/cwd ブロック直後 (version の前) に append 済み。
-# 右側順: Branch │ CWD │ Model [│ Vim] [│ Version]
+# NOTE: Model は line 1 左端 (left_text) に配置済み、Vim は branch と cwd の間に挿入済み。
+# 右側順 (line 2): Branch [│ Vim] │ CWD [│ Version]
 
 # left_text は先頭の " │ " を持つ (budget セクションが空の left_text に append した結果)。
 # 描画前に 1 段だけ剥がす。left_fmt は printf %b で後から解釈される "\033" リテラル

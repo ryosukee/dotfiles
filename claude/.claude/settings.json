@@ -96,7 +96,6 @@
       "Bash(*.netrc*)"
     ]
   },
-  "model": "opus[1m]",
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh",
