@@ -21,7 +21,7 @@ git/.config/git/         → ~/.config/git/
 fish/.config/fish/       → ~/.config/fish/
 ```
 
-デプロイ: `stow -t ~ nvim git fish lazygit tig tmux bin claude`
+デプロイ: `stow -t ~ nvim git fish lazygit tig tmux bin claude mise`
 
 ## 設定変更時のルール
 

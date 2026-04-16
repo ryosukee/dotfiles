@@ -18,6 +18,7 @@ dotfiles/
 ├── lazygit/       # lazygit (delta 連携)
 ├── tig/           # tig
 ├── tmux/          # tmux + claude popup editor
+├── mise/          # mise global tools (node/go/python/ruby + go tools)
 ├── bin/           # 自作 CLI (~/.local/bin/cc-ask-dotfiles 等)
 ├── claude/        # Claude Code 設定 (settings, statusline)
 ├── Brewfile       # brew パッケージ一覧 (brew bundle dump --describe で生成)
@@ -43,7 +44,7 @@ mv ~/.config/git/config ~/.config/git/config.bak
 
 # 4. symlink を作成
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
-stow -t ~ nvim git fish lazygit tig tmux bin claude
+stow -t ~ nvim git fish lazygit tig tmux bin claude mise
 
 # 5. nvim プラグインをインストール (初回起動で自動)
 nvim
@@ -77,6 +78,7 @@ fisher update
 
 | ツール | 用途 | インストール |
 | --- | --- | --- |
+<!-- markdownlint-disable-next-line MD013 -->
 | git-delta | diff/log の pager (行番号, サイドバイサイド, シンタックスハイライト) | `brew install git-delta` |
 | lazygit | TUI git クライアント (delta 連携, LazyVim 内蔵) | `brew install lazygit` |
 | ghq | リポジトリ管理 (`~/ghq_root/` 配下) | `brew install ghq` |
@@ -115,6 +117,7 @@ fisher update
 
 | ツール | 用途 | インストール |
 | --- | --- | --- |
+<!-- markdownlint-disable-next-line MD013 -->
 | claude-code | Claude Code CLI + VS Code 拡張 | `brew install anthropic/claude-code/claude-code` / VS Code |
 | codex | OpenAI のコーディングエージェント | `brew install codex` |
 
