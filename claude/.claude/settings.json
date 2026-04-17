@@ -112,7 +112,8 @@
     "session-retrospective@cc-tools": true,
     "markdownlint@cc-tools": true,
     "mkdocs-setup@cc-tools": true,
-    "security-guards@cc-tools": true
+    "security-guards@cc-tools": true,
+    "cc-transcript@cc-tools": true
   },
   "sandbox": {
     "filesystem": {
