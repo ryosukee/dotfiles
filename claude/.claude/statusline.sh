@@ -163,18 +163,22 @@ fi
 cols=$(tput cols 2>/dev/null || echo "${COLUMNS:-80}")
 
 # -----------------------------------------------------------------------------
-# Model は line 1 の左端 (budget 系の前) に配置。
-# Vim mode は line 2 の branch と cwd の間に配置する (下の branch/cwd ブロックで挿入)。
-# 出力例
-#   line 1: ⚡ Opus 4.6 │ Ctx │ 5h │ Today │ Weekly │ 7d
-#   line 2: Branch [│ NORMAL] │ 📁 cwd
+# Model 情報は line 2 (cache セクション) の左端に配置。
+# line 1 は budget 系のみ。Vim mode は line 3 の branch と cwd の間に挿入する。
+# 出力レイアウト (3 行):
+#   line 1: Ctx │ 5h │ Today │ 7d │ Weekly
+#   line 2: ⚡ Model │ in·hit │ out │ Σ │ TTL
+#   line 3: Branch [│ NORMAL] │ 📁 cwd │ version
 # -----------------------------------------------------------------------------
+# model の text/fmt は line 2 組み立て時に使うので保持、left は空で start。
+left_text=""
+left_fmt=""
 if [ -n "$model" ] && [ "$model" != "null" ]; then
-  left_text="⚡ ${model}"
-  left_fmt=$(printf "\033[96m⚡ %s\033[0m" "$model")
+  model_text="⚡ ${model}"
+  model_fmt=$(printf "\033[96m⚡ %s\033[0m" "$model")
 else
-  left_text=""
-  left_fmt=""
+  model_text=""
+  model_fmt=""
 fi
 
 # -----------------------------------------------------------------------------
@@ -672,15 +676,26 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
       today_end_epoch=$(( current_day_start + 86400 ))
       today_end_time=$(date -r "$today_end_epoch" "+%-H:%M" 2>/dev/null)
 
-      # T-icon + Npp + remaining + 終了時刻
-      # severity color は Npp のみ。icon は SECTION_ICON、
+      # T-icon + Npp + Npp/d + remaining + 終了時刻
+      # severity color は Npp のみ。icon は SECTION_ICON、pp/d は bright cyan
+      # (今日の消費 pp と per-day 予算を並べて比較できるように today 側に配置)、
       # 󰔟/➤ は META_ICON (dim gray)、残り時間は META_REMAINING (cyan)、
       # 終了時刻は META_ENDTIME (amber) で色分けして数値を主役にする。
       today_remaining_sup=$(_to_superscript "$today_remaining_str")
-      t_text="${today_icon}  ${today_used}pp  ${hourglass} ${today_remaining_sup} ➤ ${today_end_time}"
-      t_fmt=$(printf '%b%s\033[0m  %b%spp\033[0m  %b%s\033[0m %b%s\033[0m %b➤\033[0m %b%s\033[0m' \
+
+      # pp/d segment (conditional) — 今日の pp の右に space 区切りで append
+      ppd_text=""
+      ppd_fmt_content=""
+      if [ -n "$weekly_per_day" ]; then
+        ppd_text=" ${weekly_per_day}pp/d"
+        ppd_fmt_content=" \033[96m${weekly_per_day}pp/d\033[0m"
+      fi
+
+      t_text="${today_icon}  ${today_used}pp${ppd_text}  ${hourglass} ${today_remaining_sup} ➤ ${today_end_time}"
+      t_fmt=$(printf '%b%s\033[0m  %b%spp\033[0m%b  %b%s\033[0m %b%s\033[0m %b➤\033[0m %b%s\033[0m' \
         "$SECTION_ICON" "$today_icon" \
         "$tcolor" "$today_used" \
+        "$ppd_fmt_content" \
         "$META_HOURGLASS" "$hourglass" \
         "$META_REMAINING" "$today_remaining_sup" \
         "$META_ICON" \
@@ -789,15 +804,10 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     }
 
     # icon: nf-md U+F03B7 (7d 専用、weekly とは別グリフで視覚的に区別)
-    # 並び順: icon + pp/d + sparkline
-    # icon は SECTION_ICON (green)、pp/d は別色 (bright cyan) で区別。
+    # 並び順: icon + sparkline (pp/d は today セクションに移動済み)
     spark_icon=$'\xf3\xb0\x8e\xb7'
     spark_text="${spark_icon}  "
     spark_fmt=$(printf '%b%s\033[0m  ' "$SECTION_ICON" "$spark_icon")
-    if [ -n "$weekly_per_day" ]; then
-      spark_text+="${weekly_per_day}pp/d "
-      spark_fmt+=$(printf '\033[96m%spp/d\033[0m ' "$weekly_per_day")
-    fi
 
     # cycle day 1..7 を順に描画。today は 󱞩 マーカー直後、未来は薄色。
     # pp_by_day_v4 は state 更新セクションで既に構築済み (history から derive)。
@@ -826,6 +836,293 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     left_text="${left_text} │ ${w_text}"
     left_fmt="${left_fmt} \033[2m│\033[0m ${w_fmt}"
   fi
+fi
+
+# -----------------------------------------------------------------------------
+# 3rd line: 直近 7 ターンの cache hit 率 / uncached I/O sparkline
+#           + 今ターンの現在値 + セッション累積 + cache TTL
+#
+# Claude Code の context_window.current_usage から 1 ターン分の
+#   - input_tokens                (uncached = キャッシュに乗らなかった input)
+#   - cache_creation_input_tokens (cache 新規書き込み)
+#   - cache_read_input_tokens     (cache 読出し)
+#   - output_tokens
+# を受け取る。hit rate = cache_read / (input + cc + cache_read)。
+# output はキャッシュ対象外 (モデルが毎回新規生成) なので hit rate 計算には不使用。
+#
+# === State: per-session ファイルに分離 ===
+# Claude Code は複数セッションが並列で走る (別 tmux pane 等) 。state file を
+# 全セッションで共有するとターン粒度の race で履歴が壊れる。ファイル名に
+# session_id を入れることで各セッション独立に書き込めるようにし、race を回避。
+# 配置は /tmp/claude-status/ (既に session JSON export が使っている場所)。
+# /tmp は OS が定期掃除する (macOS: /etc/periodic/daily/110.clean-tmps で atime
+# 3 日超を削除 / Linux: systemd-tmpfiles で ~10 日) ので終了セッションの残骸も
+# 自動で片付く。
+#
+# State ファイル: /tmp/claude-status/turn-history-<session_id>.json
+#   schema: { version: 1, last_sig: "i-cc-cr-o", turns: [{i,cc,cr,o}, ...] }
+#   turns は newest-first、最大 7 件。
+# Update trigger: (cur_in, cur_cc, cur_cr, cur_out) の signature 変化 = 新ターン完了。
+#   statusline は毎回走るが signature 同じなら書かない (= 1 ターン 1 push)。
+#
+# === TTL の anchor ===
+# Claude Code は会話イベント (user msg / assistant / tool result) で
+# transcript_path (.jsonl) に append するため、その mtime ≒ 最後に API が
+# キャッシュに触れた時刻。transcript は session ごとに別ファイルなので共有
+# state 問題はない。prompt cache のデフォルト TTL は 5 分 (Anthropic API 仕様)。
+#
+# 依存: jq, date, stat (macOS -f %m / Linux -c %Y)
+# 出力例:
+#   in·hit ⣇₄₄₉⣷₉₇ ⣧₆₀₀⣷₉₇ ⣤₂₀₀⣷₉₈ ⣦₃₀₀⣷₉₇ ⣷₈₀₀⣷₉₇ ⣇₁₀₀⣷₉₈ ⣿⣷ 449/97% │ out ⡆₁₀₀⣤₂₀₀⣶₃₀₀⣷₄₀₀⣧₅₀₀⣄₂₀₀⣿ 559 │ Σ in 32K, out 12K │ TTL 59:48
+#
+# in と hit は同質的な input 側の指標なので per-turn で pair にして表示する。
+# 1 ターン = [in-bar][in-subscript][hit-bar][hit-subscript] の 4 要素。ターン間は
+# スペース区切り。左→右で古→新。色: in=cyan / hit=severity 反転。
+# 過去 6 ターンは subscript で実値併記、rightmost (現在ターン) は subscript 省略して
+# 末尾の大きい数値で表示。out は別セクション (pair にしない、turn 区切りもなし)。
+#
+# per-turn metrics の定義:
+#   in  = cur_in + cur_cc  (今ターンで新規に積んだ input。cur_in はほぼ常に 1 で
+#         breakpoint 外の構造トークン。user 発言/tool 結果 etc. の実体は cc 側に入る。
+#         cache TTL 切れで全 prefix が miss すると cc が膨れて in が急騰する)
+#   out = cur_out          (今ターンの output)
+#   hit = cur_cr / (cur_in + cur_cc + cur_cr)  (このターンの cache 活用率)
+#
+# cur_in + cur_cc + cur_cr は「今ターン時点の累積 context サイズ」で、
+# context_window.used_percentage と同じ概念なので turn 単位の値としては使わない。
+# -----------------------------------------------------------------------------
+cur_in=$(echo "$input" | jq -r '.context_window.current_usage.input_tokens // 0')
+cur_cc=$(echo "$input" | jq -r '.context_window.current_usage.cache_creation_input_tokens // 0')
+cur_cr=$(echo "$input" | jq -r '.context_window.current_usage.cache_read_input_tokens // 0')
+cur_out=$(echo "$input" | jq -r '.context_window.current_usage.output_tokens // 0')
+total_in=$(echo "$input" | jq -r '.context_window.total_input_tokens // 0')
+total_out=$(echo "$input" | jq -r '.context_window.total_output_tokens // 0')
+transcript_path=$(echo "$input" | jq -r '.transcript_path // empty')
+cur_sig="${cur_in}-${cur_cc}-${cur_cr}-${cur_out}"
+
+# --- 数値フォーマット: 1000 未満はそのまま、以上は K / M で短縮 ---
+_fmt_k() {
+  local n="$1"
+  if [ "$n" -lt 1000 ] 2>/dev/null; then printf '%d' "$n"
+  elif [ "$n" -lt 10000 ] 2>/dev/null; then printf '%d.%dK' $(( n / 1000 )) $(( (n % 1000) / 100 ))
+  elif [ "$n" -lt 1000000 ] 2>/dev/null; then printf '%dK' $(( n / 1000 ))
+  else printf '%d.%dM' $(( n / 1000000 )) $(( (n % 1000000) / 100000 ))
+  fi
+}
+
+# --- per-session state read ---
+TURN_HISTORY_FILE=""
+turns_json="[]"
+last_sig=""
+if [ -n "$session_id" ] && [ "$session_id" != "null" ]; then
+  mkdir -p /tmp/claude-status 2>/dev/null
+  TURN_HISTORY_FILE="/tmp/claude-status/turn-history-${session_id}.json"
+  if [ -f "$TURN_HISTORY_FILE" ] \
+     && [ "$(jq -r '.version // 0' "$TURN_HISTORY_FILE" 2>/dev/null)" = "1" ]; then
+    last_sig=$(jq -r '.last_sig // empty' "$TURN_HISTORY_FILE" 2>/dev/null)
+    loaded=$(jq -c '.turns // []' "$TURN_HISTORY_FILE" 2>/dev/null)
+    [ -n "$loaded" ] && turns_json="$loaded"
+  fi
+fi
+
+# --- signature 変化 → 新ターン push (+ state write) ---
+if [ -n "$TURN_HISTORY_FILE" ] && [ "$cur_sig" != "$last_sig" ]; then
+  turns_json=$(jq -c \
+    --argjson i "$cur_in" --argjson cc "$cur_cc" \
+    --argjson cr "$cur_cr" --argjson o "$cur_out" \
+    '([{i: $i, cc: $cc, cr: $cr, o: $o}] + .)[:7]' <<< "$turns_json")
+  TH_TMP="${TURN_HISTORY_FILE}.tmp.$$"
+  if jq -n --arg sig "$cur_sig" --argjson turns "$turns_json" \
+      '{version: 1, last_sig: $sig, turns: $turns}' \
+      > "$TH_TMP" 2>/dev/null; then
+    mv "$TH_TMP" "$TURN_HISTORY_FILE"
+  else
+    rm -f "$TH_TMP" 2>/dev/null
+  fi
+fi
+
+# --- per-turn metrics (current) ---
+# in = cur_in + cur_cc (今ターンで新規に積んだ input。cache 切れで急騰する)。
+# hit = 今ターンの cache 活用率 (in spike と冗長だが TTL 観察用)。
+cur_fresh_in=$(( cur_in + cur_cc ))
+cur_total=$(( cur_in + cur_cc + cur_cr ))
+cur_hit=0
+[ "$cur_total" -gt 0 ] && cur_hit=$(( cur_cr * 100 / cur_total ))
+_hit_color_for() {
+  local p="$1"
+  if [ "$p" -ge 90 ]; then printf '\033[92m'
+  elif [ "$p" -ge 70 ]; then printf '\033[93m'
+  else printf '\033[91m'
+  fi
+}
+cur_hit_color=$(_hit_color_for "$cur_hit")
+
+cur_in_str=$(_fmt_k "$cur_fresh_in")
+cur_out_str=$(_fmt_k "$cur_out")
+tot_in_str=$(_fmt_k "$total_in")
+tot_out_str=$(_fmt_k "$total_out")
+
+# --- 3 series sparkline (in / out / hit、各 7 cell) ---
+# turns_json は newest-first。表示は古→新 (左→右) なので 7 pos を leftmost=oldest で走査。
+# in は fresh_in (= i + cc) を使う (cr を含めると累積 context になり turn 単位で
+# 意味が変わるため除外)。in/out は window max、hit は 0-100 固定で正規化。
+# 過去 6 ターンは subscript で実値を併記、rightmost (現在) は subscript 省略して
+# 末尾の大きい数値で表示。
+mapfile -t turn_rows < <(jq -r '.[] | "\(.i) \(.cc) \(.cr) \(.o)"' <<< "$turns_json" 2>/dev/null)
+n_turns=${#turn_rows[@]}
+
+# subscript digit + K/M suffix 用ユーティリティ (weekly 側の sub_digits/spark_to_sub
+# はこのブロック到達時に存在しない可能性があるので独立に再定義)
+cache_sub_digits=(₀ ₁ ₂ ₃ ₄ ₅ ₆ ₇ ₈ ₉)
+_to_sub_digits() {
+  local n="$1"
+  local out="" i c
+  for (( i=0; i<${#n}; i++ )); do
+    c="${n:$i:1}"
+    case "$c" in
+      [0-9]) out+="${cache_sub_digits[$c]}" ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+_fmt_sub_k() {
+  local n="$1"
+  if [ "$n" -lt 1000 ] 2>/dev/null; then
+    _to_sub_digits "$n"
+  elif [ "$n" -lt 1000000 ] 2>/dev/null; then
+    _to_sub_digits "$(( n / 1000 ))"
+    printf 'ₖ'
+  else
+    _to_sub_digits "$(( n / 1000000 ))"
+    printf 'ₘ'
+  fi
+}
+
+# 正規化用の window max (0 除算回避で下限 1)
+max_fresh_in=1
+max_out=1
+for row in "${turn_rows[@]}"; do
+  read -r _ti _tcc _tcr _to <<< "$row"
+  _fr=$(( _ti + _tcc ))
+  [ "$_fr" -gt "$max_fresh_in" ] 2>/dev/null && max_fresh_in=$_fr
+  [ "$_to" -gt "$max_out" ] 2>/dev/null && max_out=$_to
+done
+
+pair_bar_text=""; pair_bar_fmt=""
+out_bar_text=""; out_bar_fmt=""
+
+empty_slots=$(( 7 - n_turns ))
+[ "$empty_slots" -lt 0 ] && empty_slots=0
+
+for ((pos=0; pos<7; pos++)); do
+  # pair_bar はターン間スペース区切り。out_bar は連続 (区切りなし)。
+  if [ "$pos" -gt 0 ]; then
+    pair_bar_text+=" "
+    pair_bar_fmt+=" "
+  fi
+
+  turn_idx=$(( pos - empty_slots ))  # 負 = 空きスロット
+  if [ "$turn_idx" -lt 0 ]; then
+    pair_bar_text+="⠀⠀"
+    pair_bar_fmt+=$(printf '\033[2m⠀⠀\033[0m')
+    out_bar_text+="⠀"
+    out_bar_fmt+=$(printf '\033[2m⠀\033[0m')
+    continue
+  fi
+
+  # pos=empty_slots が最古、pos=6 が最新 (= newest = turns_json[0])
+  hist_idx=$(( n_turns - 1 - turn_idx ))
+  read -r _ti _tcc _tcr _to <<< "${turn_rows[$hist_idx]}"
+
+  _fresh=$(( _ti + _tcc ))
+  _total=$(( _ti + _tcc + _tcr ))
+  _hit=0
+  [ "$_total" -gt 0 ] && _hit=$(( _tcr * 100 / _total ))
+
+  _in_lvl=$(( _fresh * 8 / max_fresh_in ))
+  [ "$_in_lvl" -gt 8 ] && _in_lvl=8
+  [ "$_in_lvl" -lt 0 ] && _in_lvl=0
+  [ "$_fresh" -gt 0 ] && [ "$_in_lvl" -eq 0 ] && _in_lvl=1
+
+  _out_lvl=$(( _to * 8 / max_out ))
+  [ "$_out_lvl" -gt 8 ] && _out_lvl=8
+  [ "$_out_lvl" -lt 0 ] && _out_lvl=0
+  [ "$_to" -gt 0 ] && [ "$_out_lvl" -eq 0 ] && _out_lvl=1
+
+  _hit_lvl=$(( _hit * 8 / 100 ))
+  [ "$_hit_lvl" -gt 8 ] && _hit_lvl=8
+  [ "$_hit_lvl" -lt 0 ] && _hit_lvl=0
+
+  _in_ch="${braille_levels[$_in_lvl]}"
+  _out_ch="${braille_levels[$_out_lvl]}"
+  _hit_ch="${braille_levels[$_hit_lvl]}"
+  _hc=$(_hit_color_for "$_hit")
+
+  # rightmost (pos=6 = newest) は subscript 省略 (末尾に大きい数値で出すので重複回避)
+  if [ "$pos" -eq 6 ]; then
+    _in_sub=""; _out_sub=""; _hit_sub=""
+  else
+    _in_sub=$(_fmt_sub_k "$_fresh")
+    _out_sub=$(_fmt_sub_k "$_to")
+    _hit_sub=$(_to_sub_digits "$_hit")
+  fi
+
+  # pair: [in-bar][in-sub][hit-bar][hit-sub] (内部区切りなし、色でペア識別)
+  pair_bar_text+="${_in_ch}${_in_sub}${_hit_ch}${_hit_sub}"
+  pair_bar_fmt+=$(printf '\033[96m%s\033[0m\033[2m%s\033[0m%b%s\033[0m\033[2m%s\033[0m' \
+    "$_in_ch" "$_in_sub" "$_hc" "$_hit_ch" "$_hit_sub")
+
+  out_bar_text+="${_out_ch}${_out_sub}"
+  out_bar_fmt+=$(printf '\033[95m%s\033[0m\033[2m%s\033[0m' "$_out_ch" "$_out_sub")
+done
+
+# --- TTL: 1 時間 countdown ---
+# Claude Code CLI の default cache TTL は 1 時間 (extended cache)。
+# Anthropic 公式 docs は「default = 5min ephemeral」だが、実機観測により
+# Claude Code CLI は内部で 1h extended cache を使っている (Issue #46829 の
+# 1h → 5min regression 話とも整合、現 2.1.114 では 1h が効いている)。
+# 経過時間 = now - transcript mtime (= 最後の API コール時刻のプロキシ)。
+ttl_text=""; ttl_fmt=""
+if [ -n "$transcript_path" ] && [ -f "$transcript_path" ]; then
+  last_api_ts=$(stat -f %m "$transcript_path" 2>/dev/null || stat -c %Y "$transcript_path" 2>/dev/null || echo 0)
+  if [ "$last_api_ts" -gt 0 ] 2>/dev/null; then
+    ttl_elapsed=$(( $(date +%s) - last_api_ts ))
+    [ "$ttl_elapsed" -lt 0 ] && ttl_elapsed=0
+    ttl_rem=$(( 3600 - ttl_elapsed ))
+    if [ "$ttl_rem" -le 0 ]; then
+      ttl_text="TTL expired"
+      ttl_fmt=$(printf '\033[2mTTL\033[0m \033[2mexpired\033[0m')
+    else
+      ttl_m=$(( ttl_rem / 60 ))
+      ttl_s=$(( ttl_rem % 60 ))
+      ttl_text=$(printf 'TTL %d:%02d' "$ttl_m" "$ttl_s")
+      if [ "$ttl_rem" -gt 1800 ]; then ttl_color='\033[92m'
+      elif [ "$ttl_rem" -gt 900 ]; then ttl_color='\033[93m'
+      else ttl_color='\033[91m'
+      fi
+      ttl_fmt=$(printf '\033[2mTTL\033[0m %b%d:%02d\033[0m' "$ttl_color" "$ttl_m" "$ttl_s")
+    fi
+  fi
+fi
+
+# --- 組み立て ---
+# Model + pair (in+hit) + out + Σ + TTL。pair は per-turn で in/hit interleave、
+# 現在値は末尾に `{in}/{hit}%` で表示。
+cache_text="in·hit ${pair_bar_text} ${cur_in_str}/${cur_hit}% │ out ${out_bar_text} ${cur_out_str} │ Σ in ${tot_in_str}, out ${tot_out_str}"
+cache_fmt=$(printf '\033[2min·hit\033[0m %b \033[96m%s\033[0m\033[2m/\033[0m%b%s%%\033[0m \033[2m│\033[0m \033[2mout\033[0m %b \033[95m%s\033[0m \033[2m│\033[0m \033[2mΣ\033[0m in \033[96m%s\033[0m\033[2m,\033[0m out \033[95m%s\033[0m' \
+  "$pair_bar_fmt" "$cur_in_str" "$cur_hit_color" "$cur_hit" \
+  "$out_bar_fmt" "$cur_out_str" \
+  "$tot_in_str" "$tot_out_str")
+
+# Model を line 2 の先頭に prepend
+if [ -n "$model_text" ]; then
+  cache_text="${model_text} │ ${cache_text}"
+  cache_fmt="${model_fmt} \033[2m│\033[0m ${cache_fmt}"
+fi
+
+if [ -n "$ttl_text" ]; then
+  cache_text="${cache_text} │ ${ttl_text}"
+  cache_fmt="${cache_fmt} \033[2m│\033[0m ${ttl_fmt}"
 fi
 
 # -----------------------------------------------------------------------------
@@ -945,13 +1242,13 @@ left_fmt="${left_fmt#"$left_fmt_leading"}"
 # -----------------------------------------------------------------------------
 total=$((${#left_text} + 3 + ${#right_text}))
 
-if [ "$total" -le "$cols" ]; then
-  pad=$((cols - ${#left_text} - ${#right_text}))
-  printf "%b%*s%b\n" "$left_fmt" "$pad" "" "$right_fmt"
-else
-  printf "%b\n" "$left_fmt"
-  printf "%b\n" "$right_fmt"
-fi
+# 3 行固定レイアウト:
+#   line 1: budget 系 (ctx / 5h / today / 7d / weekly)
+#   line 2: 今ターンの I/O & cache 情報 (in / out / hit / Σ / TTL)
+#   line 3: 環境情報 (branch / cwd / version)
+printf "%b\n" "$left_fmt"
+[ -n "$cache_fmt" ] && printf "%b\n" "$cache_fmt"
+printf "%b\n" "$right_fmt"
 
 # -----------------------------------------------------------------------------
 # ステータスライン情報の JSON 書き出し（ステータスライン表示には不要）
