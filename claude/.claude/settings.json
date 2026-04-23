@@ -4,6 +4,7 @@
     "CLAUDE_CODE_NEW_INIT": "1",
     "CLAUDE_CODE_NO_FLICKER": "1",
     "ENABLE_TOOL_SEARCH": "true",
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
     "EDITOR": "nvim"
   },
   "permissions": {
@@ -103,16 +104,15 @@
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true,
     "claude-blueprints@omnis-blueprints": true,
-    "session@cc-tools": true,
     "version-check@cc-tools": true,
-    "gitdiff@cc-tools": true,
     "dotclaude@cc-tools": true,
     "plugin-update@cc-tools": true,
     "markdownlint@cc-tools": true,
     "mkdocs-setup@cc-tools": true,
     "security-guards@cc-tools": true,
     "cc-transcript@cc-tools": true,
-    "session-closing@cc-tools": true
+    "session-closing@cc-tools": true,
+    "dotclaude-writer@cc-tools": true
   },
   "sandbox": {
     "filesystem": {

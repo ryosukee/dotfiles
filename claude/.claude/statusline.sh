@@ -59,10 +59,11 @@
 #
 # 出力レイアウト（line1/line2 を │ で区切って並べる）:
 #   例:
-#     line1: 󰁿 60% │ 󱇹 󰂁 80% 󰔟 4ʰ02ᵐ ➤ 14:30 │ 󱑸 5pp 󰔟 17ʰ59ᵐ ➤ 4:50 │ 󰎷 18pp/d ⣿²⁰⣇⁸▸⣇⁸⡀⁰⡀⁰⡀⁰⡀⁰ │ 󰎸 ⣿⣿⣿⣄ 85% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
-#     line2: ⚡ Opus 4.6 │ NORMAL │  main +3 !2 ?1 ⇡2 │ 📁 ~/ghq_root/github.com/foo/bar │ v2.1.83
+#     line1: NORMAL │ 󰁿 60% │ 󱇹 󰂁 80% 󰔟 4ʰ02ᵐ ➤ 14:30 │ 󱑸 5pp 󰔟 17ʰ59ᵐ ➤ 4:50 │ 󰎷 18pp/d ⣿²⁰⣇⁸▸⣇⁸⡀⁰⡀⁰⡀⁰⡀⁰ │ 󰎸 ⣿⣿⣿⣄ 85% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
+#     line2: ⚡ Opus 4.6 │  main +3 !2 ?1 ⇡2 │ 📁 ~/ghq_root/github.com/foo/bar │ v2.1.83
 #
-#   line1（使用量系セクション、budget 専用）:
+#   line1（vim mode + 使用量系セクション）:
+#     - Vim:          NORMAL（vim モード有効時のみ、line1 先頭）
 #     - Ctx Window:   󰁿 60%
 #                     battery glyph (nf-md-battery-* 10 段階 + alert) + 残量 % で表示。
 #                     used 0% → 󰁹 100% / used 100% → 󰂃 0% と inverted mapping。
@@ -102,7 +103,6 @@
 #                     Nerd Font アイコン: 󰔟 (U+F051F) 砂時計
 #   line2（環境情報系）:
 #     - Model:        ⚡ Opus 4.6
-#     - Vim:          NORMAL（vim モード有効時のみ）
 #     - Git Branch:    main +3 !2 ?1 ⇡2（Nerd Font アイコン付き、git リポジトリ内のみ）
 #                      +N=staged, !N=modified, ?N=untracked, ⇡N=ahead, ⇣N=behind（なければ省略）
 #     - CWD:          📁 ~/ghq_root/github.com/foo/bar
@@ -188,11 +188,11 @@ cols=$(tput cols 2>/dev/null || echo "${COLUMNS:-80}")
 
 # -----------------------------------------------------------------------------
 # Model 情報は line 2 (cache セクション) の左端に配置。
-# line 1 は budget 系のみ。Vim mode は line 3 の branch と cwd の間に挿入する。
+# Vim mode は line 1 の先頭に配置 (有効時のみ)。
 # 出力レイアウト (3 行):
-#   line 1: Ctx │ 5h │ Today │ 7d │ Weekly
+#   line 1: [NORMAL │] Ctx │ 5h │ Today │ 7d │ Weekly
 #   line 2: ⚡ Model │ in·hit │ out │ Σ │ TTL
-#   line 3: Branch [│ NORMAL] │ 📁 cwd │ version
+#   line 3: Branch │ 📁 cwd │ version
 # -----------------------------------------------------------------------------
 # model の text/fmt は line 2 組み立て時に使うので保持、left は空で start。
 left_text=""
@@ -1149,24 +1149,11 @@ if [ -n "$git_branch" ]; then
     wt_marker=" ${wt_icon}"
     wt_marker_fmt=$(printf ' \033[32m%s\033[0m' "$wt_icon")
   fi
-  # vim_mode があれば branch と cwd の間に挿入
-  vim_seg_text=""
-  vim_seg_fmt=""
-  if [ -n "$vim_mode" ] && [ "$vim_mode" != "null" ]; then
-    vim_seg_text=" │ ${vim_mode}"
-    vim_seg_fmt=" \033[2m│\033[0m ${vim_mode}"
-  fi
-  right_text="${branch_icon} ${git_branch}${wt_marker}${git_status_text}${vim_seg_text} │ 📁 ${cwd}"
-  right_fmt=$(printf "\033[35m%s %s\033[0m%b%b%b \033[2m│\033[0m \033[94m📁 %s\033[0m" "$branch_icon" "$git_branch" "$wt_marker_fmt" "$git_status_fmt" "$vim_seg_fmt" "$cwd")
+  right_text="${branch_icon} ${git_branch}${wt_marker}${git_status_text} │ 📁 ${cwd}"
+  right_fmt=$(printf "\033[35m%s %s\033[0m%b%b \033[2m│\033[0m \033[94m📁 %s\033[0m" "$branch_icon" "$git_branch" "$wt_marker_fmt" "$git_status_fmt" "$cwd")
 else
-  # branch なし: vim があれば cwd の前に、なければ cwd のみ
-  if [ -n "$vim_mode" ] && [ "$vim_mode" != "null" ]; then
-    right_text="${vim_mode} │ 📁 ${cwd}"
-    right_fmt=$(printf "%s \033[2m│\033[0m \033[94m📁 %s\033[0m" "$vim_mode" "$cwd")
-  else
-    right_text="📁 ${cwd}"
-    right_fmt=$(printf "\033[94m📁 %s\033[0m" "$cwd")
-  fi
+  right_text="📁 ${cwd}"
+  right_fmt=$(printf "\033[94m📁 %s\033[0m" "$cwd")
 fi
 
 # -----------------------------------------------------------------------------
@@ -1198,8 +1185,8 @@ if [ -n "$ver" ] && [ "$ver" != "null" ]; then
   fi
 fi
 
-# NOTE: Model は line 1 左端 (left_text) に配置済み、Vim は branch と cwd の間に挿入済み。
-# 右側順 (line 2): Branch [│ Vim] │ CWD [│ Version]
+# NOTE: Model は line 2 左端 (cache_text) に配置済み、Vim は line 1 先頭に prepend 済み。
+# 右側順 (line 3): Branch │ CWD [│ Version]
 
 # left_text は先頭の " │ " を持つ (budget セクションが空の left_text に append した結果)。
 # 描画前に 1 段だけ剥がす。left_fmt は printf %b で後から解釈される "\033" リテラル
@@ -1210,11 +1197,22 @@ left_fmt_leading=' \033[2m│\033[0m '
 # "$var" で quote すると glob 解釈が無効化される ([2m などが char class にならない)
 left_fmt="${left_fmt#"$left_fmt_leading"}"
 
+# vim mode を line 1 先頭に prepend
+if [ -n "$vim_mode" ] && [ "$vim_mode" != "null" ]; then
+  if [ -n "$left_text" ]; then
+    left_text="${vim_mode} │ ${left_text}"
+    left_fmt="${vim_mode} \033[2m│\033[0m ${left_fmt}"
+  else
+    left_text="${vim_mode}"
+    left_fmt="${vim_mode}"
+  fi
+fi
+
 # -----------------------------------------------------------------------------
 # 3 行固定レイアウト:
-#   line 1: budget 系 (ctx / 5h / today / 7d / weekly)
-#   line 2: 今ターンの I/O & cache 情報 (in / out / hit / Σ / TTL)
-#   line 3: 環境情報 (branch / cwd / version)
+#   line 1: [NORMAL │] Ctx │ 5h │ Today │ 7d │ Weekly
+#   line 2: ⚡ Model │ in·hit │ out │ Σ │ TTL
+#   line 3: Branch │ 📁 cwd │ version
 # セッション開始直後は rate_limits / context_window がまだ届かず left_fmt が
 # 空になるため、placeholder を出して 3 行構成を保つ (空 printf だと 1 行目が
 # 丸ごと空白行になり「消えた」ように見える)。
