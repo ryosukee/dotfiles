@@ -112,7 +112,8 @@
     "security-guards@cc-tools": true,
     "cc-transcript@cc-tools": true,
     "session-closing@cc-tools": true,
-    "dotclaude-writer@cc-tools": true
+    "dotclaude-writer@cc-tools": true,
+    "cache-keepalive@cc-tools": true
   },
   "sandbox": {
     "filesystem": {
@@ -121,5 +122,8 @@
       ]
     }
   },
-  "skipDangerousModePermissionPrompt": true
+  "skipDangerousModePermissionPrompt": true,
+  "editorMode": "vim",
+  "remoteControlAtStartup": true,
+  "agentPushNotifEnabled": true
 }
