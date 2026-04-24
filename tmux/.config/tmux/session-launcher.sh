@@ -299,6 +299,20 @@ enter: send window here & stay
 /    : search mode
 q/esc: cancel'
         ;;
+      --join-h)
+        prompt="join(h)> "
+        footer='j/k  : move
+enter: join as horizontal pane
+/    : search mode
+q/esc: cancel'
+        ;;
+      --join-v)
+        prompt="join(v)> "
+        footer='j/k  : move
+enter: join as vertical pane
+/    : search mode
+q/esc: cancel'
+        ;;
       *)
         prompt="window> "
         footer='j/k  : move
@@ -362,6 +376,14 @@ q/esc: back'
                 tmux switch-client -t "=${sname}" 2>/dev/null || true
               fi
               ;;
+            --join-h)
+              tmux join-pane -h -s "=${sname}:${widx}" -t "$src_win" 2>/dev/null || true
+              tmux switch-client -l 2>/dev/null || true
+              ;;
+            --join-v)
+              tmux join-pane -v -s "=${sname}:${widx}" -t "$src_win" 2>/dev/null || true
+              tmux switch-client -l 2>/dev/null || true
+              ;;
             *)
               tmux switch-client -t "=$sname" 2>/dev/null \
                 && tmux select-window -t "=$sname:$widx" 2>/dev/null \
@@ -399,8 +421,8 @@ case "${1:-}" in
     refresh_action
     exit 0
     ;;
-  --move|--send)
-    # move/send モードはエントリモードへ fall through
+  --move|--send|--join-h|--join-v)
+    # move/send/join モードはエントリモードへ fall through
     ;;
 esac
 

@@ -117,7 +117,7 @@ items:
         command: swap-window -d -t +1
       - separator: true
       - name: Rename
-        key: R
+        key: r
         command: command-prompt -I "#W" "renamew -- \"%%\""
       - name: Move to new session
         key: s
@@ -142,7 +142,7 @@ items:
         command: displayp -d 0
       - separator: true
       - name: Split horizontal
-        key: /
+        key: "%"
         command: "splitw -h -c #{pane_current_path}"
       - name: Split vertical
         key: "-"
@@ -211,9 +211,18 @@ items:
       - name: Swap right
         key: L
         command: swapp -t "{right-of}"
-      - name: Break
+      - name: Break (to window)
         key: "!"
         command: break-pane
+      - name: +Join (from window)
+        key: "@"
+        menu:
+          - name: Horizontal
+            key: "%"
+            command: join-pane-via-launcher-h
+          - name: Vertical
+            key: "-"
+            command: join-pane-via-launcher-v
       - separator: true
       - name: Mark
         key: m
