@@ -122,6 +122,7 @@
       ]
     }
   },
+  "autoMemoryEnabled": false,
   "skipDangerousModePermissionPrompt": true,
   "editorMode": "vim",
   "remoteControlAtStartup": true,
