@@ -113,7 +113,8 @@
     "cc-transcript@cc-tools": true,
     "session-closing@cc-tools": true,
     "dotclaude-writer@cc-tools": true,
-    "cache-keepalive@cc-tools": true
+    "cache-keepalive@cc-tools": true,
+    "impl-spec@cc-tools": true
   },
   "sandbox": {
     "filesystem": {

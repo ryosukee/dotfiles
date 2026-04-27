@@ -132,6 +132,37 @@
 # -----------------------------------------------------------------------------
 input=$(cat)
 
+# -----------------------------------------------------------------------------
+# vim mode 高速キャッシュ: jq を回避し bash regex で vim_mode だけ抽出。
+# mode が変わっていればキャッシュの mode 部分を差し替えて即 return。
+# -----------------------------------------------------------------------------
+_SL_CACHE_FILE="/tmp/claude-status/statusline-output-cache.dat"
+
+_sl_vim_mode=""
+if [[ "$input" =~ \"mode\":\"([A-Z ]+)\" ]]; then
+  _sl_vim_mode="${BASH_REMATCH[1]}"
+fi
+
+if [ -n "$_sl_vim_mode" ] && [ -f "$_SL_CACHE_FILE" ]; then
+  IFS=$'\x1f' read -r _cached_vim _cached_line1_body _cached_line2 _cached_line3 < "$_SL_CACHE_FILE"
+  if [ "$_cached_vim" != "$_sl_vim_mode" ] && [ -n "$_cached_line3" ]; then
+    if [ "$_sl_vim_mode" = "NORMAL" ]; then
+      _new_vim_fmt=$(printf "\033[1;30;43m %s \033[0m" "$_sl_vim_mode")
+    else
+      _new_vim_fmt="$_sl_vim_mode"
+    fi
+    if [ -n "$_cached_line1_body" ]; then
+      printf "%b\n" "${_new_vim_fmt} \033[2m│\033[0m ${_cached_line1_body}"
+    else
+      printf "%b\n" "${_new_vim_fmt}"
+    fi
+    [ -n "$_cached_line2" ] && printf "%b\n" "$_cached_line2"
+    printf "%b\n" "$_cached_line3"
+    printf '%s\x1f%s\x1f%s\x1f%s' "$_sl_vim_mode" "$_cached_line1_body" "$_cached_line2" "$_cached_line3" > "$_SL_CACHE_FILE"
+    exit 0
+  fi
+fi
+
 # 入力 JSON の必要フィールドを 1 回の jq 呼び出しで取り出す。
 # jq fork コストが ~24ms あるため個別 call を束ねると数百 ms 短縮できる (Claude
 # Code の statusLine タイムアウトで中断されて line 2/3 が消える回避策)。
@@ -163,6 +194,7 @@ IFS=$'\x1f' read -r \
     .transcript_path // ""
   ] | join("\u001f")' <<< "$input")"
 cwd="${cwd/#$HOME/~}"
+
 # v2.1.97+ : リンクされた git worktree 内にいる場合に Claude Code 本体が設定する。
 # 現状は観測用に JSON 書き出しへ含めるだけで、ステータスライン表示には未使用。
 git_worktree_raw=$(jq -c '.workspace.git_worktree // null' <<< "$input")
@@ -945,26 +977,41 @@ _fmt_k() {
 TURN_HISTORY_FILE=""
 turns_json="[]"
 last_sig=""
+sum_fresh_in=0
+sum_out=0
 if [ -n "$session_id" ] && [ "$session_id" != "null" ]; then
   mkdir -p /tmp/claude-status 2>/dev/null
   TURN_HISTORY_FILE="/tmp/claude-status/turn-history-${session_id}.json"
-  if [ -f "$TURN_HISTORY_FILE" ] \
-     && [ "$(jq -r '.version // 0' "$TURN_HISTORY_FILE" 2>/dev/null)" = "1" ]; then
-    last_sig=$(jq -r '.last_sig // empty' "$TURN_HISTORY_FILE" 2>/dev/null)
-    loaded=$(jq -c '.turns // []' "$TURN_HISTORY_FILE" 2>/dev/null)
-    [ -n "$loaded" ] && turns_json="$loaded"
+  if [ -f "$TURN_HISTORY_FILE" ]; then
+    _sv=$(jq -r '.version // 0' "$TURN_HISTORY_FILE" 2>/dev/null)
+    if [ "$_sv" = "2" ]; then
+      last_sig=$(jq -r '.last_sig // empty' "$TURN_HISTORY_FILE" 2>/dev/null)
+      loaded=$(jq -c '.turns // []' "$TURN_HISTORY_FILE" 2>/dev/null)
+      [ -n "$loaded" ] && turns_json="$loaded"
+      sum_fresh_in=$(jq -r '.sum_fresh_in // 0' "$TURN_HISTORY_FILE" 2>/dev/null)
+      sum_out=$(jq -r '.sum_out // 0' "$TURN_HISTORY_FILE" 2>/dev/null)
+    elif [ "$_sv" = "1" ]; then
+      last_sig=$(jq -r '.last_sig // empty' "$TURN_HISTORY_FILE" 2>/dev/null)
+      loaded=$(jq -c '.turns // []' "$TURN_HISTORY_FILE" 2>/dev/null)
+      [ -n "$loaded" ] && turns_json="$loaded"
+      sum_fresh_in=$(jq -r '[.turns[]? | (.i // 0) + (.cc // 0)] | add // 0' "$TURN_HISTORY_FILE" 2>/dev/null)
+      sum_out=$(jq -r '[.turns[]? | .o // 0] | add // 0' "$TURN_HISTORY_FILE" 2>/dev/null)
+    fi
   fi
 fi
 
 # --- signature 変化 → 新ターン push (+ state write) ---
 if [ -n "$TURN_HISTORY_FILE" ] && [ "$cur_sig" != "$last_sig" ]; then
+  sum_fresh_in=$(( sum_fresh_in + cur_in + cur_cc ))
+  sum_out=$(( sum_out + cur_out ))
   turns_json=$(jq -c \
     --argjson i "$cur_in" --argjson cc "$cur_cc" \
     --argjson cr "$cur_cr" --argjson o "$cur_out" \
     '([{i: $i, cc: $cc, cr: $cr, o: $o}] + .)[:4]' <<< "$turns_json")
   TH_TMP="${TURN_HISTORY_FILE}.tmp.$$"
   if jq -n --arg sig "$cur_sig" --argjson turns "$turns_json" \
-      '{version: 1, last_sig: $sig, turns: $turns}' \
+      --argjson sfi "$sum_fresh_in" --argjson so "$sum_out" \
+      '{version: 2, last_sig: $sig, turns: $turns, sum_fresh_in: $sfi, sum_out: $so}' \
       > "$TH_TMP" 2>/dev/null; then
     mv "$TH_TMP" "$TURN_HISTORY_FILE"
   else
@@ -990,8 +1037,8 @@ cur_hit_color=$(_hit_color_for "$cur_hit")
 
 cur_in_str=$(_fmt_k "$cur_fresh_in")
 cur_out_str=$(_fmt_k "$cur_out")
-tot_in_str=$(_fmt_k "$total_in")
-tot_out_str=$(_fmt_k "$total_out")
+tot_in_str=$(_fmt_k "$sum_fresh_in")
+tot_out_str=$(_fmt_k "$sum_out")
 
 # --- turn rows の読み込み ---
 # turns_json は newest-first: [0]=now, [1]=t-1, [2..4]=graph (t-2/t-3/t-4)
@@ -1199,12 +1246,17 @@ left_fmt="${left_fmt#"$left_fmt_leading"}"
 
 # vim mode を line 1 先頭に prepend
 if [ -n "$vim_mode" ] && [ "$vim_mode" != "null" ]; then
+  if [ "$vim_mode" = "NORMAL" ]; then
+    vim_mode_fmt=$(printf "\033[1;30;43m %s \033[0m" "$vim_mode")
+  else
+    vim_mode_fmt="$vim_mode"
+  fi
   if [ -n "$left_text" ]; then
     left_text="${vim_mode} │ ${left_text}"
-    left_fmt="${vim_mode} \033[2m│\033[0m ${left_fmt}"
+    left_fmt="${vim_mode_fmt} \033[2m│\033[0m ${left_fmt}"
   else
     left_text="${vim_mode}"
-    left_fmt="${vim_mode}"
+    left_fmt="${vim_mode_fmt}"
   fi
 fi
 
@@ -1223,6 +1275,15 @@ fi
 printf "%b\n" "$left_fmt"
 [ -n "$cache_fmt" ] && printf "%b\n" "$cache_fmt"
 printf "%b\n" "$right_fmt"
+
+# vim mode 高速キャッシュ書き出し (line1 の vim mode 以外の本体を保存)
+mkdir -p /tmp/claude-status 2>/dev/null
+_sl_line1_body="$left_fmt"
+if [ -n "$vim_mode" ] && [ "$vim_mode" != "null" ] && [ -n "$_sl_line1_body" ]; then
+  _sl_vim_prefix="${vim_mode_fmt} \033[2m│\033[0m "
+  _sl_line1_body="${_sl_line1_body#"$_sl_vim_prefix"}"
+fi
+printf '%s\x1f%s\x1f%s\x1f%s' "$vim_mode" "$_sl_line1_body" "$cache_fmt" "$right_fmt" > "$_SL_CACHE_FILE"
 
 # -----------------------------------------------------------------------------
 # ステータスライン情報の JSON 書き出し（ステータスライン表示には不要）
