@@ -135,8 +135,14 @@ input=$(cat)
 # -----------------------------------------------------------------------------
 # vim mode 高速キャッシュ: jq を回避し bash regex で vim_mode だけ抽出。
 # mode が変わっていればキャッシュの mode 部分を差し替えて即 return。
+# キャッシュはセッション単位 (session_id をファイル名に含む)。
+# 全セッション共有だと他セッションのメトリクスが混入する。
 # -----------------------------------------------------------------------------
-_SL_CACHE_FILE="/tmp/claude-status/statusline-output-cache.dat"
+_sl_session_id=""
+if [[ "$input" =~ \"session_id\":\"([a-f0-9-]+)\" ]]; then
+  _sl_session_id="${BASH_REMATCH[1]}"
+fi
+_SL_CACHE_FILE="/tmp/claude-status/sl-cache-${_sl_session_id:-global}.dat"
 
 _sl_vim_mode=""
 if [[ "$input" =~ \"mode\":\"([A-Z ]+)\" ]]; then
