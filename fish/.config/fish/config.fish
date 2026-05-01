@@ -14,7 +14,7 @@ alias gg='git-graph'
 
 mise activate fish | source
 
-set GHQ_SELECTOR peco
+set GHQ_SELECTOR fzf
 # ghq.root は git config だと ~/$HOME が展開されないためここで設定する
 set -gx GHQ_ROOT "$HOME/ghq_root"
 

@@ -4,7 +4,7 @@ function gbranch
   perl -pe 's/^\h+//g' |
   perl -pe 's#^remotes/origin/###' |
   perl -nle 'print if !$c{$_}++' |
-  peco |
+  fzf |
   xargs git checkout
   commandline -f repaint
 end

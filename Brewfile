@@ -121,8 +121,6 @@ brew "nkf"
 brew "nmap"
 # 7-Zip (high compression file archiver) implementation
 brew "p7zip"
-# Simplistic interactive filtering tool
-brew "peco"
 # PDF rendering library (based on the xpdf-3.0 code base)
 brew "poppler"
 # Interpreted, interactive, object-oriented programming language
