@@ -5,6 +5,7 @@
     "CLAUDE_CODE_NO_FLICKER": "1",
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+    "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1",
     "EDITOR": "nvim"
   },
   "permissions": {
@@ -111,10 +112,18 @@
     "mkdocs-setup@cc-tools": true,
     "security-guards@cc-tools": true,
     "cc-transcript@cc-tools": true,
-    "session-closing@cc-tools": true,
     "dotclaude-writer@cc-tools": true,
     "cache-keepalive@cc-tools": true,
-    "impl-spec@cc-tools": true
+    "impl-spec@cc-tools": true,
+    "session@cc-tools": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-code-gdscript": {
+      "source": {
+        "source": "github",
+        "repo": "twaananen/claude-code-gdscript"
+      }
+    }
   },
   "sandbox": {
     "filesystem": {
@@ -123,10 +132,10 @@
       ]
     }
   },
+  "awaySummaryEnabled": false,
   "autoMemoryEnabled": false,
   "skipDangerousModePermissionPrompt": true,
   "editorMode": "vim",
   "remoteControlAtStartup": true,
-  "agentPushNotifEnabled": true,
-  "awaySummaryEnabled": false
+  "agentPushNotifEnabled": true
 }
