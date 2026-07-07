@@ -102,7 +102,11 @@
 #                     分/時は 2 桁 zero-pad で幅を揃える (10ʰ02ᵐ 等)
 #                     Nerd Font アイコン: 󰔟 (U+F051F) 砂時計
 #   line2（環境情報系）:
-#     - Model:        ⚡ Opus 4.6
+#     - Model:        ⚡ Fable 5
+#                     settings.json の "model" (期待モデル) と stdin の model.id
+#                     を比較し、不一致時は ⚡ Opus 4.8 (≠ fable-5) のように
+#                     実モデルを赤 + 期待モデルを dim 併記 (裏で勝手に
+#                     フォールバックされた場合に気づけるようにする)
 #     - Git Branch:    main +3 !2 ?1 ⇡2（Nerd Font アイコン付き、git リポジトリ内のみ）
 #                      +N=staged, !N=modified, ?N=untracked, ⇡N=ahead, ⇣N=behind（なければ省略）
 #     - CWD:          📁 ~/ghq_root/github.com/foo/bar
@@ -124,6 +128,39 @@
 #     - 予算の 75% 超:   赤  (\033[91m)
 #   7d Spark は各バー個別に上記ルールで色付け（1週間の消費ムラが視覚化される）。
 # =============================================================================
+
+# -----------------------------------------------------------------------------
+# [方針メモ 2026-07-07] モデル別使用量 (Fable 5 limit 等) の statusline 表示
+#
+# 調査結果 (Claude Code v2.1.202 バイナリ解析 + 公式 docs + コミュニティ):
+#   - statusline の stdin JSON に来る rate_limits は five_hour / seven_day の
+#     2 バケットのみ (本体の組み立てコードで確認済み。公式 docs も同じ)。
+#   - 本体内部には seven_day_opus / seven_day_sonnet / seven_day_oauth_apps /
+#     seven_day_overage_included (UI 表示名 "Fable 5 limit") / model_scoped[]
+#     というモデル別バケットが存在するが、/usage パネルとレートリミット警告
+#     でしか使われておらず statusline へは未露出。
+#   - statusline への露出要望は anthropics/claude-code#27915 (最多 upvote の
+#     feature request、重複 15 件以上) が open のまま未実装。
+#   - サードパーティ (ccstatusline 等) は非公開 OAuth endpoint
+#     GET https://api.anthropic.com/api/oauth/usage (~/.claude/.credentials.json
+#     のトークン使用) を直接叩いてモデル別使用量を取っている。
+#
+# 方針: 公式が statusline JSON に露出するのを待つ。OAuth endpoint 直叩きは
+#   非公式 API (予告なく変更されうる) + credentials の取り回しが増えるため不採用。
+#
+# 補足 (2026-07-07 時点の Fable 5 提供状況): Fable 5 のサブスクプラン込み提供は
+#   7/7 で終了 (週間上限の 50% まで使える扱いだった。seven_day_overage_included
+#   はこの 50% 枠 + 超過 credits を管理するバケット)。7/8 以降は usage credits
+#   のみ。ただし Anthropic は「容量が確保でき次第プランに戻す」と表明しており
+#   恒久削除ではない。そのため Fable 専用表示の優先度は低いが、#27915 は
+#   opus/sonnet バケットを含むモデル別使用量全般の要望なので、このメモは
+#   露出されるまで残す。
+#
+# 次にやること (露出されたら):
+#   1. Issue #27915 / CHANGELOG で rate_limits の新フィールド名を確認
+#   2. 下の一括 jq に .rate_limits.<新バケット>.used_percentage / .resets_at を追加
+#   3. 5h / Weekly セクションと同様の battery / Braille バー表示を追加
+# -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
 # 入力 JSON のパース
@@ -177,12 +214,13 @@ fi
 # 区切りは \x1f (Unit Separator) — \t を IFS にすると bash read が連続 tab を
 # 1 つに collapse して空フィールドが詰まり後続変数がずれる。非空白制御文字で回避。
 IFS=$'\x1f' read -r \
-  session_id model cwd used vim_mode ver \
+  session_id model model_id cwd used vim_mode ver \
   session_pct five_resets_at weekly_pct weekly_resets_at \
   cur_in cur_cc cur_cr cur_out total_in total_out transcript_path \
   <<< "$(jq -r '[
     .session_id // "",
     .model.display_name // "",
+    .model.id // "",
     .workspace.current_dir // "",
     ((.context_window.used_percentage // "") | tostring),
     .vim.mode // "",
@@ -232,12 +270,54 @@ cols=$(tput cols 2>/dev/null || echo "${COLUMNS:-80}")
 #   line 2: ⚡ Model │ in·hit │ out │ Σ │ TTL
 #   line 3: Branch │ 📁 cwd │ version
 # -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# 期待モデル vs 実際のモデルの比較
+# settings.json の "model" (例: claude-fable-5[1m]) を期待値とし、stdin JSON の
+# model.id と比較する。Claude Code はレートリミット到達時などに裏で別モデル
+# (Fable → Opus 等) へフォールバックすることがあり、モデル名の表示だけだと
+# 切り替わりに気づきにくい。不一致時は実モデルを赤 + 期待モデルを併記する。
+#   一致:   ⚡ Fable 5
+#   不一致: ⚡ Opus 4.8 (≠ fable-5)
+# 期待値が model id 形式 (claude-*) でない場合 (default / opusplan 等の
+# エイリアス) は比較せず従来表示にフォールバック。[1m] 等の suffix は比較前に
+# 両側から剥がし、日付 suffix 付き id (claude-haiku-4-5-20251001 等) を許容
+# するため prefix 一致で比較する。
+# -----------------------------------------------------------------------------
+expected_model=""
+_settings_file="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+if [ -f "$_settings_file" ]; then
+  # jq fork 回避 (statusline はタイムアウトがシビア)。top-level の "model" を
+  # bash regex で抜く。ネストした "model" キーより先に top-level が書かれて
+  # いる前提 (現状の settings.json はフラットなので問題なし)。
+  if [[ "$(<"$_settings_file")" =~ \"model\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]]; then
+    expected_model="${BASH_REMATCH[1]}"
+  fi
+fi
+model_mismatch=""   # "" = 比較不能 / 0 = 一致 / 1 = 不一致
+_exp_id=""
+if [ -n "$expected_model" ] && [[ "$expected_model" == claude-* ]] \
+   && [ -n "$model_id" ] && [ "$model_id" != "null" ]; then
+  _exp_id="${expected_model%%\[*}"   # claude-fable-5[1m] → claude-fable-5
+  _act_id="${model_id%%\[*}"
+  if [[ "$_act_id" == "$_exp_id"* || "$_exp_id" == "$_act_id"* ]]; then
+    model_mismatch=0
+  else
+    model_mismatch=1
+  fi
+fi
+
 # model の text/fmt は line 2 組み立て時に使うので保持、left は空で start。
 left_text=""
 left_fmt=""
 if [ -n "$model" ] && [ "$model" != "null" ]; then
-  model_text="⚡ ${model}"
-  model_fmt=$(printf "\033[96m⚡ %s\033[0m" "$model")
+  if [ "$model_mismatch" = "1" ]; then
+    _exp_short="${_exp_id#claude-}"
+    model_text="⚡ ${model} (≠ ${_exp_short})"
+    model_fmt=$(printf "\033[91m⚡ %s\033[0m \033[2m(≠ %s)\033[0m" "$model" "$_exp_short")
+  else
+    model_text="⚡ ${model}"
+    model_fmt=$(printf "\033[96m⚡ %s\033[0m" "$model")
+  fi
 else
   model_text=""
   model_fmt=""
@@ -1307,6 +1387,9 @@ if [ -n "$session_id" ] && [ "$session_id" != "null" ]; then
 
   jq -n \
     --arg model "$model" \
+    --arg model_id "${model_id:-}" \
+    --arg expected_model "${expected_model:-}" \
+    --arg model_mismatch "${model_mismatch:-}" \
     --arg ctx_pct "${used:-}" \
     --arg s_pct "${session_pct:-}" \
     --arg s_reset "${session_reset:-}" \
@@ -1326,6 +1409,9 @@ if [ -n "$session_id" ] && [ "$session_id" != "null" ]; then
     --argjson weekly_history "${today_history_json:-[]}" \
     '{
       model: $model,
+      modelId: (if $model_id != "" then $model_id else null end),
+      expectedModel: (if $expected_model != "" then $expected_model else null end),
+      modelMismatch: (if $model_mismatch == "" then null else ($model_mismatch == "1") end),
       contextWindowPercent: (if $ctx_pct != "" then ($ctx_pct | tonumber) else null end),
       sessionUsagePercent: (if $s_pct != "" and $s_pct != "ERROR" then ($s_pct | tonumber) else null end),
       sessionReset: (if $s_reset != "" then $s_reset else null end),
