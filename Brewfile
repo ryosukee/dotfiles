@@ -53,6 +53,8 @@ brew "unbound"
 brew "gnutls"
 # OpenType text shaping engine
 brew "harfbuzz"
+# Agent multiplexer that lives in your terminal
+brew "herdr"
 # Framework for layout and rendering of i18n text
 brew "pango"
 # Command-driven, interactive function plotting
