@@ -24,6 +24,18 @@ GUI アプリ版から乗り換える場合は、先にメニューバーから 
 `brew link tailscale` を実行する。移行後は新ノード扱いになるため、
 管理画面で旧ノードを削除して名前の衝突を解消する。
 
+## claude-pages の serve 設定
+
+閲覧用 HTML の共通ディレクトリを tailnet 内限定の HTTPS で配信する。
+
+```sh
+tailscale serve --bg ~/.local/share/claude-pages # 初回のみ。以降は永続
+tailscale serve status                           # 設定と URL の確認
+tailscale serve --https=443 off                  # 解除
+```
+
+ルート URL（`https://<ホスト名>.<tailnet 名>.ts.net/`）で index.html が配信される。
+
 ## 既知の注意点
 
 - OSS 版は `*.ts.net` の split-DNS をシステムリゾルバに登録しないことがある。
