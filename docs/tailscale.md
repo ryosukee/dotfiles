@@ -36,9 +36,32 @@ tailscale serve --https=443 off                  # 解除
 
 ルート URL（`https://<ホスト名>.<tailnet 名>.ts.net/`）で index.html が配信される。
 
+## ts.net の名前解決（split DNS）
+
+OSS 版に乗り換えると、Mac 上で `*.ts.net` の名前が引けなくなることがある。対処は次の 1 行。
+
+```sh
+printf 'nameserver 100.100.100.100\n' | sudo tee /etc/resolver/ts.net
+```
+
+引けなくなる仕組み:
+
+- MagicDNS の実体は、Tailscale クライアントが内蔵する DNS サーバー（`100.100.100.100`。
+  トンネル内でだけ届く）で、tailnet 内の端末名と Tailscale IP の対応表を持つ。
+  「ts.net 名を引く」とは、問い合わせをこのサーバーに届けること
+- GUI アプリ版は NetworkExtension 経由で「ts.net はこの DNS へ」という設定を OS に注入するため、
+  無設定で引ける
+- OSS 版はシステム設定の書き換えで DNS を構成するが、検索ドメイン
+  （短い名前を `<名前>.<tailnet 名>.ts.net` に補完する設定）しか登録されないことがある。
+  検索ドメインは解決先サーバーを指定しないため、問い合わせは通常の一般 DNS に流れ、
+  非公開の tailnet 名は「存在しない」と返される
+
+`/etc/resolver/ts.net` は macOS の split DNS 設定で、「`ts.net` で終わる名前だけ
+`100.100.100.100` に聞く」という例外規則を追加する。影響範囲は ts.net ドメインに限定され、
+Tailscale 停止時は ts.net 名の解決が失敗するだけ。ファイルを消せば元に戻る。
+スマートフォン側は各端末の Tailscale アプリが VPN として DNS を注入するため、この問題の影響を受けない。
+
 ## 既知の注意点
 
-- OSS 版は `*.ts.net` の split-DNS をシステムリゾルバに登録しないことがある。
-  ts.net 名が引けない場合は `/etc/resolver/ts.net` に `nameserver 100.100.100.100` を書く
 - serve 設定（`tailscale serve --bg <dir>`）は tailscaled に永続化され、再起動後も維持される
 - Mac のスリープ中は serve も応答しない
