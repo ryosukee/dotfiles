@@ -143,6 +143,8 @@ brew "srt"
 brew "starship"
 # Organize software neatly under a single directory tree (e.g. /usr/local)
 brew "stow"
+# Easiest, most secure way to use WireGuard and 2FA
+brew "tailscale"
 # Tool to build, change, and version infrastructure
 brew "terraform"
 # OCR (Optical Character Recognition) engine
