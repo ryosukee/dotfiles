@@ -6,7 +6,8 @@
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
     "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1",
-    "EDITOR": "nvim"
+    "EDITOR": "nvim",
+    "CLAUDE_PAGES_BASE_URL": "https://mac-mini.hake-tarpon.ts.net"
   },
   "permissions": {
     "allow": [
@@ -97,7 +98,7 @@
       "Bash(*.netrc*)"
     ]
   },
-  "model": "claude-fable-5[1m]",
+  "model": "opus[1m]",
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh",
@@ -116,7 +117,10 @@
     "dotclaude-writer@cc-tools": true,
     "cache-keepalive@cc-tools": true,
     "impl-spec@cc-tools": true,
-    "session@cc-tools": true
+    "session@cc-tools": true,
+    "japanese-text-writing@cc-tools": true,
+    "claude-user-communication@cc-tools": true,
+    "claude-known-issues@cc-tools": true
   },
   "extraKnownMarketplaces": {
     "claude-code-gdscript": {

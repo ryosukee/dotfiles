@@ -64,12 +64,19 @@ Tailscale 停止時は ts.net 名の解決が失敗するだけ。ファイル�
 ## claude-pages 用の環境変数
 
 html-communication skill は配置先と配信 URL を環境変数から解決する。
-値は `fish/.config/fish/config.fish` で設定している（このマシンの現在値）:
+値は `claude/.claude/settings.json` の `env` で設定する（このマシンの現在値）:
 
-- `CLAUDE_PAGES_DIR` = `~/.local/share/claude-pages`
 - `CLAUDE_PAGES_BASE_URL` = `https://mac-mini.hake-tarpon.ts.net`
 
-ホスト名・tailnet 名が変わったら `CLAUDE_PAGES_BASE_URL` を更新する。
+ホスト名・tailnet 名が変わったらこの値を更新する。
+
+`CLAUDE_PAGES_DIR` は設定しない。未設定時は skill 側の既定値
+`~/.local/share/claude-pages` が使われ、それがこのマシンでの配置先と一致する。
+
+シェルの env ではなく settings.json に置く理由は 2 つ。この 2 変数の消費者は
+Claude Code の skill だけでシェルからは使わないこと、
+settings.json の `env` は起動元シェルに依存せず全セッションへ適用されること
+（シェル側に置いていたときは、変数を追加する前から起動していたセッションに値が入らなかった）。
 
 ## 既知の注意点
 
