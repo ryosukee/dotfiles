@@ -5,8 +5,8 @@ brew の OSS 版 tailscaled を使う。GUI アプリ版（App Store / Standalon
 ## なぜ OSS 版か
 
 - GUI アプリ版は sandbox 制約で `tailscale serve` の path serving（ディレクトリ直接配信）が使えない。
-  claude-pages（閲覧用 HTML の tailnet 内配信。運用は
-  [入り組んだ説明・報告・確認は HTML で行う](https://github.com/ryosukee/cc-marketplace/blob/main/rules/author-defaults/html-communication.md) を参照）で path serving が必要
+  claude-pages（閲覧用 HTML の tailnet 内配信。運用は cc-marketplace の
+  [html-communication skill](https://github.com/ryosukee/cc-marketplace/tree/main/plugins/claude-user-communication/skills/html-communication) を参照）で path serving が必要
 - GUI 版と OSS 版は同一マシンで同居できない。トンネルと DNS 制御が衝突する
 - 常時接続で GUI 操作もほぼしないため、CLI のみで運用できると判断した
 
@@ -60,6 +60,16 @@ printf 'nameserver 100.100.100.100\n' | sudo tee /etc/resolver/ts.net
 `100.100.100.100` に聞く」という例外規則を追加する。影響範囲は ts.net ドメインに限定され、
 Tailscale 停止時は ts.net 名の解決が失敗するだけ。ファイルを消せば元に戻る。
 スマートフォン側は各端末の Tailscale アプリが VPN として DNS を注入するため、この問題の影響を受けない。
+
+## claude-pages 用の環境変数
+
+html-communication skill は配置先と配信 URL を環境変数から解決する。
+値は `fish/.config/fish/config.fish` で設定している（このマシンの現在値）:
+
+- `CLAUDE_PAGES_DIR` = `~/.local/share/claude-pages`
+- `CLAUDE_PAGES_BASE_URL` = `https://mac-mini.hake-tarpon.ts.net`
+
+ホスト名・tailnet 名が変わったら `CLAUDE_PAGES_BASE_URL` を更新する。
 
 ## 既知の注意点
 
