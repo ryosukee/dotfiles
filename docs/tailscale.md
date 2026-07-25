@@ -5,7 +5,7 @@ brew の OSS 版 tailscaled を使う。GUI アプリ版（App Store / Standalon
 ## なぜ OSS 版か
 
 - GUI アプリ版は sandbox 制約で `tailscale serve` の path serving（ディレクトリ直接配信）が使えない。
-  claude-pages（閲覧用 HTML の tailnet 内配信。運用は cc-marketplace の
+  claude-html-communication（閲覧用 HTML の tailnet 内配信。運用は cc-marketplace の
   [html-communication skill](https://github.com/ryosukee/cc-marketplace/tree/main/plugins/claude-user-communication/skills/html-communication) を参照）で path serving が必要
 - GUI 版と OSS 版は同一マシンで同居できない。トンネルと DNS 制御が衝突する
 - 常時接続で GUI 操作もほぼしないため、CLI のみで運用できると判断した
@@ -24,12 +24,12 @@ GUI アプリ版から乗り換える場合は、先にメニューバーから 
 `brew link tailscale` を実行する。移行後は新ノード扱いになるため、
 管理画面で旧ノードを削除して名前の衝突を解消する。
 
-## claude-pages の serve 設定
+## claude-html-communication の serve 設定
 
 閲覧用 HTML の共通ディレクトリを tailnet 内限定の HTTPS で配信する。
 
 ```sh
-tailscale serve --bg ~/.local/share/claude-pages # 初回のみ。以降は永続
+tailscale serve --bg ~/.local/share/claude-html-communication # 初回のみ。以降は永続
 tailscale serve status                           # 設定と URL の確認
 tailscale serve --https=443 off                  # 解除
 ```
@@ -61,17 +61,17 @@ printf 'nameserver 100.100.100.100\n' | sudo tee /etc/resolver/ts.net
 Tailscale 停止時は ts.net 名の解決が失敗するだけ。ファイルを消せば元に戻る。
 スマートフォン側は各端末の Tailscale アプリが VPN として DNS を注入するため、この問題の影響を受けない。
 
-## claude-pages 用の環境変数
+## claude-html-communication 用の環境変数
 
 html-communication skill は配置先と配信 URL を環境変数から解決する。
 値は `claude/.claude/settings.json` の `env` で設定する（このマシンの現在値）:
 
-- `CLAUDE_PAGES_BASE_URL` = `https://mac-mini.hake-tarpon.ts.net`
+- `CLAUDE_HTML_COMMUNICATION_BASE_URL` = `https://mac-mini.hake-tarpon.ts.net`
 
 ホスト名・tailnet 名が変わったらこの値を更新する。
 
-`CLAUDE_PAGES_DIR` は設定しない。未設定時は skill 側の既定値
-`~/.local/share/claude-pages` が使われ、それがこのマシンでの配置先と一致する。
+`CLAUDE_HTML_COMMUNICATION_DIR` は設定しない。未設定時は skill 側の既定値
+`~/.local/share/claude-html-communication` が使われ、それがこのマシンでの配置先と一致する。
 
 シェルの env ではなく settings.json に置く理由は 2 つ。この 2 変数の消費者は
 Claude Code の skill だけでシェルからは使わないこと、

@@ -1,13 +1,12 @@
 {
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "CLAUDE_CODE_NEW_INIT": "1",
     "CLAUDE_CODE_NO_FLICKER": "1",
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
     "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1",
     "EDITOR": "nvim",
-    "CLAUDE_PAGES_BASE_URL": "https://mac-mini.hake-tarpon.ts.net"
+    "CLAUDE_HTML_COMMUNICATION_BASE_URL": "https://mac-mini.hake-tarpon.ts.net"
   },
   "permissions": {
     "allow": [
