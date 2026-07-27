@@ -19,9 +19,10 @@ tmux/.tmux.conf          → ~/.tmux.conf
 ghostty/.config/ghostty/ → ~/.config/ghostty/
 git/.config/git/         → ~/.config/git/
 fish/.config/fish/       → ~/.config/fish/
+herdr/.config/herdr/     → ~/.config/herdr/
 ```
 
-デプロイ: `stow -t ~ nvim git fish lazygit tig tmux bin claude mise`
+デプロイ: `stow -t ~ nvim git fish lazygit tig tmux bin claude mise herdr`
 
 ## 設定変更時のルール
 

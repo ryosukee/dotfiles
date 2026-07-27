@@ -1,0 +1,12 @@
+[ui]
+agent_panel_sort = "spaces"
+
+# tmux の prefix+P (display-popup) 相当。session-modal な floating terminal を開く。
+# コマンド終了で閉じる。prefix+shift+p は既定で rename_pane なので prefix+f にしている。
+[[keys.command]]
+key = "prefix+f"
+type = "popup"
+command = "fish"
+description = "scratch terminal"
+width = "90%"
+height = "80%"
