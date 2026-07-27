@@ -48,4 +48,34 @@ tmux の `prefix + P` (display-popup) 相当。`prefix + f` に割り当てて�
 - agents サイドバーパネルの非表示: 設定が存在しない (0.7.5 時点)。仕切りのドラッグで最小化 (下限あり) までが限界
 - spaces の任意グループ化: git worktree グループのみ。任意グループの階層は持てない
 
-どちらも herdr 本体の実装依存で plugin 化もできない (plugin v1 は native な非ターミナル UI を持てない)。fork して Rust を直すか、upstream の要望を待つ (agents 非表示: GitHub Discussions #1554 / #1247、spaces 構造化: #801)。
+どちらも herdr 本体の実装依存で plugin 化もできない。plugin v1 は native な非ターミナル UI を持てず (公式ドキュメント "Runtime action registration and native non-terminal plugin UI are not part of plugin v1.")、公開されている拡張点は pane と workflow に限られる。fork して Rust を直すか、upstream の実装を待つ。後者は次節で追跡する。
+
+## 追跡中の upstream 項目
+
+未実装で、実装されたら `herdr/.config/herdr/config.toml` を変える予定のもの。
+判定はリリースノートを意味で読む (後述の理由で番号照合・discussion 更新では判定できない)。
+
+最終確認: v0.7.5 / 2026-07-27
+
+| 欲しいもの | upstream | 実装されたらやること |
+| --- | --- | --- |
+| agents パネルの非表示 | Discussions #1554, #1247 | config に非表示設定を追加する (例 `[ui.sidebar.agents] enabled = false`、実際のキー名は実装を見る) |
+| spaces のグループ化 | Discussion #801 | worktree group 以外の階層化設定が入れば config に反映する |
+
+関連: Discussion #1907 は agents パネルの行を (spaces と同様に) グループ化する提案。
+上記 2 件とは別物だが、パネルのグループ化という方向の動きとして観察対象に含める。
+
+参考: popup は v0.7.4 で実装済み (#1125)。対象外。
+
+### 確認手順
+
+最新安定版のタグを最終確認バージョンと比べ、上がっていたらリリースノートを読む。
+
+```bash
+gh api repos/ogulcancelik/herdr/releases/latest --jq '.tag_name'   # prerelease を除外
+```
+
+- `gh release list` は使わない。安定版の直後に preview build が publish され、先頭に出て誤検知する
+- リリースノートは discussion 番号を引かない (PR 番号どまり)。上記項目に該当する記述がないか意味で読む
+- discussion の updatedAt は信号として弱い。3 件とも Ideas カテゴリで、Ideas だけで 500 件超あり無関係な更新で動く
+- 該当実装を確認したら config を更新し、この節の「最終確認」行を新しいタグと日付に更新する
