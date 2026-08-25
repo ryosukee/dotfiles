@@ -30,4 +30,4 @@ end
 
 starship init fish | source
 
-abbr -a claude 'claude --teammate-mode in-process' --dangerously-skip-permissions
+abbr -a claude claude --dangerously-skip-permissions
