@@ -17,10 +17,10 @@ dotfiles/
 ├── fish/          # Fish shell
 ├── lazygit/       # lazygit (delta 連携)
 ├── tig/           # tig
-├── tmux/          # tmux + claude popup editor
 ├── mise/          # mise global tools (node/go/python/ruby + go tools)
 ├── bin/           # 自作 CLI (~/.local/bin/cc-ask-dotfiles 等)
 ├── claude/        # Claude Code 設定 (settings, statusline)
+├── archive/       # 退役した stow package (tmux)
 ├── Brewfile       # brew パッケージ一覧 (brew bundle dump --describe で生成)
 └── .stow-local-ignore
 ```
@@ -44,7 +44,7 @@ mv ~/.config/git/config ~/.config/git/config.bak
 
 # 4. symlink を作成
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
-stow -t ~ nvim git fish lazygit tig tmux bin claude mise
+stow -t ~ nvim git fish lazygit tig bin claude mise herdr
 
 # 5. nvim プラグインをインストール (初回起動で自動)
 nvim
@@ -64,7 +64,6 @@ fisher update
 | fish | メインシェル (vi キーバインド) | `brew install fish` |
 | starship | プロンプト | `brew install starship` |
 | ghostty | ターミナルエミュレータ | `brew install --cask ghostty` |
-| tmux | ターミナルマルチプレクサ | `brew install tmux` |
 | direnv | ディレクトリ単位の環境変数 | `brew install direnv` |
 | zoxide | cd の高速化 | `brew install zoxide` |
 
@@ -157,20 +156,6 @@ security add-generic-password -s anthropic-api-key -a $USER -w "sk-ant-..."
 
 キーを追加するときは同じパターンで `security add-generic-password` + `secrets.fish` に `set -gx` 行を追加する。
 
-## tmux
-
-prefix は tmux デフォルト (`Ctrl+B`)。
-
-| キー | 機能 |
-| --- | --- |
-| `prefix + S` | session launcher (自前・choose-tree 風、ツリー表示 + fzf) |
-| `prefix + Tab` | treemux sidebar (Neo-Tree を tmux pane として表示) |
-| `prefix + P` | 作業用 popup ターミナル (`popup` session) |
-| `prefix + e` | Claude Code プロンプト編集用の popup nvim |
-| `prefix + Space → C → a` | cc-ask-dotfiles popup (後述) |
-
-詳細・内部仕様は [tmux 設定](./docs/tmux.md) を参照。
-
 ## nvim (LazyVim)
 
 LazyVim ベース。プラグイン構成、キーバインド、ワークフローの詳細は [nvim 設定](./docs/nvim.md) を参照。
@@ -190,14 +175,13 @@ LazyVim ベース。プラグイン構成、キーバインド、ワークフロ
 
 ## cc-ask-dotfiles
 
-dotfiles の全ファイルを読み込ませた Claude セッションに対して、fish / tmux popup
-/ nvim float から横断的な質問を投げるための自作ツール。設定の意図や tmux と nvim
-のキー衝突などを 1 つのセッションから聞ける。
+dotfiles の全ファイルを読み込ませた Claude セッションに対して、fish / nvim float
+から横断的な質問を投げるための自作ツール。設定の意図やキーバインドの衝突などを
+1 つのセッションから聞ける。
 
 | 起動口 | 呼び方 |
 | --- | --- |
 | fish | `cc-ask-dotfiles "質問"` (one-shot) または `cc-ask-dotfiles` (対話) |
-| tmux | `prefix + Space → C → a` |
 | nvim | `<Space>Ca` (floating window、`i` で follow-up、`q` で閉じる) |
 
 詳細・仕組み・既知の注意点は [cc-ask-dotfiles](./docs/cc-ask-dotfiles.md) を参照。

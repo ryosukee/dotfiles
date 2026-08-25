@@ -1,9 +1,9 @@
 # cc-ask-dotfiles
 
-dotfiles の全ファイル内容をロードした Claude セッションに対して、fish / tmux popup / nvim float から質問を投げるための仕組み。
+dotfiles の全ファイル内容をロードした Claude セッションに対して、fish / nvim float から質問を投げるための仕組み。
 
-`~/.local/bin/cc-ask-dotfiles` が本体のシェルスクリプトで、nvim や tmux からはこれを呼ぶ。
-tmux のキーバインドと nvim の設定が衝突していないか、fish の関数が重複していないか、
+`~/.local/bin/cc-ask-dotfiles` が本体のシェルスクリプトで、nvim からはこれを呼ぶ。
+キーバインドが衝突していないか、fish の関数が重複していないか、
 といった dotfiles 横断の質問に答えられる。
 
 ## ファイル構成
@@ -12,7 +12,6 @@ tmux のキーバインドと nvim の設定が衝突していないか、fish �
 bin/.local/bin/cc-ask-dotfiles                       # 本体 (POSIX sh)
 nvim/.config/nvim/lua/config/ask_dotfiles.lua     # nvim フロート UI
 nvim/.config/nvim/lua/config/keymaps.lua          # <leader>Ca キーマップ
-tmux/.config/tmux/plugins/tmux-which-key/config.yaml  # prefix + Space → C → a エントリ
 ~/.local/state/cc-ask-dotfiles/                      # ランタイム状態 (gitignore 対象外)
 ├── base.jsonl                                    # Claude セッションの jsonl
 └── config-hash                                   # 最後に build したときの dotfiles ハッシュ
@@ -24,7 +23,6 @@ tmux/.config/tmux/plugins/tmux-which-key/config.yaml  # prefix + Space → C →
 | --- | --- | --- |
 | fish | `cc-ask-dotfiles "question"` | one-shot |
 | fish | `cc-ask-dotfiles` | 対話 REPL |
-| tmux which-key | `prefix + Space → C → a` | 対話 REPL (display-popup 内) |
 | nvim | `<leader>Ca` | floating window + follow-up 可 |
 
 nvim の floating 内では `i` / `a` / `o` で follow-up、`q` / `<Esc>` で閉じる。
@@ -68,7 +66,7 @@ fork 先 UUID を固定する。2 回目以降は `--resume <uuid>` で同じ fo
 
 スクリプトは起動直後に `cd $DOTFILES` する。Claude のセッション jsonl は
 cwd に紐づいた project dir (`~/.claude/projects/<encoded-path>/`) に書かれる
-ので、呼び出し元が fish だろうが nvim だろうが tmux popup だろうが、全て同じ
+ので、呼び出し元が fish だろうが nvim だろうが、全て同じ
 project dir に集約される。`--resume <uuid>` の解決が常に成功する。
 
 ## 状態ファイルの寿命
@@ -86,22 +84,6 @@ cleanup 対象外。設定が変わるまで保持される。
 > ([Explore the .claude directory](https://code.claude.com/docs/en/claude-directory#application-data))
 
 ## 既知の注意点
-
-### tmux-which-key の反映
-
-`tmux/.config/tmux/plugins/tmux-which-key/config.yaml` を編集しても、tmux を再起動するか下記のコマンドを叩くまでライブのメニューには反映されない。
-
-```bash
-~/.tmux/plugins/tmux-which-key/plugin.sh.tmux
-```
-
-プラグインは `config.yaml` → `build.py` → `plugin/init.tmux` という
-2 段階生成を行うため、`tmux source-file ~/.tmux.conf` だけでは
-`init.tmux` の再生成まで辿り着かないことがある。
-
-`@tmux-which-key-xdg-enable=1` がランタイムに set されていると、プラグインが
-GNU 限定の `realpath --relative-to` を呼ぶ箇所で macOS が落ちる。
-`tmux set-option -gu @tmux-which-key-xdg-enable` で unset してから再 build する。
 
 ### 用途スコープ
 
@@ -121,5 +103,4 @@ cc-ask-dotfiles にコンテキスト (現在の nvim バッファ、選択範�
 
 ## 関連
 
-- [tmux 設定](./tmux.md) tmux-which-key プラグインのセットアップ
 - [nvim 設定](./nvim.md) nvim キーマップ全般

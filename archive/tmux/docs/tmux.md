@@ -1,5 +1,8 @@
 # tmux 設定
 
+> [!NOTE]
+> 退役済み。herdr に移行したため、この package は stow の対象にしない。
+
 tmux のキーバインドと、自前 session launcher の仕様。
 
 ## ファイル構成

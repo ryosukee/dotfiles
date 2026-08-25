@@ -1,6 +1,6 @@
 # herdr 運用メモ
 
-ターミナル用の agent multiplexer。tmux からの移行先として使う。
+ターミナル用の agent multiplexer。tmux の後継として使う (旧 tmux 設定は `archive/tmux/` にある)。
 ここは日常運用で必要になる要点だけを置く。設定実体は stow package `herdr/` にある。
 
 ## アップグレード

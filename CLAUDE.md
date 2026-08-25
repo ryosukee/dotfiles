@@ -14,15 +14,15 @@ stow ベース。各トップレベルディレクトリが stow package で、�
 
 ```text
 nvim/.config/nvim/       → ~/.config/nvim/
-tmux/.config/tmux/       → ~/.config/tmux/
-tmux/.tmux.conf          → ~/.tmux.conf
 ghostty/.config/ghostty/ → ~/.config/ghostty/
 git/.config/git/         → ~/.config/git/
 fish/.config/fish/       → ~/.config/fish/
 herdr/.config/herdr/     → ~/.config/herdr/
 ```
 
-デプロイ: `stow -t ~ nvim git fish lazygit tig tmux bin claude mise herdr`
+デプロイ: `stow -t ~ nvim git fish lazygit tig bin claude mise herdr`
+
+退役した package は `archive/` に移す。stow の対象にしない。
 
 ## 設定変更時のルール
 
@@ -108,7 +108,7 @@ echo やパイプで小さいサンプルに対してテストしてから
 ## ターミナル環境
 
 - ターミナル: ghostty (kitty graphics protocol 対応、画像/mermaid プレビュー用)
-- tmux + fish shell
+- herdr (agent multiplexer) + fish shell
 
 ## fish 設定の注意
 

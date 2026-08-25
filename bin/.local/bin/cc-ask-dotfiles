@@ -73,7 +73,7 @@ rebuild_base() {
     _uuid=$(uuidgen | tr '[:upper:]' '[:lower:]')
     (
         printf '以下は私の dotfiles リポジトリの全ファイルです。\n'
-        printf '設定の意図・依存関係・ファイル間の競合 (例: tmux と nvim のキーバインド衝突) などについて、\n'
+        printf '設定の意図・依存関係・ファイル間の競合 (例: herdr と nvim のキーバインド衝突) などについて、\n'
         printf 'これらの内容を参照して質問に答えてください。\n\n'
         emit_payload
     ) | claude -p --session-id "$_uuid" \
