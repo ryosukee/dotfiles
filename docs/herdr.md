@@ -35,6 +35,16 @@ integration 無しでも各 pane の cwd で `claude --resume` を叩けば会�
 - `resume_agents_on_restore` は既定 true。integration が識別子を報告した pane だけが自動復帰の対象
 - 導入直後の再起動には既に動いているセッションは間に合わない (hook はセッション開始時に報告するため)。次回起動分から自動復帰が効く
 
+## スマホから attach する
+
+Tailscale SSH で mac-mini に入り、`herdr` で稼働中のサーバに attach する
+(Tailscale SSH の有効化は [Tailscale](./tailscale.md) の「Tailscale SSH」を参照)。
+Claude セッションの終了・起動し直し (`/exit` → `claude`) を含めて、pane の操作はすべてこの経路で行える。
+
+- herdr は端末幅が `ui.mobile_width_threshold` (既定 64 列) 以下のとき単一カラムの mobile layout に切り替わる。
+  foldable の展開時など幅が広い端末で mobile layout を使いたいときはこの値を上げる
+- サーバ再起動後の会話の拾い直しは「会話の自動再開 (Claude Code integration)」の節のとおり (未導入なので手で `claude --resume`)
+
 ## popup (floating window)
 
 tmux の `prefix + P` (display-popup) 相当。`prefix + f` に割り当てている (config は stow 管理)。

@@ -24,6 +24,23 @@ GUI アプリ版から乗り換える場合は、先にメニューバーから 
 `brew link tailscale` を実行する。移行後は新ノード扱いになるため、
 管理画面で旧ノードを削除して名前の衝突を解消する。
 
+## Tailscale SSH（スマホから mac-mini へ入る）
+
+tailscaled 組み込みの SSH サーバを使う。macOS のリモートログイン (sshd) は無効のままでよい。
+OSS 版 tailscaled が前提（GUI アプリ版はサーバ側に対応しない）。
+
+```sh
+tailscale set --ssh          # 永続 prefs (RunSSH) に保存され、tailscaled の起動ごとに有効
+tailscale set --ssh=false    # 解除
+```
+
+- 認証は Tailscale の node key で行い、SSH 鍵を配らない。tailnet policy の `ssh` ルールが
+  `action: check` なので、接続時にブラウザでの再認証 URL が表示される
+- 接続は tailnet 内の端末から `ssh <ユーザー名>@mac-mini`（MagicDNS）。スマホは Tailscale アプリ +
+  任意の SSH クライアントアプリで入り、`herdr` で attach する
+- 自分自身の Tailscale IP への ssh は tunnel を通らず `Connection refused` になるため、疎通確認は
+  別ノード（例: marujirou）から行う
+
 ## claude-html-communication の serve 設定
 
 閲覧用 HTML の共通ディレクトリを tailnet 内限定の HTTPS で配信する。
