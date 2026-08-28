@@ -1,4 +1,5 @@
 {
+  "feedbackDrafts": "off",
   "env": {
     "CLAUDE_CODE_NEW_INIT": "1",
     "CLAUDE_CODE_NO_FLICKER": "1",
@@ -98,7 +99,8 @@
       "Bash(*.netrc*)"
     ]
   },
-  "model": "claude-fable-5[1m]",
+  "model": "opus[1m]",
+  "subagentPromptCacheTtl": "1h",
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh",
@@ -125,6 +127,12 @@
       "source": {
         "source": "github",
         "repo": "twaananen/claude-code-gdscript"
+      }
+    },
+    "product-boilerplate": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/ryosuke/ghq_root/github.com/ryosukee/product-boilerplate"
       }
     }
   },
