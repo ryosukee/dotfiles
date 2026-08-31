@@ -192,3 +192,10 @@ dotfiles の全ファイルを読み込ませた Claude セッションに対し
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
 brew bundle dump --describe --force --file=Brewfile
 ```
+
+## 調査資料
+
+- [コーディングエージェントの実行環境とレビュー基盤](./docs/agent-tooling-research.html) (2026-09-01)
+    - herdr と orca の local / remote 4 構成の比較、orca SSH モードの実像、orca が Claude Code に入れる hook、
+      herdr のリッチ UI 拡張余地、diff レビューで人間とエージェントがどこまで対話できるか
+    - 結論: 当面は herdr local と orca local の並行利用を続け、diffo だけ導入を検討する

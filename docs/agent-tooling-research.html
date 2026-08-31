@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="ja">
+<!--
+  claude-html-communication ページ雛形。{{...}} を置換して使う。
+  このファイルが起点。既存ページをコピーして作らない（雛形の更新を受け取れなくなる）。
+
+  form / report の共通部分は同一。型ごとに次を切り替える。
+    form   : 下部バー #bar（情報・入力・操作の 3 ゾーン）と設問 pane #q-pane を使う
+    report : #bar を #footer-nav に差し替え、#q-pane と .rng[data-q] の対応を削る。
+             #preview / QS 定義 / 回答コピーの JS も削る。範囲と追従は使わない
+
+  構造は 3 pane（左に設問・中央に本文・右に脚注）。1340px 以上で 3 列になり、
+  それ未満は DOM 順のまま 本文 → 設問 → 脚注 の 1 列で流れる。
+  DOM 順をこの並びにするのは、狭幅で読み終えた直後に答えられるようにするため。
+
+  色の役割は 3 つに固定する。増やさない。
+    青 --link      = 操作できるもの + 現在地
+    地の濃淡        = 構造（見出しの罫・表の罫・区切り）
+    琥珀 --mark    = 本文中の要点
+  本文テキスト --fg と構造の線 --rule-strong は必ず別トークンにする。
+  兼用すると両者のコントラストが 1.00 になり、ダークで区別が消える（実測で確認済み）。
+
+  フォントサイズは 4 段階だけを使う: 1.4em / 1.15em / 1em / 0.875em。新しい段を足さない。
+
+  強調は <mark>、引用は <blockquote> を使う（SR が境界を読み上げる。span 装飾より優先）。
+  脚注を <footer>、補足を <aside> に入れない。Firefox Reader View が両者を無条件削除する。
+  main 内の class / id に次の語を使わない（Readability が部分一致で本文から削る）:
+    meta / media / share / related / sidebar / scroll / tags / contact / hidden /
+    footer / header / banner / widget / comment / social / extra / menu / promo
+-->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>コーディングエージェントの実行環境とレビュー基盤</title>
+<!-- 生成に使った skill の版。古い雛形で作られたページを参考にしないための目印 -->
+<meta name="generator" content="claude-html-communication 0.32.6">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fff; --fg: #1a1a1a; --sub: #585d64;
+    --rule: #c8ccd2;            /* 構造の細い罫。装飾なのでコントラスト要件の対象外 */
+    --control-border: #7c828b;  /* 入力欄・ボタンの輪郭。WCAG 1.4.11 の 3:1 を満たす */
+    --rule-strong: #4a5058;     /* 構造の強い線。--fg とは別インクにする */
+    --link: #0b6bcb; --link-fill: #0b6bcb; --on-fill: #fff; --focus: #0b6bcb;
+    --mark: #ffd980;            /* 要点の下線。文字の背後に敷く */
+    --surface-now: #dfe5ee; --surface-code: #eef0f3;
+    --ok: #12703a; --ng: #b42318;
+    --tw-shadow: rgba(0, 0, 0, .18);
+  }
+  /* print に適用されないよう screen を明示する（印刷時のスキーム切替は仕様未定義） */
+  @media screen and (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181d; --fg: #e6e6e6; --sub: #a0a4ab;
+      --rule: #3a3f47; --control-border: #767d87; --rule-strong: #9aa1ab;
+      --link: #5aa2e8; --link-fill: #7fb3f0; --on-fill: #0e1116; --focus: #5aa2e8;
+      /* ダークでは地より明るい側に置く。地より暗い帯は沈んで見えない */
+      --mark: #6f5c33;
+      --surface-now: #2d333d; --surface-code: #23272e;
+      --ok: #74c489; --ng: #f0998f;
+      --tw-shadow: rgba(255, 255, 255, .30);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-padding-bottom: 190px; }  /* 固定バーにフォーカスが隠れるのを防ぐ */
+  body { margin: 0; background: var(--bg); color: var(--fg); font-size: 16px; line-height: 1.8;
+         word-break: auto-phrase;
+         font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", Meiryo, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 20px 190px; }
+  h1, h2, h3 { text-wrap: balance; }
+  h1 { font-size: 1.4em; letter-spacing: 0.01em; margin-bottom: 6px; }
+  /* 見出しの標識は左の縦罫。上の短い罫より、行の頭に線があるほうが節の始まりが分かる。
+     構造なので無彩。青にすると現在地の青い縦罫と 2 本並んで役割が読めなくなる */
+  h2 { font-size: 1.15em; margin-top: 2.4em; margin-bottom: 10px; letter-spacing: 0.01em;
+       scroll-margin-top: 12px;
+       border-left: 4px solid var(--rule-strong); padding-left: 9px; }
+  h3 { font-size: 1em; font-weight: 700; margin-top: 1.8em; letter-spacing: 0.01em; }
+  p { margin: 0 0 1.8em; }   /* 段落間は本文 1 行分。UA 既定の 1em だと行間より狭くなる */
+  a { color: var(--link); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  /* リンクと弱いテキストの相互コントラストは 1.26 / 1.01 しかない。下線は装飾ではなく要件 */
+  code { background: var(--surface-code); padding: 1px 5px; border-radius: 4px; font-size: 0.875em;
+         font-family: "SF Mono", Menlo, monospace; }
+  pre { background: var(--surface-code); padding: 10px 12px; border-radius: 6px; overflow-x: auto;
+        font-size: 0.875em; line-height: 1.5; }
+  /* color を必ず指定する。省くとブラウザ既定の mark { color: MarkText } が残り、
+     ダークでは暗い文字色のまま帯に重なって読めなくなる */
+  mark { background: linear-gradient(transparent 58%, var(--mark) 58%);
+         color: inherit; font-weight: 700; padding: 0 1px; }
+  .d { color: var(--sub); font-size: 0.875em; }
+  .vnav { font-size: 0.875em; border-bottom: 1px solid var(--rule);
+          padding: 0 0 12px; margin: 12px 0 18px; color: var(--sub); }
+  /* ラベルは独立した行に置き、コロンを付けない。
+     「結論: …」のようにラベルとコロンで段落を作る形は使わない
+     （user global rule が AI 口調の定型として禁じている。HTML 報告も適用範囲）。
+     ラベルが無くても分かるなら、ラベルごと消して地の文にする */
+  .eyebrow { display: block; font-size: 0.875em; font-weight: 700; color: var(--sub);
+             letter-spacing: 0.08em; margin: 0 0 2px; }
+  .concl { border-left: 3px solid var(--rule-strong); padding: 2px 0 2px 12px;
+           margin: 0 0 1.8em; }
+  .concl > p { margin: 0; }
+  .ok { color: var(--ok); } .ng { color: var(--ng); }
+  /* --ok と --ng の相互コントラストは 1.07 / 1.04。色だけでは WCAG 1.4.1 を満たさないので
+     セルには必ず記号かテキストを併記する */
+
+  /* 引用は引用専用の記法。ラベル行に出典を載せ、本文末尾に出典行を置かない */
+  blockquote { margin: 14px 0 18px; padding: 0 0 0 16px; border-left: 3px solid var(--control-border); }
+  blockquote .src { display: block; font-size: 0.875em; color: var(--sub); font-weight: 700;
+                    margin-bottom: 6px; letter-spacing: 0.02em; }
+  blockquote p { margin: 6px 0; }
+
+  /* 設問のグループ容器。グループ化しないページでは使わない（3 pane の pane 内専用） */
+  .qgrp { margin: 0 0 14px; }
+  .qgrp-h { font-size: 0.875em; font-weight: 700; color: var(--sub); letter-spacing: 0.06em;
+            border-bottom: 1px solid var(--rule); padding: 0 0 2px; margin: 0 0 8px; }
+  @media (max-width: 1339.98px) { .qgrp { display: none; } }
+
+  /* 表。3 pane と干渉するので本文カラムより広げない。横スクロールで逃がす */
+  .table-wrap { overflow-x: auto;
+    background:
+      linear-gradient(to right, var(--bg) 70%, transparent) left / 28px 100% no-repeat local,
+      linear-gradient(to left, var(--bg) 70%, transparent) right / 28px 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%, var(--tw-shadow), transparent) left / 12px 100% no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%, var(--tw-shadow), transparent) right / 12px 100% no-repeat scroll; }
+  .table-wrap:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  table { border-collapse: collapse; width: 100%; min-width: 440px; }
+  /* caption は表の下。表の本体を先に見せる。表を語るリード文は本文に置かないので、
+     何の一覧かを示すのは caption だけになる */
+  caption { caption-side: bottom; text-align: left; font-size: 0.875em; color: var(--sub);
+            padding-top: 10px; letter-spacing: 0.02em; }
+  th, td { border: none; border-bottom: 1px solid var(--rule); padding: 9px 14px 9px 0;
+           text-align: left; vertical-align: top; }
+  thead th { border-bottom: 2px solid var(--rule-strong); font-size: 0.875em; letter-spacing: 0.04em; }
+  /* 行見出しは th scope="row" にする（支援技術が行と列の交差を読むのに要る）。
+     見た目は本文と同じにしたいので、th の既定の太字を戻す */
+  tbody th { font-weight: 400; }
+  tbody tr:last-child > * { border-bottom: none; }
+  tr.key > * { font-weight: 700; }
+  tr.key > :first-child { border-left: 3px solid var(--rule-strong); padding-left: 11px; }
+  th.num, td.num { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+
+  /* 図のキャプション。表の caption と同じ作法にする。図の下に置き、同じ段と色にする。
+     図を語る文は本文に置かない（表と同じ） */
+  .fig { margin: 14px 0 20px; }
+  .fig > .cap { font-size: 0.875em; color: var(--sub); letter-spacing: 0.02em; margin: 10px 0 0; }
+
+  /* 本文の範囲。1 つの設問の判断材料がどこからどこまでかを示す。
+     前提部分は範囲を持たせない（その位置では設問をどれも開かない）。
+     既定は細い無彩の縦罫、現在地だけ青 2px に変わる。
+     2px ではアクティブと非アクティブが同じ太さになるが、--rule との輝度比が
+     ダーク 3.92 / ライト 3.27 あり、WCAG 1.4.1 の「明度でも 3:1 以上」を満たす */
+  .rng { position: relative; padding: 10px 0 10px 14px; margin: 26px 0; margin-inline: -14px; }
+  .rng::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 14px;
+                 width: 2px; border-radius: 1px; background: var(--rule); }
+  .rng.on::before { background: var(--link); }
+  /* 範囲のラベルは見出しの上に出る補助表示。「設問 2」とだけ書き、
+     「設問 2 の判断材料」のように役割を説明しない。読み手が知りたいのは
+     いま設問のどれを読んでいるかで、この範囲が何であるかは 3 pane の並びが示している。
+     太字にすると節の見出しと強さが並び、どちらが節の名前か分からなくなる。
+     最小の段のまま、太さと色で後ろへ下げる */
+  .rng > .rlabel { font-size: 0.875em; font-weight: 400; color: var(--sub);
+                   letter-spacing: 0.02em; margin: 0 0 2px; }
+  .rng > h2 { margin-top: 0.2em; }
+  /* 説明セクションの番号。見出しの前の行に出す。設問側は .rlabel が同じ役目を持つ。
+     見出しの中に番号を書かないのは、どこまでが番号でどこからがタイトルか分からなくなるため */
+  .secnum { display: block; font-size: 0.875em; font-weight: 700; color: var(--sub);
+            letter-spacing: 0.08em; margin: 2.4em 0 2px; }
+  .secnum + h2 { margin-top: 0; }
+
+  /* 設問カード。読んでいる範囲のものが開く。手で開閉すると自動追従から外れる */
+  .qd { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; margin: 0 0 10px; }
+  .qd > summary { cursor: pointer; font-weight: 700; font-size: 0.875em;
+                  display: flex; align-items: baseline; gap: 8px; }
+  .qd > summary::-webkit-details-marker { display: none; }
+  /* details の三角は flex にすると消える環境があるので、自前で描いて位置を固定する */
+  .qd > summary::before { content: "\25B8"; flex: none; font-weight: 400; color: var(--sub);
+                          transition: none; }
+  .qd[open] > summary::before { content: "\25BE"; }
+  .qd > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .qd.on { box-shadow: inset 2px 0 0 var(--link); }
+  /* 回答済みマーカー。折り畳んだままでも、どこまで答えたかが一覧で分かるようにする。
+     色は使わない（色役割は 3 つに固定してあり、状態を表す枠が無い）。
+     形（輪郭の丸 / 塗りの丸）と語の両方で区別する。WCAG 1.4.1 も色単独を認めない */
+  .qstat { margin-left: auto; flex: none; font-weight: 400; color: var(--sub);
+           white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+  .qstat::before { content: ""; width: 9px; height: 9px; border-radius: 50%;
+                   border: 1.5px solid var(--control-border); background: var(--bg); }
+  .qd.done .qstat::before { background: var(--rule-strong); border-color: var(--rule-strong); }
+  .qd.done .qstat { color: var(--fg); }
+  .qtext { font-size: 0.875em; margin: 8px 0 0; }
+
+  .q { margin: 8px 0 0; }
+  label.opt { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+              padding: 8px 0 8px 2px; border-bottom: 1px solid var(--rule); cursor: pointer;
+              font-size: 0.875em; }
+  label.opt:has(input:checked) { font-weight: 700; }
+  label.opt input[type="radio"] { appearance: none; -webkit-appearance: none;
+      width: 15px; height: 15px; margin: 0; flex: none; border-radius: 50%;
+      border: 1.5px solid var(--control-border); background: var(--bg); transform: translateY(2px); }
+  label.opt input[type="radio"]:checked { border: 5px solid var(--link-fill); }
+  label.opt input[type="radio"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  label.opt .d { font-weight: 400; width: 100%; }
+  /* 選択肢の帰結を長所と短所の 2 行に分ける。色だけに載せず、ラベル語を必ず併記する */
+  .proscons { display: block; margin-top: 5px; }
+  .proscons > span { display: block; margin-top: 2px; }
+  .pro { color: var(--ok); font-weight: 700; margin-right: 4px; }
+  .con { color: var(--ng); font-weight: 700; margin-right: 4px; }
+  .rec { background: none; color: var(--fg); border: 1px solid var(--fg);
+         font-size: 0.875em; border-radius: 4px; padding: 0 6px; margin-left: 4px;
+         font-weight: 700; letter-spacing: 0.02em; }
+  input.other { width: 100%; margin-top: 4px; padding: 6px 8px; border: 1px solid var(--control-border);
+                border-radius: 5px; background: var(--bg); color: var(--fg); font-size: 1em; }
+  textarea.note { width: 100%; margin-top: 6px; padding: 6px 8px; border: 1px solid var(--control-border);
+                  border-radius: 5px; background: var(--bg); color: var(--fg); font-size: 0.875em;
+                  min-height: 30px; resize: vertical; }
+  #preview { width: 100%; min-height: 150px; font-family: "SF Mono", Menlo, monospace;
+             font-size: 0.875em; background: var(--surface-code); color: var(--fg);
+             border: 1px solid var(--control-border); border-radius: 6px; padding: 10px; }
+
+  /* 脚注と補足。どちらも本文と双方向のページ内リンクにする。
+     番号の系列を混ぜない。脚注は数字 (1, 2)、補足は英字 (a, b) */
+  .pane-h { font-size: 0.875em; font-weight: 700; color: var(--sub); margin: 0 0 8px;
+            letter-spacing: 0.04em; }
+  .fn, .su { font-size: 0.875em; margin: 0 0 10px; scroll-margin-top: 16px; }
+  .fn:target, .su:target { background: var(--surface-now); border-radius: 4px;
+                           box-shadow: 0 0 0 4px var(--surface-now); }
+  .fnnum, .sunum { text-decoration: none; font-weight: 700; }
+  .fnback, .suback { text-decoration: none; margin-left: 3px; }
+  .fnback:hover, .suback:hover { text-decoration: underline; }
+  .fnref, .suref { font-size: 0.875em; scroll-margin-top: 16px; }
+  .fnref a { text-decoration: none; padding: 0 1px; }
+  .fnref a:hover { text-decoration: underline; }
+  .fnref:target a { background: var(--surface-now); outline: 2px solid var(--focus); border-radius: 3px; }
+  .suref a { text-decoration: none; font-weight: 700; color: var(--link); padding: 0 2px; }
+  .suref a::before { content: "["; }
+  .suref a::after { content: "]"; }
+  .suref a:hover { text-decoration: underline; }
+  .suref:target a { background: var(--surface-now); color: var(--link); border-radius: 3px; }
+
+  /* pane の段階は 3 つ。設問カードは JS が本文と左 pane の間を移す（同じ DOM ノードを移動）。
+       1 pane（〜1023px）  本文だけ。設問は本文の該当範囲の直後、脚注は本文末尾
+       2 pane（1024〜1339） 本文 + 脚注補足。設問は本文の該当範囲の直後のまま
+       3 pane（1340px〜）   左に設問・中央に本文・右に脚注補足
+     設問を左 pane へ出すのは 3 pane のときだけ。2 pane 以下で最下部にまとめると、
+     判断材料と設問が離れて往復が発生する。
+     #q-pane を既定で隠すのは、設問が本文側にある状態では見出しだけが残るため。 */
+  #q-pane { display: none; }
+
+  /* 2 pane。640 + 24 + 300 = 964px + main の左右 padding 40px */
+  @media screen and (min-width: 1024px) and (max-width: 1339px) {
+    main { max-width: 1004px; display: grid;
+           grid-template-columns: 640px 300px; column-gap: 24px;
+           grid-template-areas: "bd fn"; align-items: start; }
+    #bd { grid-area: bd; min-width: 0; }
+    #fn-pane { grid-area: fn; position: sticky; top: 24px;
+               max-height: calc(100vh - 200px); overflow-y: auto; }
+  }
+
+  /* 3 pane。300 + 24 + 640 + 24 + 300 = 1288px 必要なので発動は 1340px 以上 */
+  /* 3 pane。列の合計 300 + 24 + 640 + 24 + 300 = 1288px に main の左右 padding 40px を足す */
+  @media screen and (min-width: 1340px) {
+    html { scroll-padding-bottom: 40px; }
+    main { max-width: 1328px; padding-bottom: 40px; display: grid;
+           grid-template-columns: 300px 640px 300px; column-gap: 24px;
+           grid-template-areas: "q bd fn"; align-items: start; }
+    #bd { grid-area: bd; min-width: 0; }
+    #q-pane { grid-area: q; display: block; }
+    #fn-pane { grid-area: fn; }
+    #q-pane, #fn-pane { position: sticky; top: 24px; overflow-y: auto; }
+    /* 下部バーは右列の下に敷くので、丈を削るのは脚注 pane だけ */
+    #q-pane { max-height: calc(100vh - 60px); }
+    #fn-pane { max-height: calc(100vh - 240px); }
+  }
+
+  /* 本文中に置かれた設問カードは、範囲の判断材料の直後に来るので折り畳まない */
+  .rng > .qd { margin-top: 18px; }
+
+  /* form 用の下部バー。情報・入力・操作の 3 ゾーンに分ける */
+  #bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg);
+         border-top: 1px solid var(--rule); padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+         z-index: 100; }
+  #bar-in { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 6px; }
+  .bar-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .bar-info #res { margin-left: auto; text-align: right; }
+  .bar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .action-cluster { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+  /* report 用の追従ナビ。操作が無いので 1 段だけ */
+  #footer-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg);
+                border-top: 1px solid var(--rule); padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+                z-index: 100; }
+  #footer-nav > div { max-width: 640px; margin: 0 auto; display: flex; align-items: center; gap: 10px; }
+  #back { display: inline-block; background: none; border: 1px solid var(--rule); color: var(--sub);
+          border-radius: 6px; padding: 8px 12px; text-decoration: none; font-size: 0.875em; white-space: nowrap; }
+  #back:hover { border-color: var(--link); color: var(--link); }
+  #proj { align-self: center; font-size: 0.875em; font-weight: 700;
+          border: 1px solid var(--rule); color: var(--sub); border-radius: 6px;
+          padding: 3px 9px; white-space: nowrap; }
+  /* 生成に使った skill の版。古い版のページを参考にしないための目印。
+     常時見える位置に置くが、操作する要素ではないので行の右端へ寄せて弱く出す。
+     右へ寄せるのは直前の #res の margin-left: auto に任せる。ここで auto を重ねると
+     状態メッセージと版が離れて 2 か所に散る */
+  /* opacity を重ねない。--sub は地に対して 6.19 / 6.52 あるが、0.72 を掛けると
+     3.32 / 4.06 まで落ちて本文コントラスト 4.5:1 を割る（実測 2026-08-18）。
+     弱く見せたいときは色トークンで決める */
+  #ver { align-self: center; font-size: 0.875em; color: var(--sub); white-space: nowrap; }
+  #free { width: 100%; min-height: 32px; max-height: 130px; padding: 6px 9px;
+          border: 1px solid var(--control-border); border-radius: 5px; background: var(--bg);
+          color: var(--fg); font-size: 0.875em; resize: vertical; }
+  #free:focus { min-height: 88px; }
+  #copy { background: var(--link-fill); color: var(--on-fill); border: none; border-radius: 4px;
+          padding: 9px 14px; font-weight: 600; cursor: pointer; font-size: 1em; }
+  .subbtn { background: none; border: 1px solid var(--rule); color: var(--sub); border-radius: 6px;
+            padding: 8px 10px; font-size: 0.875em; cursor: pointer; white-space: nowrap; }
+  .subbtn:hover { border-color: var(--link); color: var(--link); }
+  #cnt, #res { font-size: 0.875em; color: var(--sub); white-space: nowrap; }
+
+  /* 3 pane のときは回答の追従領域を脚注 pane の真下だけに寄せる。
+     全幅に敷くと本文と設問の下にも帯ができ、縦のスペースを削ってしまう。
+     設問 pane の下ではなく脚注 pane の下に置くのは、設問カードの縦の場所を最大に取るため。
+     この上書きは #bar の定義より後ろに置く。前に置くと後続の left: 0 に負ける。
+     右列の左端 = 画面中央 - (1328 / 2) + 左 padding 20 + 300 + 24 + 640 + 24 = 50% + 344px。
+     右端は画面端まで伸ばす。列幅 300px 丁度だと 3 つのボタンが 1 行に収まらない */
+  @media screen and (min-width: 1340px) {
+    #bar { left: calc(50% + 344px); right: 0; width: auto; padding-left: 10px; padding-right: 10px; }
+    #bar-in { max-width: none; }
+    /* 版は幅を 273px 使う。プロジェクト名と同じ行に置くと必ずはみ出すので独立した行へ落とす */
+    #ver { flex: 1 0 100%; text-align: right; }
+    /* 状態メッセージは失敗時に長くなる。狭い bar では折り返しを許す */
+    #res { white-space: normal; }
+    /* 3 つのボタンを 1 行に保つ。最も狭い 3 pane (1340px) で内幅 306px、
+       ボタンの合計 298px（実測）。折り返させない */
+    .bar-actions, .action-cluster { flex-wrap: nowrap; gap: 6px; }
+    #back, .subbtn { padding: 8px; }
+  }
+  @media print {
+    #bar, #footer-nav { display: none; }
+    main, main > * { max-width: none; display: block; }
+    #q-pane, #fn-pane { position: static; max-height: none; overflow: visible; }
+    h1, h2, h3 { break-after: avoid; }
+    table, pre, .qd { break-inside: avoid; }
+    @page { margin: 16mm; }
+  }
+
+/* report 用のワイド対応。設問 pane を持たないので、3 pane の空の左列を畳んで
+   本文に幅を渡す。表の列が多いページで横スクロールを減らすため */
+@media screen and (min-width: 1340px) {
+  main { max-width: 1400px; grid-template-columns: minmax(0, 1fr) 300px;
+         grid-template-areas: "bd fn"; }
+}
+@media screen and (min-width: 1024px) and (max-width: 1339.98px) {
+  main { max-width: 1004px; grid-template-columns: minmax(0, 1fr) 300px; }
+}
+
+</style>
+<style data-scope="figures">
+/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+@layer properties{@supports (((-webkit-hyphens:none)) and (not (margin-trim:inline))) or ((-moz-orient:inline) and (not (color:rgb(from red r g b)))){*,:before,:after,::backdrop{--tw-border-style:solid;--tw-font-weight:initial;--tw-tracking:initial}}}:root,:host{--font-mono:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;--color-amber-50:oklch(98.7% .022 95.277);--color-amber-400:oklch(82.8% .189 84.429);--color-amber-500:oklch(76.9% .188 70.08);--color-amber-950:oklch(27.9% .077 45.635);--color-green-50:oklch(98.2% .018 155.826);--color-green-200:oklch(92.5% .084 155.995);--color-green-300:oklch(87.1% .15 154.449);--color-green-400:oklch(79.2% .209 151.711);--color-green-500:oklch(72.3% .219 149.579);--color-green-600:oklch(62.7% .194 149.214);--color-green-700:oklch(52.7% .154 150.069);--color-green-800:oklch(44.8% .119 151.328);--color-green-950:oklch(26.6% .065 152.934);--color-blue-50:oklch(97% .014 254.604);--color-blue-200:oklch(88.2% .059 254.128);--color-blue-300:oklch(80.9% .105 251.813);--color-blue-400:oklch(70.7% .165 254.624);--color-blue-500:oklch(62.3% .214 259.815);--color-blue-700:oklch(48.8% .243 264.376);--color-blue-800:oklch(42.4% .199 265.638);--color-blue-950:oklch(28.2% .091 267.935);--color-slate-50:oklch(98.4% .003 247.858);--color-slate-100:oklch(96.8% .007 247.896);--color-slate-300:oklch(86.9% .022 252.894);--color-slate-400:oklch(70.4% .04 256.788);--color-slate-500:oklch(55.4% .046 257.417);--color-slate-600:oklch(44.6% .043 257.281);--color-slate-700:oklch(37.2% .044 257.287);--color-slate-800:oklch(27.9% .041 260.031);--color-slate-900:oklch(20.8% .042 265.755);--color-white:#fff;--spacing:.25rem;--text-xs:.75rem;--text-xs--line-height:calc(1 / .75);--text-sm:.875rem;--text-sm--line-height:calc(1.25 / .875);--font-weight-normal:400;--font-weight-bold:700;--tracking-wide:.025em;--radius-md:.375rem;--radius-lg:.5rem;--radius-xl:.75rem}.mt-2{margin-top:calc(var(--spacing) * 2)}.mt-3{margin-top:calc(var(--spacing) * 3)}.mb-2{margin-bottom:calc(var(--spacing) * 2)}.mb-3{margin-bottom:calc(var(--spacing) * 3)}.ml-4{margin-left:calc(var(--spacing) * 4)}.ml-8{margin-left:calc(var(--spacing) * 8)}.flex{display:flex}.grid{display:grid}.inline-block{display:inline-block}.size-3{width:calc(var(--spacing) * 3);height:calc(var(--spacing) * 3)}.size-5{width:calc(var(--spacing) * 5);height:calc(var(--spacing) * 5)}.size-6{width:calc(var(--spacing) * 6);height:calc(var(--spacing) * 6)}.min-w-0{min-width:0}.flex-1{flex:1}.shrink-0{flex-shrink:0}.grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.items-center{align-items:center}.items-stretch{align-items:stretch}.gap-1{gap:var(--spacing)}.gap-1\.5{gap:calc(var(--spacing) * 1.5)}.gap-2{gap:calc(var(--spacing) * 2)}.gap-3{gap:calc(var(--spacing) * 3)}.gap-4{gap:calc(var(--spacing) * 4)}.gap-x-4{column-gap:calc(var(--spacing) * 4)}.gap-y-1{row-gap:var(--spacing)}.overflow-x-auto{overflow-x:auto}.rounded{border-radius:.25rem}.rounded-lg{border-radius:var(--radius-lg)}.rounded-md{border-radius:var(--radius-md)}.rounded-xl{border-radius:var(--radius-xl)}.border{border-style:var(--tw-border-style);border-width:1px}.border-2{border-style:var(--tw-border-style);border-width:2px}.border-dashed{--tw-border-style:dashed;border-style:dashed}.border-amber-500{border-color:var(--color-amber-500)}.border-blue-500{border-color:var(--color-blue-500)}.border-green-300{border-color:var(--color-green-300)}.border-green-500{border-color:var(--color-green-500)}.border-green-600{border-color:var(--color-green-600)}.border-slate-300{border-color:var(--color-slate-300)}.border-slate-400{border-color:var(--color-slate-400)}.bg-amber-50{background-color:var(--color-amber-50)}.bg-blue-50{background-color:var(--color-blue-50)}.bg-green-50{background-color:var(--color-green-50)}.bg-slate-50{background-color:var(--color-slate-50)}.bg-slate-800{background-color:var(--color-slate-800)}.bg-white{background-color:var(--color-white)}.p-3{padding:calc(var(--spacing) * 3)}.p-4{padding:calc(var(--spacing) * 4)}.px-2{padding-inline:calc(var(--spacing) * 2)}.px-3{padding-inline:calc(var(--spacing) * 3)}.px-4{padding-inline:calc(var(--spacing) * 4)}.py-1{padding-block:var(--spacing)}.py-2{padding-block:calc(var(--spacing) * 2)}.pl-4{padding-left:calc(var(--spacing) * 4)}.pl-8{padding-left:calc(var(--spacing) * 8)}.text-center{text-align:center}.font-mono{font-family:var(--font-mono)}.text-sm{font-size:var(--text-sm);line-height:var(--tw-leading,var(--text-sm--line-height))}.text-xs{font-size:var(--text-xs);line-height:var(--tw-leading,var(--text-xs--line-height))}.font-bold{--tw-font-weight:var(--font-weight-bold);font-weight:var(--font-weight-bold)}.font-normal{--tw-font-weight:var(--font-weight-normal);font-weight:var(--font-weight-normal)}.tracking-wide{--tw-tracking:var(--tracking-wide);letter-spacing:var(--tracking-wide)}.whitespace-nowrap{white-space:nowrap}.text-blue-700{color:var(--color-blue-700)}.text-blue-800{color:var(--color-blue-800)}.text-green-700{color:var(--color-green-700)}.text-green-800{color:var(--color-green-800)}.text-slate-100{color:var(--color-slate-100)}.text-slate-400{color:var(--color-slate-400)}.text-slate-500{color:var(--color-slate-500)}.text-slate-600{color:var(--color-slate-600)}.text-slate-700{color:var(--color-slate-700)}.text-slate-800{color:var(--color-slate-800)}@media (min-width:40rem){.sm\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (min-width:64rem){.lg\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.lg\:flex-row{flex-direction:row}.lg\:items-center{align-items:center}}@media (min-width:80rem){.xl\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}}@media (prefers-color-scheme:dark){.dark\:border-amber-400{border-color:var(--color-amber-400)}.dark\:border-blue-400{border-color:var(--color-blue-400)}.dark\:border-green-400{border-color:var(--color-green-400)}.dark\:border-green-700{border-color:var(--color-green-700)}.dark\:border-slate-500{border-color:var(--color-slate-500)}.dark\:border-slate-600{border-color:var(--color-slate-600)}.dark\:bg-amber-950\/40{background-color:#46190166}@supports (color:color-mix(in lab, red, red)){.dark\:bg-amber-950\/40{background-color:color-mix(in oklab, var(--color-amber-950) 40%, transparent)}}.dark\:bg-blue-950\/50{background-color:#16245680}@supports (color:color-mix(in lab, red, red)){.dark\:bg-blue-950\/50{background-color:color-mix(in oklab, var(--color-blue-950) 50%, transparent)}}.dark\:bg-green-950\/50{background-color:#032e1580}@supports (color:color-mix(in lab, red, red)){.dark\:bg-green-950\/50{background-color:color-mix(in oklab, var(--color-green-950) 50%, transparent)}}.dark\:bg-slate-800\/60{background-color:#1d293d99}@supports (color:color-mix(in lab, red, red)){.dark\:bg-slate-800\/60{background-color:color-mix(in oklab, var(--color-slate-800) 60%, transparent)}}.dark\:bg-slate-900{background-color:var(--color-slate-900)}.dark\:text-blue-200{color:var(--color-blue-200)}.dark\:text-blue-300{color:var(--color-blue-300)}.dark\:text-green-200{color:var(--color-green-200)}.dark\:text-green-300{color:var(--color-green-300)}.dark\:text-slate-100{color:var(--color-slate-100)}.dark\:text-slate-300{color:var(--color-slate-300)}.dark\:text-slate-400{color:var(--color-slate-400)}.dark\:text-slate-500{color:var(--color-slate-500)}}.fig p{margin:0}@property --tw-border-style{syntax:"*";inherits:false;initial-value:solid}@property --tw-font-weight{syntax:"*";inherits:false}@property --tw-tracking{syntax:"*";inherits:false}
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+<symbol id="i-laptop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/>
+</symbol>
+<symbol id="i-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<rect x="3" y="4" width="18" height="7" rx="1"/><rect x="3" y="13" width="18" height="7" rx="1"/><path d="M7 7.5h.01M7 16.5h.01"/>
+</symbol>
+</svg>
+<main>
+
+<div id="bd">
+
+<h1>コーディングエージェントの実行環境とレビュー基盤</h1>
+
+<div class="vnav">
+mac-mini のローカルで herdr を動かし、ghq_root 配下の各 repo で Claude セッションを起動して、そこを唯一の起動点として運用している。
+モバイルからは Claude の Remote Control で操作する。この構成を orca へ移すか、server を自宅鯖 marujirou へ移すかを決めるために調べた。
+あわせて、diff レビューで人間とエージェントがどこまで対話できるかと、orca が Claude Code に入れる hook が何をしているかを追った。
+</div>
+
+<div class="concl">
+<span class="eyebrow">結論</span>
+<p>当面は <strong>herdr local と orca local の並行利用を続ける</strong>。server の marujirou への移設は今はしない。</p>
+<p><strong>diffo だけ導入を検討する</strong>。diff レビューで人間とエージェントが双方向に対話できるのは、調べた範囲では orca でも hunk でもなく diffo / diffler / diffing の系統だけだった。そのうち diffo は Claude Code の背景タスクで待たせる運用が skill に書かれていて、いまのセッションの使い方にそのまま乗る。</p>
+<p>移設を保留する理由は、remote にすると失うものが構成ごとにはっきりしているため。herdr なら URL を開く先とテーマ、orca なら client 切断中の <code>orca</code> コマンド全滅。<br>いま困っている点がそれに見合わない。移す判断をするときの材料は下にまとめてある。</p>
+</div>
+
+<p class="secnum">説明 1 / 7</p>
+<h2 id="s-configs">4 構成の全体像</h2>
+
+<div class="fig">
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+  <div class="flex flex-col gap-2 rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-600 dark:bg-slate-900">
+    <p class="text-sm font-bold text-slate-800 dark:text-slate-100">herdr local</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400">現行</p>
+    <div class="flex items-center gap-2 rounded-lg border-2 border-blue-500 bg-blue-50 px-3 py-2 dark:border-blue-400 dark:bg-blue-950/50">
+      <svg class="size-5 shrink-0 text-blue-700 dark:text-blue-300"><use href="#i-laptop"/></svg>
+      <div class="min-w-0">
+        <p class="text-xs font-bold text-blue-800 dark:text-blue-200">mac-mini</p>
+        <p class="text-xs text-blue-700 dark:text-blue-300">client / server / pty / repo / agent</p>
+      </div>
+    </div>
+    <p class="text-center text-xs text-slate-400 dark:text-slate-500">ローカル socket</p>
+    <div class="flex items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2 dark:border-slate-600">
+      <svg class="size-5 shrink-0 text-slate-400 dark:text-slate-500"><use href="#i-server"/></svg>
+      <p class="text-xs text-slate-400 dark:text-slate-500">marujirou は使わない</p>
+    </div>
+  </div>
+
+  <div class="flex flex-col gap-2 rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-600 dark:bg-slate-900">
+    <p class="text-sm font-bold text-slate-800 dark:text-slate-100">herdr remote</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400">公式機能</p>
+    <div class="flex items-center gap-2 rounded-lg border-2 border-blue-500 bg-blue-50 px-3 py-2 dark:border-blue-400 dark:bg-blue-950/50">
+      <svg class="size-5 shrink-0 text-blue-700 dark:text-blue-300"><use href="#i-laptop"/></svg>
+      <div class="min-w-0">
+        <p class="text-xs font-bold text-blue-800 dark:text-blue-200">mac-mini</p>
+        <p class="text-xs text-blue-700 dark:text-blue-300">client (thin)</p>
+      </div>
+    </div>
+    <p class="text-center text-xs text-slate-500 dark:text-slate-400">SSH stdio bridge</p>
+    <div class="flex items-center gap-2 rounded-lg border-2 border-green-500 bg-green-50 px-3 py-2 dark:border-green-400 dark:bg-green-950/50">
+      <svg class="size-5 shrink-0 text-green-700 dark:text-green-300"><use href="#i-server"/></svg>
+      <div class="min-w-0">
+        <p class="text-xs font-bold text-green-800 dark:text-green-200">marujirou</p>
+        <p class="text-xs text-green-700 dark:text-green-300">server / pty / repo / agent / 描画</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-col gap-2 rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-600 dark:bg-slate-900">
+    <p class="text-sm font-bold text-slate-800 dark:text-slate-100">orca local</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400">試用中</p>
+    <div class="flex items-center gap-2 rounded-lg border-2 border-blue-500 bg-blue-50 px-3 py-2 dark:border-blue-400 dark:bg-blue-950/50">
+      <svg class="size-5 shrink-0 text-blue-700 dark:text-blue-300"><use href="#i-laptop"/></svg>
+      <div class="min-w-0">
+        <p class="text-xs font-bold text-blue-800 dark:text-blue-200">mac-mini</p>
+        <p class="text-xs text-blue-700 dark:text-blue-300">Electron / daemon / pty / repo</p>
+      </div>
+    </div>
+    <p class="text-center text-xs text-slate-400 dark:text-slate-500">ローカル IPC</p>
+    <div class="flex items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2 dark:border-slate-600">
+      <svg class="size-5 shrink-0 text-slate-400 dark:text-slate-500"><use href="#i-server"/></svg>
+      <p class="text-xs text-slate-400 dark:text-slate-500">marujirou は使わない</p>
+    </div>
+  </div>
+
+  <div class="flex flex-col gap-2 rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-600 dark:bg-slate-900">
+    <p class="text-sm font-bold text-slate-800 dark:text-slate-100">orca remote</p>
+    <p class="text-xs text-slate-500 dark:text-slate-400">2 方式ある</p>
+    <div class="flex items-center gap-2 rounded-lg border-2 border-blue-500 bg-blue-50 px-3 py-2 dark:border-blue-400 dark:bg-blue-950/50">
+      <svg class="size-5 shrink-0 text-blue-700 dark:text-blue-300"><use href="#i-laptop"/></svg>
+      <div class="min-w-0">
+        <p class="text-xs font-bold text-blue-800 dark:text-blue-200">mac-mini</p>
+        <p class="text-xs text-blue-700 dark:text-blue-300">client (UI・描画)</p>
+      </div>
+    </div>
+    <p class="text-center text-xs text-slate-500 dark:text-slate-400">SSH relay / WebSocket</p>
+    <div class="flex items-center gap-2 rounded-lg border-2 border-green-500 bg-green-50 px-3 py-2 dark:border-green-400 dark:bg-green-950/50">
+      <svg class="size-5 shrink-0 text-green-700 dark:text-green-300"><use href="#i-server"/></svg>
+      <div class="min-w-0">
+        <p class="text-xs font-bold text-green-800 dark:text-green-200">marujirou</p>
+        <p class="text-xs text-green-700 dark:text-green-300">relay または orca serve / pty / repo</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+  <span class="flex items-center gap-1"><span class="inline-block size-3 rounded border-2 border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-950/50"></span>mac-mini (手元)</span>
+  <span class="flex items-center gap-1"><span class="inline-block size-3 rounded border-2 border-green-500 bg-green-50 dark:border-green-400 dark:bg-green-950/50"></span>marujirou (自宅鯖)</span>
+  <span class="flex items-center gap-1"><span class="inline-block size-3 rounded border border-dashed border-slate-300 dark:border-slate-600"></span>使わない</span>
+</div>
+<p class="cap">図 1 4 構成のプロセス配置。remote の 2 つはいずれも pty と repo が marujirou 側にある</p>
+</div>
+
+<p>herdr は Rust 製のターミナル多重化ツールで、client と server が Unix domain socket で話す。<code>--remote</code> はこの socket を SSH の stdio で橋渡しする実装で、リモート側で <code>herdr remote-client-bridge</code> という隠しサブコマンドが起動する<sup class="fnref" id="fnref-1-1"><a href="#fn-1">1</a></sup>。orca は Electron 製のデスクトップアプリで、git worktree 単位でエージェントを並列に走らせる<sup class="suref" id="suref-a"><a href="#su-a">a</a></sup>。</p>
+
+<div class="table-wrap" role="region" tabindex="0" aria-labelledby="cap-1">
+<table>
+<caption id="cap-1">表 1 remote 構成で何がどちら側で動くか (L = mac-mini、R = marujirou)</caption>
+<thead>
+<tr><th scope="col">項目</th><th scope="col">herdr remote</th><th scope="col">orca remote</th></tr>
+</thead>
+<tbody>
+<tr class="key"><th scope="row">pty / シェル</th><td>R</td><td>R</td></tr>
+<tr class="key"><th scope="row">repo の実体</th><td>R</td><td>R</td></tr>
+<tr><th scope="row">エディタ (<code>$EDITOR</code>)</th><td>R</td><td>R</td></tr>
+<tr><th scope="row">git 認証 (鍵)</th><td>R (既知バグ<sup class="fnref" id="fnref-2-1"><a href="#fn-2">2</a></sup>)</td><td>R</td></tr>
+<tr><th scope="row">URL を開く</th><td class="ng">R で <code>xdg-open</code><sup class="fnref" id="fnref-3-1"><a href="#fn-3">3</a></sup></td><td>L (既定)</td></tr>
+<tr><th scope="row">画像表示</th><td>L 描画 (経路により不可<sup class="fnref" id="fnref-4-1"><a href="#fn-4">4</a></sup>)</td><td>未対応と推定</td></tr>
+<tr><th scope="row">クリップボード</th><td>L</td><td>記載なし</td></tr>
+<tr><th scope="row">通知・ベル</th><td>L</td><td>記載なし</td></tr>
+<tr><th scope="row">dotfiles / 環境変数</th><td>R</td><td>R</td></tr>
+<tr><th scope="row">キーバインド</th><td>L (コマンド系は除去)<sup class="fnref" id="fnref-5-1"><a href="#fn-5">5</a></sup></td><td>L (UI が client)</td></tr>
+<tr><th scope="row">テーマ</th><td class="ng">R が勝つ</td><td>L (UI が client)</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>herdr remote は UI も server 側で描画して client は raw な入力を送るだけの設計で、ローカル端末から server へ届く情報はライト/ダークだけ<sup class="fnref" id="fnref-6-1"><a href="#fn-6">6</a></sup>。orca は UI が client 側の Electron なので、テーマも外部エディタ連携も手元の資産が効く。</p>
+
+<p>1 画面での local と remote の混在は、どちらもできない。herdr は別プロセスなのでターミナルのタブを分ける形になる。socket path がホストごとに別なので、両方の server を共存させられる。<br>pane の中で <code>ssh marujirou</code> を実行して混ぜる形は、agent 検出が foreground process 名を見るので <code>ssh</code> としか見えない。状態表示・agents サイドバー・通知・cwd 追従・<code>claude --resume</code> がすべて効かなくなる<sup class="fnref" id="fnref-7-1"><a href="#fn-7">7</a></sup>。</p>
+
+<p class="secnum">説明 2 / 7</p>
+<h2 id="s-ssh">orca SSH モードの実像</h2>
+
+<p>orca の remote には 2 方式ある。導入コストが桁違いに違う。</p>
+
+<div class="table-wrap" role="region" tabindex="0" aria-labelledby="cap-2">
+<table>
+<caption id="cap-2">表 2 リモートホストに要るもの</caption>
+<thead>
+<tr><th scope="col">要求</th><th scope="col">SSH worktree</th><th scope="col">Remote Orca Server</th></tr>
+</thead>
+<tbody>
+<tr class="key"><th scope="row">Orca 本体</th><td>不要</td><td class="ng">必要</td></tr>
+<tr class="key"><th scope="row">Xvfb</th><td>不要</td><td class="ng">必要</td></tr>
+<tr class="key"><th scope="row">Electron 共有ライブラリ</th><td>不要</td><td class="ng">約 20 個<sup class="fnref" id="fnref-8-1"><a href="#fn-8">8</a></sup></td></tr>
+<tr><th scope="row">Node</th><td>18 以上 + npm</td><td>本体に同梱</td></tr>
+<tr><th scope="row">build toolchain</th><td>ターミナルを使うなら必要</td><td>記載なし</td></tr>
+<tr><th scope="row">その他</th><td>git</td><td>専用ユーザー + systemd の作り込み</td></tr>
+<tr><th scope="row">自動更新</th><td>relay を client が配る</td><td class="ng">headless は配線なし</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>marujirou は既に条件を満たしている。make・gcc・g++ (build-essential) と python3 が入っていて、追加インストールは不要<sup class="fnref" id="fnref-9-1"><a href="#fn-9">9</a></sup>。Node だけは無いので relay の初回配置で要る。</p>
+
+<h3 id="s-ssh-what">要点は作業分担ではなくリポジトリの居場所</h3>
+
+<p>SSH モードでは checkout がリモートにしか無い。エディタが開いている中身は毎回リモートから取ってきたもので、保存も毎回リモートへ書く<sup class="fnref" id="fnref-10-1"><a href="#fn-10">10</a></sup>。ローカルにキャッシュもステージングも無い。</p>
+
+<div class="fig">
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+  <div class="flex flex-col gap-2 rounded-xl border-2 border-blue-500 bg-blue-50 p-4 dark:border-blue-400 dark:bg-blue-950/50">
+    <div class="flex items-center gap-2">
+      <svg class="size-6 shrink-0 text-blue-700 dark:text-blue-300"><use href="#i-laptop"/></svg>
+      <div>
+        <p class="text-sm font-bold text-blue-800 dark:text-blue-200">mac-mini (client)</p>
+        <p class="text-xs text-blue-700 dark:text-blue-300">Orca アプリ本体</p>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-1.5">
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-blue-800 dark:bg-slate-900 dark:text-blue-200">UI・エディタ画面</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-blue-800 dark:bg-slate-900 dark:text-blue-200">diff の行描画</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-blue-800 dark:bg-slate-900 dark:text-blue-200">HTML preview 描画</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-blue-800 dark:bg-slate-900 dark:text-blue-200">ブラウザ</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-blue-800 dark:bg-slate-900 dark:text-blue-200">orchestration</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-blue-800 dark:bg-slate-900 dark:text-blue-200">plugin worker</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-blue-800 dark:bg-slate-900 dark:text-blue-200">通知</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-blue-800 dark:bg-slate-900 dark:text-blue-200">gh / glab</span>
+    </div>
+  </div>
+  <div class="flex flex-col gap-2 rounded-xl border-2 border-green-500 bg-green-50 p-4 dark:border-green-400 dark:bg-green-950/50">
+    <div class="flex items-center gap-2">
+      <svg class="size-6 shrink-0 text-green-700 dark:text-green-300"><use href="#i-server"/></svg>
+      <div>
+        <p class="text-sm font-bold text-green-800 dark:text-green-200">marujirou (SSH host)</p>
+        <p class="text-xs text-green-700 dark:text-green-300">relay daemon (Orca 本体は不要)</p>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-1.5">
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-green-800 dark:bg-slate-900 dark:text-green-200">repo の実体</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-green-800 dark:bg-slate-900 dark:text-green-200">pty / agent CLI</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-green-800 dark:bg-slate-900 dark:text-green-200">git 実行</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-green-800 dark:bg-slate-900 dark:text-green-200">ファイル読み書き</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-green-800 dark:bg-slate-900 dark:text-green-200">ファイル監視</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-green-800 dark:bg-slate-900 dark:text-green-200">検索 (rg)</span>
+      <span class="rounded-md bg-white px-2 py-1 text-xs text-green-800 dark:bg-slate-900 dark:text-green-200">commit message の AI 生成</span>
+    </div>
+  </div>
+</div>
+<p class="cap">図 2 SSH モードの配置。リモートに置かれるのは relay 一式だけ</p>
+</div>
+
+<h3 id="s-relay">relay はなぜ SSH が切れても死なないか</h3>
+
+<div class="fig">
+<div class="flex flex-col gap-3">
+
+  <div class="rounded-xl border border-slate-300 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-800/60">
+    <p class="mb-3 text-xs font-bold tracking-wide text-slate-500 dark:text-slate-400">1. 初回接続 — クライアントが自分のビルドを配る</p>
+    <div class="flex flex-col items-center gap-2 lg:flex-row">
+      <div class="flex-1 rounded-lg border-2 border-blue-500 bg-blue-50 px-3 py-2 dark:border-blue-400 dark:bg-blue-950/50">
+        <p class="text-xs font-bold text-blue-800 dark:text-blue-200">mac-mini</p>
+        <p class="text-xs text-blue-700 dark:text-blue-300">自分と同じ版の relay バンドル</p>
+      </div>
+      <p class="shrink-0 px-2 text-xs text-slate-500 dark:text-slate-400">SSH で転送 →</p>
+      <div class="flex-1 rounded-lg border-2 border-green-500 bg-green-50 px-3 py-2 dark:border-green-400 dark:bg-green-950/50">
+        <p class="text-xs font-bold text-green-800 dark:text-green-200">marujirou</p>
+        <p class="font-mono text-xs text-green-700 dark:text-green-300">~/.orca-remote/relay-&lt;版&gt;/</p>
+      </div>
+    </div>
+    <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">Node 本体は含まない。<code>node-pty</code> だけは現地で <code>npm install</code> してビルドする</p>
+  </div>
+
+  <div class="rounded-xl border border-slate-300 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-800/60">
+    <p class="mb-3 text-xs font-bold tracking-wide text-slate-500 dark:text-slate-400">2. 起動 — SSH の channel から切り離す</p>
+    <div class="overflow-x-auto rounded-lg bg-slate-800 px-3 py-2 dark:bg-slate-900">
+      <p class="font-mono text-xs whitespace-nowrap text-slate-100">nohup node relay.js --detached --grace-time N … &gt; relay.log 2&gt;&amp;1 &lt;/dev/null &amp;</p>
+    </div>
+    <div class="mt-2 flex flex-col gap-1">
+      <p class="text-xs text-slate-600 dark:text-slate-400"><span class="font-bold">nohup</span> と <span class="font-bold">&amp;</span> — exec channel の子ではなくなり、親は init 側へ付け替わる</p>
+      <p class="text-xs text-slate-600 dark:text-slate-400"><span class="font-bold">&lt;/dev/null</span> — 標準入力を切る</p>
+    </div>
+  </div>
+
+  <div class="rounded-xl border border-slate-300 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-800/60">
+    <p class="mb-3 text-xs font-bold tracking-wide text-slate-500 dark:text-slate-400">3. 常駐後のプロセス親子関係</p>
+    <div class="flex flex-col gap-1.5">
+      <div class="rounded-lg border-2 border-green-500 bg-green-50 px-3 py-2 dark:border-green-400 dark:bg-green-950/50">
+        <p class="text-xs font-bold text-green-800 dark:text-green-200">relay daemon <span class="font-normal">— SIGHUP を無視する</span></p>
+      </div>
+      <p class="pl-4 text-xs text-slate-400 dark:text-slate-500">└─ 子</p>
+      <div class="ml-4 rounded-lg border border-green-300 bg-white px-3 py-2 dark:border-green-700 dark:bg-slate-900">
+        <p class="text-xs font-bold text-green-800 dark:text-green-200">pty (node-pty)</p>
+      </div>
+      <p class="pl-8 text-xs text-slate-400 dark:text-slate-500">└─ 子</p>
+      <div class="ml-8 rounded-lg border border-green-300 bg-white px-3 py-2 dark:border-green-700 dark:bg-slate-900">
+        <p class="text-xs font-bold text-green-800 dark:text-green-200">agent CLI (Claude Code など)</p>
+      </div>
+    </div>
+    <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">SSH セッションはこの木のどこにも居ない</p>
+  </div>
+
+</div>
+<p class="cap">図 3 relay の配置・起動・親子関係</p>
+</div>
+
+<p>SSH で普通にコマンドを走らせると channel の子になり、切断時に <code>SIGHUP</code> で死ぬ。relay はその回避を 2 重にかけている。<code>nohup</code> と <code>&amp;</code> で channel から外し、さらに daemon 自身が <code>SIGHUP</code> のハンドラを持って握り潰す<sup class="fnref" id="fnref-11-1"><a href="#fn-11">11</a></sup>。エージェントから見た祖先に SSH セッションが 1 つも居ないので、mac-mini を閉じてもスリープしても走り続ける。</p>
+
+<h3 id="s-ssh-weak">弱点は「クライアント切断中は <code>orca</code> が全滅する」こと</h3>
+
+<p>marujirou に置かれる <code>orca</code> は、そのホストで完結するツールではない。docs の 1 行目は「The <code>orca</code> CLI talks to a running Orca runtime.」で、runtime にあたるのは mac-mini の Orca アプリ<sup class="fnref" id="fnref-12-1"><a href="#fn-12">12</a></sup>。転送先が居ないと <code>No owning Orca client is connected to the relay</code> で失敗する。</p>
+
+<div class="table-wrap" role="region" tabindex="0" aria-labelledby="cap-3">
+<table>
+<caption id="cap-3">表 3 mac-mini を閉じているあいだの marujirou 側</caption>
+<thead>
+<tr><th scope="col">対象</th><th scope="col">状態</th></tr>
+</thead>
+<tbody>
+<tr><th scope="row">agent プロセス本体</th><td>動き続ける</td></tr>
+<tr><th scope="row">ファイル編集・ビルド・テスト</th><td>動き続ける</td></tr>
+<tr><th scope="row">git (commit / push / fetch)</th><td>動き続ける</td></tr>
+<tr class="key"><th scope="row"><code>orca</code> の全サブコマンド</th><td class="ng">即座に失敗する</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>依存になるのは、エージェントの手順に <code>orca …</code> を呼ぶ段が含まれているとき。進捗チェックポイント (<code>orca worktree set --comment</code>)、複数エージェントの協調 (<code>orca orchestration</code>)、他ターミナルの操作、ブラウザ自動化がこれにあたる<sup class="fnref" id="fnref-13-1"><a href="#fn-13">13</a></sup>。1 人のエージェントに閉じた実装作業は無傷で、Orca を介した報告と協調だけが落ちる。</p>
+
+<p>「早めに commit して push しろ」と docs が書くのは、作業が消えるからではない。ファイルは marujirou に残る。手元から見えないだけ。<br>原文も「unpushed work on a remote box is unavailable to the client until it reconnects」と書いている<sup class="fnref" id="fnref-14-1"><a href="#fn-14">14</a></sup>。</p>
+
+<p class="secnum">説明 3 / 7</p>
+<h2 id="s-hook">orca が Claude Code に入れる hook</h2>
+
+<p>orca を起動すると <code>~/.claude/settings.json</code> に 12 個の hook が書き込まれる<sup class="suref" id="suref-b"><a href="#su-b">b</a></sup>。実体は <code>~/.orca/agent-hooks/claude-hook.sh</code> で、settings 側のエントリはこれを呼ぶだけのラッパになっている。</p>
+
+<div class="fig">
+<div class="flex flex-col gap-3">
+  <div class="rounded-xl border border-slate-300 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-800/60">
+    <p class="mb-3 text-xs font-bold tracking-wide text-slate-500 dark:text-slate-400">送信側 — claude-hook.sh</p>
+    <div class="flex flex-col gap-1.5">
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300">最初に <code>{}</code> を出力して Claude Code をブロックしない</p></div>
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300">payload を <code>http://127.0.0.1:&lt;port&gt;/hook/claude</code> へ POST (トークン付き、最大 1.5 秒)</p></div>
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300">失敗時だけ JSONL へ spool。<code>PreToolUse</code> / <code>PostToolUse</code> / <code>PostToolUseFailure</code> は除外</p></div>
+    </div>
+  </div>
+  <div class="rounded-xl border border-slate-300 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-800/60">
+    <p class="mb-3 text-xs font-bold tracking-wide text-slate-500 dark:text-slate-400">受信側 — AgentHookServer</p>
+    <div class="flex flex-col gap-1.5">
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300">正規化してクランプ (prompt 200 字 / toolInput 160 字 / pane 最大 500)</p></div>
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300">pane ごとの「エージェント状態」1 行に変換</p></div>
+    </div>
+  </div>
+  <div class="rounded-xl border-2 border-slate-400 bg-white p-4 dark:border-slate-500 dark:bg-slate-900">
+    <p class="mb-2 text-xs font-bold tracking-wide text-slate-500 dark:text-slate-400">用途は 4 つ</p>
+    <div class="flex flex-col gap-1">
+      <p class="text-xs text-slate-700 dark:text-slate-300">UI と Agent Dashboard の状態表示 (working / waiting / done)</p>
+      <p class="text-xs text-slate-700 dark:text-slate-300">完了通知と terminal title の合成</p>
+      <p class="text-xs text-slate-700 dark:text-slate-300">paired mobile / SSH relay への配信</p>
+      <p class="text-xs text-slate-700 dark:text-slate-300">初回作業時のブランチ自動リネーム</p>
+    </div>
+  </div>
+</div>
+<p class="cap">図 4 hook の送信・受信・用途</p>
+</div>
+
+<p>ディスクに残るのは <code>&lt;userData&gt;/agent-hooks/last-status.json</code> の 1 ファイルだけ (0600)。クランプ済みのフィールドに加えて、Claude の transcript ファイルの絶対パスが入る。起動時に 7 日より古いレコードは捨てられる<sup class="fnref" id="fnref-15-1"><a href="#fn-15">15</a></sup>。</p>
+
+<p>テレメトリ (PostHog) には payload 由来の内容が乗らない。hook 起点の <code>track()</code> は 1 か所で、フィールドは 4 つだけ。スキーマが <code>.strict()</code> で塞いでいる<sup class="fnref" id="fnref-16-1"><a href="#fn-16">16</a></sup>。外部へ出る唯一の経路は <strong>paired mobile と Remote Orca Server</strong> で、そこには prompt と toolInput が乗る。ペアリングしていなければ発生しない。</p>
+
+<p>docs は「working / waiting / done を UI に出す」までしか書いていない。<code>last-status.json</code> にプロンプトのプレビューが 7 日残ること、paired mobile へ prompt が流れることは記載が無い。</p>
+
+<p class="secnum">説明 4 / 7</p>
+<h2 id="s-herdr-ui">herdr でリッチ UI をどこまで作れるか</h2>
+
+<p>herdr 本体に差分ビューア・ファイルツリー・markdown レンダラ・画像ビューア・HTML 描画は無い<sup class="fnref" id="fnref-17-1"><a href="#fn-17">17</a></sup>。plugin v1 の docs も「native non-terminal plugin UI」は対象外と書く。作れるのは 3 通り。</p>
+
+<div class="table-wrap" role="region" tabindex="0" aria-labelledby="cap-4">
+<table>
+<caption id="cap-4">表 4 リッチ UI を足す 3 つの経路</caption>
+<thead>
+<tr><th scope="col">経路</th><th scope="col">できること</th><th scope="col">制約</th></tr>
+</thead>
+<tbody>
+<tr class="key"><th scope="row">pane に TUI を置く</th><td>差分・ファイルツリー・markdown の TUI</td><td>制約なし (素の PTY)</td></tr>
+<tr class="key"><th scope="row">サイドバーの行を書き換える</th><td>行構成・トークン・色を外部から差し替え</td><td>plugin v1 下で残る唯一の余地</td></tr>
+<tr><th scope="row">pane に画像を描く</th><td>Kitty graphics の中継と描画 API</td><td>要 <code>kitty_graphics</code>。remote では経路次第</td></tr>
+</tbody>
+</table>
+</div>
+
+<ul>
+<li><strong>リッチ diff</strong>: hunk 単位のステージング UI を持つのは lazygit・tig・gitui の 3 つだけ。delta・difftastic・diffnav は表示側で操作を持たない。AI 連携では lumen と revdiff が pane に置ける</li>
+<li><strong>ファイルツリー + git 状態</strong>: yazi + 公式プラグイン <code>git.yazi</code> で linemode に git 状態が出る。broot は <code>:gs</code> で変更ファイルに絞れる</li>
+<li><strong>markdown</strong>: glow が TUI ビューア、nvim + render-markdown.nvim がバッファ内装飾。mdcat は画像を Kitty graphics で出せるが upstream は「no longer maintained」</li>
+<li><strong>HTML 表示</strong>: 実用に耐える TUI は無い。合成 (スクショ → <code>kitten icat</code>) なら作れるが静止画のみ</li>
+</ul>
+
+<p>Ghostty 1.3.1 は Kitty graphics protocol に対応する。アニメーションは未実装、sixel は非対応 (開発者が明言) なので、画像を出す設計は Kitty graphics 一択になる<sup class="fnref" id="fnref-18-1"><a href="#fn-18">18</a></sup>。</p>
+
+<p class="secnum">説明 5 / 7</p>
+<h2 id="s-review">diff レビューの 1 往復</h2>
+
+<div class="fig">
+<div class="flex flex-col gap-4">
+
+  <div class="rounded-xl border-2 border-blue-500 bg-blue-50 p-4 dark:border-blue-400 dark:bg-blue-950/50">
+    <p class="mb-3 text-sm font-bold text-blue-800 dark:text-blue-200">orca — 送信まで UI に載っている</p>
+    <div class="flex flex-col gap-1.5">
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300"><span class="font-bold">人間</span> <code>n</code> / <code>p</code> で hunk を移動、<code>c</code> でコメント開始</p></div>
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300"><span class="font-bold">人間</span> markdown で本文を書き <code>Cmd-Enter</code> で保存</p></div>
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300"><span class="font-bold">人間</span> <span class="font-bold">Send to agent</span> で送り先メニューからエージェントを選ぶ</p></div>
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300"><span class="font-bold">Orca</span> 行アンカー付きの 1 プロンプトに合成し、bracketed paste で打ち込む</p></div>
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300"><span class="font-bold">Orca</span> desktop では送信したコメントを削除する</p></div>
+    </div>
+  </div>
+
+  <div class="rounded-xl border-2 border-slate-400 bg-white p-4 dark:border-slate-500 dark:bg-slate-900">
+    <p class="mb-3 text-sm font-bold text-slate-800 dark:text-slate-100">hunk 単体 — 送信の一手だけ人間が埋める</p>
+    <div class="flex flex-col gap-1.5">
+      <div class="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800/60"><p class="text-xs text-slate-700 dark:text-slate-300"><span class="font-bold">人間</span> 別ターミナルで <code>hunk diff</code>。エージェントには <code>hunk skill path</code> の skill を読ませる</p></div>
+      <div class="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800/60"><p class="text-xs text-slate-700 dark:text-slate-300"><span class="font-bold">人間</span> <code>]</code> / <code>[</code> で hunk 移動、<code>c</code> でノート、<code>Ctrl+S</code> で保存</p></div>
+      <div class="rounded-lg border-2 border-amber-500 bg-amber-50 px-3 py-2 dark:border-amber-400 dark:bg-amber-950/40"><p class="text-xs text-slate-800 dark:text-slate-100"><span class="font-bold">人間</span> エージェントのチャットへ「レビューを書いたので読んで」と自分で打つ</p></div>
+      <div class="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800/60"><p class="text-xs text-slate-700 dark:text-slate-300"><span class="font-bold">エージェント</span> <code>hunk session comment list --repo . --type user --json</code> で取得</p></div>
+    </div>
+  </div>
+
+  <div class="rounded-xl border-2 border-green-500 bg-green-50 p-4 dark:border-green-400 dark:bg-green-950/50">
+    <p class="mb-3 text-sm font-bold text-green-800 dark:text-green-200">herdr plugin — その一手をキーで埋める</p>
+    <div class="flex flex-col gap-1.5">
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300"><span class="font-bold">人間</span> <code>prefix+shift+h</code> で split pane に hunk が開く</p></div>
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300"><span class="font-bold">人間</span> hunk の通常操作でノートを書く</p></div>
+      <div class="rounded-lg border-2 border-green-600 bg-white px-3 py-2 dark:border-green-400 dark:bg-slate-900"><p class="text-xs text-slate-800 dark:text-slate-100"><span class="font-bold">人間</span> <code>prefix+shift+s</code> を押す</p></div>
+      <div class="rounded-lg bg-white px-3 py-2 dark:bg-slate-900"><p class="text-xs text-slate-700 dark:text-slate-300"><span class="font-bold">plugin</span> 未送信ノートを集め、<code>herdr agent prompt &lt;pane&gt; &lt;text&gt;</code> で投入</p></div>
+    </div>
+  </div>
+
+</div>
+<p class="cap">図 5 レビュー 1 往復。琥珀の枠が hunk 単体に残る手作業</p>
+</div>
+
+<p class="secnum">説明 6 / 7</p>
+<h2 id="s-thread">スレッド対話は orca でも hunk でも成立しない</h2>
+
+<div class="table-wrap" role="region" tabindex="0" aria-labelledby="cap-5">
+<table>
+<caption id="cap-5">表 5 GitHub PR レビューを基準にした到達点</caption>
+<thead>
+<tr><th scope="col">観点</th><th scope="col">GitHub PR</th><th scope="col">orca</th><th scope="col">hunk</th></tr>
+</thead>
+<tbody>
+<tr><th scope="row">人間 → エージェントの指摘</th><td>インラインコメント</td><td>行アンカーの note</td><td>行アンカーの note</td></tr>
+<tr class="key"><th scope="row">エージェント → 人間の返信</th><td>同一スレッドに可</td><td class="ng">不可</td><td class="ng">不可 (新規 note のみ)</td></tr>
+<tr class="key"><th scope="row">エージェント発の補足コメント</th><td>可</td><td class="ng">不可</td><td>可</td></tr>
+<tr><th scope="row">スレッドの入れ子</th><td>1 段</td><td class="ng">構造ごと無し</td><td>無制限 (返信は人間のみ)</td></tr>
+<tr><th scope="row">resolve</th><td>双方が可</td><td class="ng">無し</td><td class="ng">無し (近いのは削除)</td></tr>
+<tr><th scope="row">質問の差し戻し</th><td>コメントで可</td><td>Chat UI のカードのみ</td><td class="ng">専用経路なし</td></tr>
+<tr><th scope="row">コメントの永続化</th><td>サーバ側</td><td><code>orca-data.json</code></td><td class="ng">セッション限りで消える</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>hunk は <code>parentId</code> を持つスレッドと入れ子を備えるが、返信を作れるのは人間だけ。<code>comment add</code> の option 10 個にも <code>comment apply</code> の JSON キー 9 個にも parent 系が無い。保存される返信は <code>source: "user"</code> に固定される<sup class="fnref" id="fnref-19-1"><a href="#fn-19">19</a></sup>。スレッド機能を入れたコミットは 55 ファイルを変更しているが CLI 面を 1 つも触っていない。</p>
+
+<p>orca は <code>DiffComment</code> 型に <code>parentId</code> も <code>resolved</code> も <code>author</code> も無く、worktree ごとのフラットな配列。エージェントが diff にコメントを書く経路も無い (CLI の 21 グループに該当なし、plugin API の書き込みは <code>terminal:send</code> のみ、MCP サーバ無し)<sup class="fnref" id="fnref-20-1"><a href="#fn-20">20</a></sup>。</p>
+
+<p>orca は docs と実装が 2 点食い違う。「Click <strong>Resolve</strong> to collapse a thread.」に対応する UI が desktop に無い。<br>「Comments stay pinned after the agent revises」は mobile の挙動で、desktop では送信時に削除される<sup class="fnref" id="fnref-21-1"><a href="#fn-21">21</a></sup>。</p>
+
+<p>エージェントから人間への問い返しは、実質 Chat UI の質問カードだけ。しかもそれは Orca の機能ではなく、エージェント CLI 側のツール (<code>AskUserQuestion</code> など) が発した問いを描画したもの。decision gate は人間向けの提示 UI も通知も無い<sup class="fnref" id="fnref-22-1"><a href="#fn-22">22</a></sup>。</p>
+
+<p class="secnum">説明 7 / 7</p>
+<h2 id="s-bidir">双方向にやり取りできるツールは別に存在する</h2>
+
+<p>orca と hunk が双方向にならないのは設計思想の違いで、カテゴリが無いわけではない。ローカル完結・行アンカー・双方向・スレッドを同時に満たすツールは 12 本以上ある<sup class="fnref" id="fnref-23-1"><a href="#fn-23">23</a></sup>。</p>
+
+<div class="table-wrap" role="region" tabindex="0" aria-labelledby="cap-6">
+<table>
+<caption id="cap-6">表 6 全条件を満たす候補 (2026-09-01 の GitHub API 実測)</caption>
+<thead>
+<tr><th scope="col">観点</th><th scope="col">diffler</th><th scope="col">diffo</th><th scope="col">diffing</th><th scope="col">local-review</th><th scope="col">remarque</th></tr>
+</thead>
+<tbody>
+<tr><th scope="row">star</th><td>7</td><td>17</td><td>17</td><td>6</td><td>0</td></tr>
+<tr><th scope="row">UI</th><td>TUI</td><td>ブラウザ</td><td>ブラウザ / TUI</td><td>ブラウザ</td><td>TUI</td></tr>
+<tr class="key"><th scope="row">エージェント経路</th><td>MCP</td><td>CLI + skill</td><td>CLI + MCP + skill</td><td>HTTP API</td><td>CLI + skill</td></tr>
+<tr class="key"><th scope="row">resolve の権限</th><td>人間のみ</td><td>人間のみ</td><td>双方</td><td>双方</td><td>双方</td></tr>
+<tr><th scope="row">永続化</th><td>repo 内</td><td>SQLite</td><td>ホーム配下</td><td>SQLite</td><td>設定で選択</td></tr>
+<tr><th scope="row">実装</th><td>Rust</td><td>TypeScript</td><td>Rust</td><td>Go + React</td><td>TypeScript</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3 id="s-bidir-design">双方向にすると必ず現れる 3 つ</h3>
+
+<ul>
+<li><strong>作者フィールドがデータモデルに入る</strong> — <code>Author = 'reviewer' | 'agent'</code> (diffo)、<code>wroteBy</code> (adiff)。区別しないなら返信の意味が無い</li>
+<li><strong>エージェントが待つ機構が要る</strong> — <code>wait_for_feedback</code> (diffler)、<code>diffo poll</code>、<code>await-review</code> (diffing)</li>
+<li><strong>resolve の権限をどちらに置くかが設計判断になる</strong> — diffler・diffo は人間専用でエージェントは提案まで。diffing・remarque・adiff は双方に許す</li>
+</ul>
+
+<h3 id="s-bidir-wait">待ち方の設計 (diffo)</h3>
+
+<p><code>diffo poll</code> は HTTP long-poll でプロセスとしてブロックする (30 分固定、変更手段なし)。ただし skill が待ち方を明示的に指定している<sup class="fnref" id="fnref-24-1"><a href="#fn-24">24</a></sup>。</p>
+
+<blockquote>
+<span class="src">引用: <a href="https://github.com/DiffoHQ/diffo">DiffoHQ/diffo</a> の <code>skills/diffo/SKILL.md</code></span>
+<p>Don't let it block the conversation either.</p>
+<p>prefer a harness-native tracked background task</p>
+<p>whose completion is guaranteed to resume THIS session</p>
+</blockquote>
+
+<p>Claude Code の Bash <code>run_in_background</code> がこれに該当する。待っている間も同じセッションで別作業ができ、feedback が来た時点で再開される。</p>
+
+<p>poll が 30 分で切れたら <code>{"status":"timeout"}</code> を出して exit 0 する。feedback は失われず、キューはサーバの再起動でも復元される。次に poll を張ったとき、既に未配送があれば待たずに payload が出る<sup class="fnref" id="fnref-25-1"><a href="#fn-25">25</a></sup>。</p>
+
+<p><strong>人間が通知するパターンも設計に入っている</strong>。エージェントが繋がっていないとき、各スレッドに <strong>Copy prompt</strong> ボタンが出る。UI はエージェントの presence を waiting / listening / working で常時表示する。<br>Send が生きたエージェントに届くのか、キューに入るのかを人間が見て判断できる<sup class="fnref" id="fnref-26-1"><a href="#fn-26">26</a></sup>。</p>
+
+<p>複数行コメントは人間だけができる。<code>anchor</code> は <code>endLine?: number</code> を持ち、UI ではドラッグ選択・shift-click・chip の ▲▼ で範囲を動かせる。<br>ただし CLI に範囲のフラグが無い。エージェント名義では単一行かファイル全体か changeset 全体しか選べない<sup class="fnref" id="fnref-27-1"><a href="#fn-27">27</a></sup>。</p>
+
+<h2 id="s-next">当面やること、保留すること</h2>
+
+<h3 id="s-next-do">やる</h3>
+
+<ul>
+<li><strong>herdr local と orca local の並行利用</strong>。両者は同じ層で競合するが、orca は HTML preview と diff ビューアを持ち、herdr はターミナル中心の多重化に強い。どちらかに寄せる判断は、しばらく使ってからにする</li>
+<li><strong>diffo の導入検討</strong>。<code>npx -y @diffohq/diffo</code> で試せる。repo には何も残らず、状態は <code>~/.diffo/diffo.db</code> に入る。skill と plugin が同梱されている</li>
+</ul>
+
+<h3 id="s-next-hold">保留する</h3>
+
+<ul>
+<li><strong>server の marujirou への移設</strong>。手段は揃っている。herdr なら <code>herdr --remote marujirou</code> の 1 コマンドで済む (<code>~/.ssh/config</code> に <code>Host marujirou</code> が既にある)。orca なら SSH target の登録から。marujirou 側の追加準備は Node 18 以上の導入だけ</li>
+<li><strong>移す判断をするときに効く材料</strong>: 表 1 の境界 (何が手元に残るか)、表 2 の導入コスト、そして orca SSH の弱点 (client 切断中は <code>orca</code> コマンドが全滅する)</li>
+</ul>
+
+<h2 id="s-gen">生成に関する補足（判断には不要）</h2>
+<p class="d">読み飛ばしてよい。確からしさの判定に要ること。</p>
+<ul>
+<li>marujirou と mac-mini の実測値は 2026-08-31 から 09-01 に ssh とローカルで取得した。ホストの状態が変われば古くなる</li>
+<li>orca・herdr・hunk・diffo のいずれも実機では動かしていない。docs と実装の読み取りのみ</li>
+<li>orca の画像プロトコル対応は「docs に記述が無く、依存パッケージに画像アドオンが無い」ことからの推定</li>
+<li>orca remote での OSC 52・システム通知の帰属、scrollback の保持上限は docs に記載が無い</li>
+<li>diffo の HTTP エンドポイントと SQLite の直読みは実装からの読み取りで、実行して確かめていない</li>
+</ul>
+
+</div>
+
+<aside id="fn-pane" aria-label="脚注と補足">
+<p class="pane-h">脚注</p>
+<p class="fn" id="fn-1"><a class="fnnum" href="#fnref-1-1">1.</a> <code>src/remote/host_unix.rs</code> 冒頭「Unix remote-host side of the SSH stdio bridge.」。<code>run_remote_client_bridge()</code> がリモート server を起動し、リモートの <code>herdr-client.sock</code> と stdin/stdout を双方向に pipe する。protocol の完全一致が必須で、バイナリは <code>https://herdr.dev/latest.json</code> から自動取得される
+  <a class="fnback" href="#fnref-1-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-2"><a class="fnnum" href="#fnref-2-1">2.</a> herdr <a href="https://github.com/herdrdev/herdr/issues/1931">#1931</a> (open): detach → reattach で pane の <code>SSH_AUTH_SOCK</code> が消えた socket を指したままになり <code>git fetch</code> が失敗する。報告者の環境が macOS ローカル + Ubuntu 24.04 リモート + 0.8.2 で今回の構成と一致。回避策はリモートの <code>~/.bashrc</code> で安定パスへ symlink を張る方法
+  <a class="fnback" href="#fnref-2-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-3"><a class="fnnum" href="#fnref-3-1">3.</a> herdr <a href="https://github.com/herdrdev/herdr/issues/2780">#2780</a>: URL のクリックは server 側の入力パイプラインで処理され、Linux では <code>xdg-open</code> が server プロセス内で走る。headless な marujirou では開かない
+  <a class="fnback" href="#fnref-3-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-4"><a class="fnnum" href="#fnref-4-1">4.</a> protocol の graphics メッセージは 2 つ。<code>GraphicsFile</code> は server ローカルのパスを運ぶので remote では成立せず実装も塞いでいる。<code>Graphics { bytes }</code> は remote でも通る。<a href="https://github.com/herdrdev/herdr/issues/3422">#3422</a> (open): ローカルが Ghostty のとき <code>--remote</code> で Kitty 画像が黒い矩形になる。<code>SSH_TTY=/dev/tty herdr --remote &lt;host&gt;</code> で描画される
+  <a class="fnback" href="#fnref-4-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-5"><a class="fnnum" href="#fnref-5-1">5.</a> docs「By default, <code>herdr --remote</code> uses your local Herdr keybindings for that attach.」ただしカスタムコマンドのバインドは除去される (「those commands would run on the remote host」)。client 側の <code>skip_serializing</code> と server 側の <code>config.keys.command.clear()</code> で二重に防御
+  <a class="fnback" href="#fnref-5-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-6"><a class="fnnum" href="#fnref-6-1">6.</a> herdr <a href="https://github.com/herdrdev/herdr/issues/2976">#2976</a> の maintainer 回答「Remote attach is currently server-rendered: the remote server applies its UI configuration and streams the rendered UI to the local thin client.」XTGETTCAP も server が固定表から応答し、ローカル端末には問い合わせない
+  <a class="fnback" href="#fnref-6-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-7"><a class="fnnum" href="#fnref-7-1">7.</a> herdr docs の Agents「Herdr first detects the foreground process in each pane.」同ページが tmux について「Herdr sees tmux as the pane process instead of the agent behind it.」と明言。<a href="https://github.com/herdrdev/herdr/issues/1170">#1170</a> (open) が agents サイドバーに出ない件
+  <a class="fnback" href="#fnref-7-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-8"><a class="fnnum" href="#fnref-8-1">8.</a> orca の <code>docs/reference/headless-linux-server.md</code>「Ubuntu and Debian prerequisites」: <code>curl file jq xvfb zlib1g-dev ca-certificates git</code> に加えて Electron がリンクする共有ライブラリ約 20 個。24.04 では <code>t64</code> サフィックス付きの名前になり、<code>libasound2</code> は provider 衝突で失敗する。AppImage 実行には <code>libfuse2t64</code>。systemd は <code>KillMode=mixed</code> / <code>RestartPreventExitStatus=3</code> / <code>StartLimitIntervalSec=300</code> が必須
+  <a class="fnback" href="#fnref-8-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-9"><a class="fnnum" href="#fnref-9-1">9.</a> 実測 (2026-09-01、ssh): Ubuntu 24.04.4 / x86_64 / 8 core / 15.9 GiB (使用 2.5 GiB) / 空き 544 GiB / glibc 2.39 / GNU Make 4.3 / gcc・g++ 13.3.0 / Python 3.12.3 / <code>build-essential 12.10ubuntu1</code>。node・npm・gh・claude・mise・brew・cargo は無し。<code>systemctl --user</code> は running、<code>Linger=no</code>
+  <a class="fnback" href="#fnref-9-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-10"><a class="fnnum" href="#fnref-10-1">10.</a> 読みは <code>fs:readFile</code> IPC が SSH provider へ委譲し relay が <code>node:fs/promises</code> で実行、書きは <code>fs.writeFile</code> RPC。Monaco は blur とアイドルで自動保存する。diff は 2 段で、<code>git.diff</code> RPC が unified patch ではなく変更前後の全文 2 本を返し、行・語レベルの計算はクライアントの Monaco が行う。HTML preview は専用 RPC <code>fs.readDocPreview</code> でリモートから読み、sandbox 化した webview でクライアントが描画する
+  <a class="fnback" href="#fnref-10-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-11"><a class="fnnum" href="#fnref-11-1">11.</a> 起動コマンドのコメント「relay must outlive the SSH connection so PTY sessions survive app restarts — nohup + &lt;/dev/null + &amp; detach it from the exec channel」。ハンドラは <code>process.on('SIGHUP', () =&gt; { relayLogLine('[relay] Received SIGHUP (SSH session dropped), ignoring') })</code>。止まる条件は SIGTERM / SIGINT、grace timer の満了 (既定 0 = 無期限、有界なら 60 秒〜7 日でフォーム既定 24 時間)、ホストが受理した明示操作の 3 つ
+  <a class="fnback" href="#fnref-11-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-12"><a class="fnnum" href="#fnref-12-1">12.</a> orca の <code>cli/reference.mdx</code> 1 行目。marujirou 側の実体は <code>~/.orca-relay/bin/orca</code> の shim で、<code>relay.js --orca-cli</code> を exec して unix socket 経由に JSON-RPC を流す。転送先が無いときの実装は <code>if (!target) { return Promise.reject(new Error('No owning Orca client is connected to the relay')) }</code>
+  <a class="fnback" href="#fnref-12-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-13"><a class="fnnum" href="#fnref-13-1">13.</a> <code>cli/reference.mdx</code>「Agent habits」:「Use worktree comments for progress checkpoints.」「Use Orchestration for tracked multi-agent dispatches instead of ad hoc terminal prompts.」orchestration の構成要素は Run / Task / Dispatch / Message / Decision gate
+  <a class="fnback" href="#fnref-13-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-14"><a class="fnnum" href="#fnref-14-1">14.</a> <code>docs/reference/ssh-execution-boundary.md</code>「Control plane」:「The PTY stays <code>live</code>; its control plane does not.」「An agent on an SSH host should not depend on <code>orca</code> for anything it must finish while you are away. Commit and push early — unpushed work on a remote box is unavailable to the client until it reconnects.」
+  <a class="fnback" href="#fnref-14-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-15"><a class="fnnum" href="#fnref-15-1">15.</a> 残るのは prompt (200 字プレビュー)、toolName、toolInput (160 字)、interactivePrompt (16000 字)、lastAssistantMessage (8000 字)、model、agentType、subagents、paneKey / tabId / worktreeId、そして <code>providerSession</code> に入る transcript の絶対パス。<code>launchToken</code> は sha256 ハッシュに置換される。<code>console.*</code> 18 か所を確認したが payload を出す箇所は無い
+  <a class="fnback" href="#fnref-15-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-16"><a class="fnnum" href="#fnref-16-1">16.</a> <code>track('agent_prompt_sent', { agent_kind, launch_source, request_kind, ...getCohortAtEmit() })</code> の 1 か所のみ。プロンプト文字列はローカルの重複排除ハッシュにしか使われず、ハッシュも送らない。別のスキーマのコメントが「切り詰められた body はユーザーのプロンプトと tool I/O を含むので、そこから導いたものは何も wire に乗せない」と書く。無効化は <code>DO_NOT_TRACK=1</code> または <code>ORCA_TELEMETRY_DISABLED=1</code>
+  <a class="fnback" href="#fnref-16-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-17"><a class="fnnum" href="#fnref-17-1">17.</a> 根拠 4 つ: socket API の 91 メソッドに該当なし、<code>herdr --default-config</code> の 362 行に設定項目なし、113KB の CHANGELOG に追加記録なし、docs の Concepts にも記載なし。plugin v1 の docs は「Runtime action registration and native non-terminal plugin UI are not part of plugin v1.」。サイドバーの行は <code>herdr pane report-metadata --token</code> と <code>agent.view.set</code> で外部から差し替えられる
+  <a class="fnback" href="#fnref-17-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-18"><a class="fnnum" href="#fnref-18-1">18.</a> Ghostty の Features「Ghostty supports the Kitty graphics protocol」。アニメーションは 1.3.1 では未実装で <code>ERROR: unimplemented action</code> を返す。sixel はバイナリに文字列が 1 件も無く、開発者も Discussion <a href="https://github.com/ghostty-org/ghostty/discussions/2496">#2496</a> で非対応を明言。herdr 側の画像は <code>experimental.kitty_graphics = true</code> で 2 経路 (pane アプリの中継と <code>pane.graphics.set</code> API) が開く
+  <a class="fnback" href="#fnref-18-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-19"><a class="fnnum" href="#fnref-19-1">19.</a> <code>hunk session comment add</code> の option は <code>--file</code> / <code>--summary</code> / <code>--repo</code> / <code>--old-line</code> / <code>--new-line</code> / <code>--rationale</code> / <code>--markup</code> / <code>--author</code> / <code>--focus</code> / <code>--json</code> の 10 個。daemon の action 13 個にも返信を作るものが無い。人間側は <code>R</code> (<code>hunk.review.replyToActiveNote</code>) で source を問わず返信でき、入れ子の深さ制限も無い
+  <a class="fnback" href="#fnref-19-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-20"><a class="fnnum" href="#fnref-20-1">20.</a> <code>src/shared/diff-comment-types.ts</code> の <code>DiffComment</code> が持つのは id / worktreeId / filePath / source / selectedText / startLine / lineNumber / body / createdAt / updatedAt / sentAt / scope / oldPath / diffIdentity / side。CLI のコマンド表は 21 グループで CI がずれを検出する。plugin API は 13 メソッド・7 capability で「The raw runtime-RPC registry is never exposed」。<code>worktree.set</code> RPC はスキーマ上 <code>diffComments</code> を受け付けるが、使っているのは mobile アプリ
+  <a class="fnback" href="#fnref-20-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-21"><a class="fnnum" href="#fnref-21-1">21.</a> desktop は <code>DiffNotesSendMenu.tsx</code> の <code>onDelivered</code> が <code>clearDeliveredDiffComments</code> を呼び、配送済みの note を配列から除いて永続化する。mobile は <code>markMobileDiffCommentsSent</code> で <code>sentAt</code> を立てて残す。desktop の store にも <code>markDiffCommentsSent</code> はあるが production の呼び出し元が無い。i18n で <code>Resolve</code> / <code>Reply</code> を持つのは GitHub / GitLab の PR コメント側の 4 名前空間だけ
+  <a class="fnback" href="#fnref-21-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-22"><a class="fnnum" href="#fnref-22-1">22.</a> <code>src/shared/native-chat-ask.ts</code> が <code>AskUserQuestion</code> / <code>ask_user_question</code> / <code>askUserQuestion</code> のパーサを登録し、Orca はそれをカードとして描画する。decision gate は「the coordinator never auto-resolves gates (humans do, via orchestration.gateResolve)」だが、人間が <code>orca orchestration gate-list</code> を叩かない限り存在に気づけない。なお Orca は全エージェントを full-autonomy フラグ付きで起動するので、承認カードは既定で出ない
+  <a class="fnback" href="#fnref-22-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-23"><a class="fnnum" href="#fnref-23-1">23.</a> 探索は GitHub repository 検索 (22 クエリ)、MCP 公式レジストリ (13 語)、VS Code Marketplace の Gallery API、npm レジストリ、日本語圏の記事検索を組み合わせた。最も収量が多かったのは Marketplace の Gallery API。ローカル diff にコメントを書ける MCP サーバはレジストリに事実上登録されておらず、実装は VS Code 拡張や TUI に同梱される形で存在する。データモデルの参照元は google/git-appraise (★5,309、2013 年設計) で、親リンクとファイル行範囲と resolve フラグという構造が今回の 2026 年のツール群と一致する
+  <a class="fnback" href="#fnref-23-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-24"><a class="fnnum" href="#fnref-24-1">24.</a> skill の該当箇所の全文:「Keep the poll attended: a tracked background task if your harness has one, the foreground if not — never a detached process. Don't let it block the conversation either — the reviewer reads at their own pace and talks to you in chat meanwhile, so prefer a harness-native tracked background task whose completion is guaranteed to resume THIS session. Never <code>nohup</code>, shell <code>&amp;</code>, <code>disown</code>, or a fire-and-forget process」。CLI 側は <code>fetch</code> を 1 回投げてレスポンス本文を読み切ってから <code>process.exit(0)</code> する。サーバ側は 15 秒ごとに半角スペース 1 文字の heartbeat を流す。タイムアウトは <code>POLL_MAX_MS = 30 * 60_000</code> の固定で、環境変数もフラグも無い (<code>poll</code> は位置引数もオプションも受け付けない)
+  <a class="fnback" href="#fnref-24-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-25"><a class="fnnum" href="#fnref-25-1">25.</a> <code>status</code> は <code>feedback</code> / <code>timeout</code> / <code>superseded</code> / <code>ended</code> の 4 種で、work があるのは <code>feedback</code> だけ。終了コードは全経路 0 なので、無かったことは JSON の <code>status</code> で判別する。docs「Safe to re-run any time; delivery is at-least-once, so a poll that dies mid-write re-delivers instead of dropping feedback.」<code>DeliveryQueue.attach()</code> は未配送があれば即座に返る
+  <a class="fnback" href="#fnref-25-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-26"><a class="fnnum" href="#fnref-26-1">26.</a> docs「If nothing is attached at all, every thread carries a <strong>Copy prompt</strong> button: the same prompt the poll would have delivered, ready to paste into any agent.」Send ボタンの tooltip も繋がっていれば「send this thread to your agent」、いなければ「mark sent and copy the prompt」に変わる。diffo は「No background agents, ever. Diffo spawns nothing.」を掲げ、エージェントを勝手に起動しない
+  <a class="fnback" href="#fnref-26-1" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="fn" id="fn-27"><a class="fnnum" href="#fnref-27-1">27.</a> <code>Anchor</code> は <code>{ kind: 'hunk', hunkId, path, side, line, endLine? }</code> / <code>{ kind: 'file', path }</code> / <code>{ kind: 'changeset' }</code> の 3 種。CLI の <code>parseVerb</code> が定義するフラグは <code>--message</code> / <code>--line</code> / <code>--more</code> / <code>--json</code> / <code>--help</code> の 5 つで、<code>--line</code> は単一の整数のみ。サーバ側もエージェント名義の thread 作成では <code>file</code> と <code>line</code> しか読まない
+  <a class="fnback" href="#fnref-27-1" aria-label="本文へ戻る">&#8617;</a></p>
+
+<p class="pane-h" style="margin-top:18px">補足</p>
+<p class="su" id="su-a"><a class="sunum" href="#suref-a">a.</a> orca = <a href="https://github.com/stablyai/orca">stablyai/orca</a>。Claude Code・Codex・OpenCode などの CLI エージェントを git worktree 単位で並列に走らせる Electron 製デスクトップアプリ。MIT、日次リリース。herdr = <a href="https://github.com/herdrdev/herdr">herdrdev/herdr</a>。Rust 製の agent multiplexer で、永続 server + client 型のターミナル多重化ツール
+  <a class="suback" href="#suref-a" aria-label="本文へ戻る">&#8617;</a></p>
+<p class="su" id="su-b"><a class="sunum" href="#suref-b">b.</a> 捕捉されるイベントは SessionStart / UserPromptSubmit / Stop / StopFailure / SubagentStart / SubagentStop / TeammateIdle / PreToolUse / PostToolUse / PostToolUseFailure / PermissionRequest / PostCompact の 12 種。<code>~/.claude/settings.json</code> が dotfiles への symlink になっている場合、書き込み先は dotfiles の作業ツリーになる
+  <a class="suback" href="#suref-b" aria-label="本文へ戻る">&#8617;</a></p>
+</aside>
+
+</main>
+
+<div id="footer-nav">
+  <div>
+    <span id="proj">dotfiles</span>
+    <span id="ver">generated by html-communication v0.32.6</span>
+  </div>
+</div>
+
+</body>
+</html>
