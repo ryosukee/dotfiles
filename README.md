@@ -120,6 +120,21 @@ fisher update
 | claude-code | Claude Code CLI + VS Code 拡張 | `brew install anthropic/claude-code/claude-code` / VS Code |
 | codex | OpenAI のコーディングエージェント | `brew install codex` |
 
+### AI エージェントの skill
+
+[skills](https://github.com/vercel-labs/skills) で各エージェントへ配る skill。
+コマンド名は `skills` で、実行は `npx skills`。
+配線先が 1 つだと共通の置き場を経由せず、
+そのエージェントのディレクトリへ実ファイルがコピーされる。
+
+| skill | 用途 | 本体 | インストール |
+| --- | --- | --- | --- |
+<!-- markdownlint-disable-next-line MD013 -->
+| diffo | ローカルで動く diff レビュー。人間とエージェントが行アンカーで双方向にやり取りする | `npx -y @diffohq/diffo` (インストール不要) | `npx skills add DiffoHQ/diffo --skill diffo -g -a claude-code` |
+
+一覧の確認は `npx skills list -g`、更新は `npx skills update`。
+削除は `npx skills remove <name> -g`。
+
 ### インフラ & クラウド
 
 | ツール | 用途 | インストール |

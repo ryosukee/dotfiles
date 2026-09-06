@@ -271,7 +271,7 @@ cols=$(tput cols 2>/dev/null || echo "${COLUMNS:-80}")
 # Vim mode は line 1 の先頭に配置 (有効時のみ)。
 # 出力レイアウト (3 行):
 #   line 1: [NORMAL │] Ctx │ 5h │ Today │ 7d │ Weekly
-#   line 2: ⚡ Model │ in·hit │ out │ Σ │ TTL
+#   line 2: ⚡ Model │ in·hit │ out │ Σ │ TTL [⟳ keepalive]
 #   line 3: Branch │ 📁 cwd │ version
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -1003,7 +1003,10 @@ fi
 #
 # レイアウト (左=新、右=古):
 #   ⚡ Model │ digits (最新 2 ターン) │ in·hit graph (3 ターン) │ out graph (3 ターン)
-#            │ Σ (累積) │ TTL
+#            │ Σ (累積) │ TTL [⟳ keepalive]
+#
+# TTL の右の ⟳ keepalive は、このセッションで cache-keepalive skill が
+# 常駐している間だけ出る。off のときは何も出さない。
 #
 # Claude Code の context_window.current_usage から 1 ターン分の
 #   - input_tokens                (uncached = キャッシュに乗らなかった input)
@@ -1235,8 +1238,27 @@ if [ -n "$transcript_path" ] && [ -f "$transcript_path" ]; then
   fi
 fi
 
+# --- cache-keepalive: このセッションで keepalive が動いているか ---
+# cache-keepalive skill (cc-marketplace の plugin) は Monitor で常駐ループを
+# 起こす。そのプロセスのコマンドラインには transcript path と "cache-keepalive"
+# の両方が入るので、pgrep で当てられる。skill 自身の status サブコマンドも
+# 同じ判定をしている。
+#
+# コスト: pgrep -f は全プロセスのコマンドラインを走査するため実測 ~91ms
+# (985 プロセス時。jq 1 回が ~13ms)。キャッシュを挟まず毎回引く。
+# statusLine のタイムアウトで line2/3 が落ちる症状が出たら、判定結果を
+# /tmp/claude-status/ へ数十秒キャッシュする形に変える。
+#
+# tasks/ の output ファイルでは判定できない。停止済みタスクの output も
+# 残るため、ファイルの存在と生存が一致しない。
+ka_text=""; ka_fmt=""
+if [ -n "$transcript_path" ] && pgrep -f "$transcript_path.*cache-keepalive" >/dev/null 2>&1; then
+  ka_text=" ⟳ keepalive"
+  ka_fmt=$(printf ' \033[2m⟳ keepalive\033[0m')
+fi
+
 # --- 組み立て ---
-# Model │ digits (4 turns) │ Σ │ TTL
+# Model │ digits (4 turns) │ Σ │ TTL [⟳ keepalive]
 cache_text="${digits_text} │ Σ in ${tot_in_str}, out ${tot_out_str}"
 cache_fmt="${digits_fmt} \033[2m│\033[0m $(printf '\033[2mΣ\033[0m in \033[96m%s\033[0m\033[2m,\033[0m out \033[95m%s\033[0m' "$tot_in_str" "$tot_out_str")"
 
@@ -1246,9 +1268,11 @@ if [ -n "$model_text" ]; then
   cache_fmt="${model_fmt} \033[2m│\033[0m ${cache_fmt}"
 fi
 
+# keepalive は TTL の右へ続けて置く (区切りを挟まず同じセクション扱い)。
+# TTL が出ない状況 (transcript が無い) では keepalive も出さない。
 if [ -n "$ttl_text" ]; then
-  cache_text="${cache_text} │ ${ttl_text}"
-  cache_fmt="${cache_fmt} \033[2m│\033[0m ${ttl_fmt}"
+  cache_text="${cache_text} │ ${ttl_text}${ka_text}"
+  cache_fmt="${cache_fmt} \033[2m│\033[0m ${ttl_fmt}${ka_fmt}"
 fi
 
 # -----------------------------------------------------------------------------
@@ -1367,7 +1391,7 @@ fi
 # -----------------------------------------------------------------------------
 # 3 行固定レイアウト:
 #   line 1: [NORMAL │] Ctx │ 5h │ Today │ 7d │ Weekly
-#   line 2: ⚡ Model │ in·hit │ out │ Σ │ TTL
+#   line 2: ⚡ Model │ in·hit │ out │ Σ │ TTL [⟳ keepalive]
 #   line 3: Branch │ 📁 cwd │ version
 # セッション開始直後は rate_limits / context_window がまだ届かず left_fmt が
 # 空になるため、placeholder を出して 3 行構成を保つ (空 printf だと 1 行目が
