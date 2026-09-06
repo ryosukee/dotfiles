@@ -313,8 +313,9 @@ fi
 # effort レベルの併記文字列を先に作る。
 # 本体は stdin JSON の .effort.level に入れてくるが、モデルが effort を持たない
 # 場合は effort キーごと来ないので空になる (本体の組み立てが条件付き spread)。
-# 値は写像せずそのまま出す。low / medium / xhigh は本体のバイナリで確認したが
-# 網羅は取れておらず、未知の値が来ても崩れない形にしておく。
+# 値は写像せずそのまま出す。取りうるのは low / medium / high / xhigh の 4 つで、
+# 2.1.261 の settings スキーマ (effortLevel の zod enum) で確認した。max は無い。
+# 将来値が増えても崩れないよう、写像は持たない。
 _effort_text=""
 _effort_fmt=""
 if [ -n "$effort_level" ] && [ "$effort_level" != "null" ]; then
