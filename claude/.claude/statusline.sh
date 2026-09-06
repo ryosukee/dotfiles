@@ -81,16 +81,16 @@
 #                     残り時間 (nf-md-hourglass + ラベル) + cycle day 終了時刻
 #                     pp = percentage points: weekly used% の差分単位
 #                     per day 予算は 7d Spark セクションに移動
-#     - 7d Spark:     󰎷 18pp/d ⣇₈⣿₂₀󱞩⣇₈⡀₀⡀₀⡀₀⡀₀ (cycle day 3 の例)
+#     - 7d Spark:     󰎷 18pp/d ⣇₈⣿₂₀▸⣇₈⡀₀⡀₀⡀₀⡀₀ (cycle day 3 の例)
 #                     icon (nf-md U+F03B7、7d 専用) + per day 予算 (pp/d) +
 #                     weekly cycle (7 日) の cycle day 別 pp 消費 sparkline。
-#                     常時 7 本。過去 (day 1..day_idx-1) + 󱞩 + today (day_idx) +
+#                     常時 7 本。過去 (day 1..day_idx-1) + ▸ + today (day_idx) +
 #                     未来 (day_idx+1..7、薄色パディング)。
 #                     バー高さは per-day budget (100/7 ≈ 14.3pp) を full bar とした
 #                     8 段階 Braille LEGACY (⡀⡄⡆⡇⣇⣧⣷⣿、左列→右列、各列内は下→上)、
 #                     各バー直後に subscript 数字で実 pp。
 #                     過去・未来は薄色、today は通常色 (色は per-day budget 比で緑/黄/赤)。
-#                     󱞩 (nf-md U+F17A9) は today の位置を示すマーカー。
+#                     ▸ (U+25B8) は today の位置を示すマーカー。
 #                     週次リセット検出時は全クリアされて Day 1 からやり直しになる。
 #     - Weekly Rate:  󰎸 ⣿⣿⣿⣄ 85% 󰔟 4ᵈ18ʰ ➤ 3/28·21:45
 #                     W icon (nf-md U+F03B8、weekly 専用) + Braille 4-char 残量バー +
@@ -102,11 +102,14 @@
 #                     分/時は 2 桁 zero-pad で幅を揃える (10ʰ02ᵐ 等)
 #                     Nerd Font アイコン: 󰔟 (U+F051F) 砂時計
 #   line2（環境情報系）:
-#     - Model:        ⚡ Fable 5
+#     - Model:        ⚡ Fable 5 [high]
 #                     settings.json の "model" (期待モデル) と stdin の model.id
-#                     を比較し、不一致時は ⚡ Opus 4.8 (≠ fable-5) のように
+#                     を比較し、不一致時は ⚡ Opus 4.8 [high] (≠ fable-5) のように
 #                     実モデルを赤 + 期待モデルを dim 併記 (裏で勝手に
 #                     フォールバックされた場合に気づけるようにする)
+#                     [high] は stdin の .effort.level を dim で併記したもの。
+#                     モデルが effort を持たない場合は本体が effort キーごと
+#                     落とすので、その場合は併記しない
 #     - Git Branch:    main +3 !2 ?1 ⇡2（Nerd Font アイコン付き、git リポジトリ内のみ）
 #                      +N=staged, !N=modified, ?N=untracked, ⇡N=ahead, ⇣N=behind（なければ省略）
 #     - CWD:          📁 ~/ghq_root/github.com/foo/bar
@@ -216,7 +219,7 @@ fi
 IFS=$'\x1f' read -r \
   session_id model model_id cwd used vim_mode ver \
   session_pct five_resets_at weekly_pct weekly_resets_at \
-  cur_in cur_cc cur_cr cur_out total_in total_out transcript_path \
+  cur_in cur_cc cur_cr cur_out total_in total_out transcript_path effort_level \
   <<< "$(jq -r '[
     .session_id // "",
     .model.display_name // "",
@@ -235,7 +238,8 @@ IFS=$'\x1f' read -r \
     ((.context_window.current_usage.output_tokens // 0) | tostring),
     ((.context_window.total_input_tokens // 0) | tostring),
     ((.context_window.total_output_tokens // 0) | tostring),
-    .transcript_path // ""
+    .transcript_path // "",
+    .effort.level // ""
   ] | join("\u001f")' <<< "$input")"
 cwd="${cwd/#$HOME/~}"
 
@@ -306,17 +310,29 @@ if [ -n "$expected_model" ] && [[ "$expected_model" == claude-* ]] \
   fi
 fi
 
+# effort レベルの併記文字列を先に作る。
+# 本体は stdin JSON の .effort.level に入れてくるが、モデルが effort を持たない
+# 場合は effort キーごと来ないので空になる (本体の組み立てが条件付き spread)。
+# 値は写像せずそのまま出す。low / medium / xhigh は本体のバイナリで確認したが
+# 網羅は取れておらず、未知の値が来ても崩れない形にしておく。
+_effort_text=""
+_effort_fmt=""
+if [ -n "$effort_level" ] && [ "$effort_level" != "null" ]; then
+  _effort_text=" [${effort_level}]"
+  _effort_fmt=$(printf " \033[2m[%s]\033[0m" "$effort_level")
+fi
+
 # model の text/fmt は line 2 組み立て時に使うので保持、left は空で start。
 left_text=""
 left_fmt=""
 if [ -n "$model" ] && [ "$model" != "null" ]; then
   if [ "$model_mismatch" = "1" ]; then
     _exp_short="${_exp_id#claude-}"
-    model_text="⚡ ${model} (≠ ${_exp_short})"
-    model_fmt=$(printf "\033[91m⚡ %s\033[0m \033[2m(≠ %s)\033[0m" "$model" "$_exp_short")
+    model_text="⚡ ${model}${_effort_text} (≠ ${_exp_short})"
+    model_fmt=$(printf "\033[91m⚡ %s\033[0m%s \033[2m(≠ %s)\033[0m" "$model" "$_effort_fmt" "$_exp_short")
   else
-    model_text="⚡ ${model}"
-    model_fmt=$(printf "\033[96m⚡ %s\033[0m" "$model")
+    model_text="⚡ ${model}${_effort_text}"
+    model_fmt=$(printf "\033[96m⚡ %s\033[0m%s" "$model" "$_effort_fmt")
   fi
 else
   model_text=""
@@ -349,7 +365,7 @@ META_ICON='\033[2;38;5;244m'       # dim gray (icon マーカー、矢印 ➤ �
 # としての塊感を出す。矢印 ➤ とは別色にして役割を分ける。
 META_HOURGLASS='\033[2;38;5;110m'  # dim + muted cyan (残り時間の砂時計)
 
-# 7d sparkline の today マーカー (󱞩) 用。使用量系の meta 色とは別立てで、
+# 7d sparkline の today マーカー (▸) 用。使用量系の meta 色とは別立てで、
 # 「現在位置を指すポインタ」として violet italic に残している。
 SOFT_META='\033[3;38;5;103m'
 
@@ -951,11 +967,13 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     spark_text="${spark_icon}  "
     spark_fmt=$(printf '%b%s\033[0m  ' "$SECTION_ICON" "$spark_icon")
 
-    # cycle day 1..7 を順に描画。today は 󱞩 マーカー直後、未来は薄色。
+    # cycle day 1..7 を順に描画。today は ▸ マーカー直後、未来は薄色。
     # pp_by_day_v4 は state 更新セクションで既に構築済み (history から derive)。
     # gap day (has_data_v4[d]=0) は pp=0 で空バー表示 (user 指定動作)。
-    # today_marker = nf-md U+F17A9 (指さし系)。SOFT_META (italic muted violet) で控えめに目立たせる。
-    today_marker=$'\xf3\xb1\x9e\xa9'
+    # today_marker = ▸ (U+25B8)。SOFT_META (italic muted violet) で控えめに目立たせる。
+    # Nerd Font の U+F17A9 (指さし系) を使っていたが、グリフが 1 セルに収まらず
+    # フォントサイズを上げると隣のバーへはみ出したため、1 セル幅の記号に変えた。
+    today_marker='▸'
     for ((i=1; i<=7; i++)); do
       if [ "$i" -eq "$current_day_idx" ]; then
         # マーカー (SOFT_META 色) + today (通常色)
@@ -1390,6 +1408,7 @@ if [ -n "$session_id" ] && [ "$session_id" != "null" ]; then
     --arg model_id "${model_id:-}" \
     --arg expected_model "${expected_model:-}" \
     --arg model_mismatch "${model_mismatch:-}" \
+    --arg effort_level "${effort_level:-}" \
     --arg ctx_pct "${used:-}" \
     --arg s_pct "${session_pct:-}" \
     --arg s_reset "${session_reset:-}" \
@@ -1412,6 +1431,7 @@ if [ -n "$session_id" ] && [ "$session_id" != "null" ]; then
       modelId: (if $model_id != "" then $model_id else null end),
       expectedModel: (if $expected_model != "" then $expected_model else null end),
       modelMismatch: (if $model_mismatch == "" then null else ($model_mismatch == "1") end),
+      effortLevel: (if $effort_level != "" then $effort_level else null end),
       contextWindowPercent: (if $ctx_pct != "" then ($ctx_pct | tonumber) else null end),
       sessionUsagePercent: (if $s_pct != "" and $s_pct != "ERROR" then ($s_pct | tonumber) else null end),
       sessionReset: (if $s_reset != "" then $s_reset else null end),
