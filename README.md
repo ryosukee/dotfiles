@@ -180,7 +180,7 @@ LazyVim ベース。プラグイン構成、キーバインド、ワークフロ
 | キー | 機能 |
 | --- | --- |
 | `<Space>gg` | lazygit |
-| `<Space>e` | ファイルツリー (neo-tree) |
+| `<Space>e` | ファイルツリー (snacks explorer) |
 | `<Space><Space>` | ファイル検索 |
 | `<Space>/` | プロジェクト内 grep |
 | `<Space>do` | diffview open |

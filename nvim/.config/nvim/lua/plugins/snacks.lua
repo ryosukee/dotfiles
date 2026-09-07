@@ -202,6 +202,22 @@ return {
           { section = "startup" },
         },
       },
+      picker = {
+        sources = {
+          explorer = {
+            win = {
+              list = {
+                keys = {
+                  -- 新規タブで開く。picker 既定の <C-t> (tab) は explorer 側で
+                  -- terminal 起動に上書きされているので、別キーに割り当てる。
+                  -- 横分割は <C-s>、縦分割は <C-v> (picker 既定のまま使える)。
+                  ["t"] = "tab",
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 }

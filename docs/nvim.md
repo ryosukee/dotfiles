@@ -206,6 +206,22 @@ diffview の file tree で `x` キーを押すとファイル/ディレクトリ
 | `<Space>go` | GitHub で開く |
 | `<Space>gO` | GitHub permalink で開く |
 
+### explorer (snacks.nvim)
+
+`<Space>e` で開くファイルツリーは LazyVim 既定の snacks.nvim explorer。
+ファイルにカーソルを置いて押すキーのうち、開き方に関わるもの。
+
+| キー | 機能 | 由来 |
+| --- | --- | --- |
+| `Enter` / `l` | 現在の window で開く (表示中のバッファを差し替える) | snacks 既定 |
+| `<C-s>` | 横分割で開く | snacks 既定 |
+| `<C-v>` | 縦分割で開く | snacks 既定 |
+| `<S-Enter>` | 開く先の window を選んでから開く | snacks 既定 |
+| `t` | 新規タブで開く | `lua/plugins/snacks.lua` で追加 |
+| `<C-t>` | explorer の位置で terminal を開く (新規タブではない) | snacks 既定 |
+
+`t` を足しているのは、picker 共通の `<C-t>` (新規タブ) を explorer が terminal 起動で上書きしているため。
+
 ### diffview
 
 | キー | 場所 | 機能 |
