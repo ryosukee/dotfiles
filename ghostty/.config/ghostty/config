@@ -9,6 +9,12 @@ macos-titlebar-style = tabs
 macos-option-as-alt = left
 macos-option-as-alt = right
 
+# Keybind
+# Ctrl+Shift+J は IME のかな切替に使う。ターミナル内のプログラムへは Ctrl+J (改行) として
+# 届き、cc-ask-dotfiles の REPL や nvim の入力欄で「入力の確定」になってしまうので、
+# Ghostty で握り潰して子プロセスへ渡さない (OS や IME 側の処理は妨げない)。
+keybind = ctrl+shift+j=ignore
+
 # Oceanic Next color scheme
 background = 1b2b34
 foreground = d8dee9
