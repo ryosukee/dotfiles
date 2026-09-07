@@ -118,12 +118,32 @@ session_query() {
     fi
 }
 
+# Drop keystrokes typed while claude was running so they don't become the
+# next question. `min 0 time 0` makes read(2) return immediately with whatever
+# is buffered, and dd stops at the first empty read. The caller restores the
+# saved tty state afterwards.
+discard_typeahead() {
+    stty -icanon min 0 time 0
+    dd bs=4096 count=64 of=/dev/null 2>/dev/null
+}
+
 # Interactive REPL.
 # The first turn forks the base into a known session id so that subsequent
 # turns can resume it and preserve conversational context.
+#
+# `claude -p` prints assistant text as it is produced, so one question can
+# yield several chunks with pauses (tool calls) between them. The first chunk
+# is not the end of the answer. While claude runs, echo is turned off so
+# keystrokes don't get mixed into the output, and on exit any typed-ahead
+# input is discarded. A "done" line marks that no more chunks are coming.
 interactive() {
     _session=$(uuidgen | tr '[:upper:]' '[:lower:]')
     _first=1
+    _tty=""
+    if [ -t 0 ]; then
+        _tty=$(stty -g)
+        trap '[ -n "$_tty" ] && stty "$_tty" 2>/dev/null' EXIT INT TERM
+    fi
     log "interactive mode — Ctrl+D to exit"
     while :; do
         printf '\n[ask-dotfiles] > '
@@ -134,6 +154,8 @@ interactive() {
         [ -z "$_q" ] && continue
         printf '\n'
         log "thinking..."
+        [ -n "$_tty" ] && stty -echo
+        _start=$(date +%s)
         if [ "$_first" -eq 1 ]; then
             printf '%s\n' "$_q" \
                 | claude -p --resume "$BACKUP" --session-id "$_session" --fork-session
@@ -141,6 +163,11 @@ interactive() {
         else
             printf '%s\n' "$_q" | claude -p --resume "$_session"
         fi
+        if [ -n "$_tty" ]; then
+            discard_typeahead
+            stty "$_tty"
+        fi
+        log "done ($(( $(date +%s) - _start ))s)"
     done
     log "bye."
 }

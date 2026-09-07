@@ -93,6 +93,26 @@ cc-ask-dotfiles は「dotfiles のことを聞く」ためだけの設計。「�
 cc-ask-dotfiles にコンテキスト (現在の nvim バッファ、選択範囲など) を
 注入しないのは、base session のキャッシュを使い回す設計趣旨を保つため。
 
+### 1 つの質問に対して回答が複数回に分かれて出る
+
+`claude -p` は、Claude がツールを呼ぶ前に書いた文章もその時点で出力する。
+1 つの質問に対して「調べます」のような前置きが先に出て、ツール呼び出しの間が空いてから
+本回答が出ることがある。最初の出力は回答の終わりではない。
+
+REPL (`cc-ask-dotfiles` を引数なしで起動) では、claude の実行が終わるまで打鍵をエコーせず、
+終了時に実行中に打たれた入力を捨てて `[ask-dotfiles] done (Ns)` を出す。
+この行が出るまでは次の質問を打たない。
+
+nvim の float は出力をプロセス終了時にまとめて追記し、終了まで `i` / `a` / `o` を弾くので、
+この分割の影響を受けない。
+
+### Ctrl+Shift+J が入力の確定になる
+
+Ctrl+Shift+J (IME のかな切替) がターミナルへ Ctrl+J (改行) として届くと、
+REPL の `read -r` も nvim の入力欄も「確定」として扱う。
+Ghostty 側で `keybind = ctrl+shift+j=ignore` を入れて子プロセスへ渡さないようにしている
+([ghostty 設定](./ghostty.md) を参照)。
+
 ## 依存
 
 - `claude` (Claude Code CLI)
