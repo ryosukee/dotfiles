@@ -18,6 +18,9 @@ set GHQ_SELECTOR fzf
 # ghq.root は git config だと ~/$HOME が展開されないためここで設定する
 set -gx GHQ_ROOT "$HOME/ghq_root"
 
+# yazi や git は EDITOR が無いと vi (= /usr/bin/vim) に落ちる
+set -gx EDITOR nvim
+
 direnv hook fish | source
 zoxide init fish | source
 
