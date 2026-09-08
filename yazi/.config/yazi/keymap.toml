@@ -6,3 +6,8 @@
 on   = "M"
 run  = 'shell "mpv %h" --orphan'
 desc = "Play hovered file with mpv (GUI)"
+
+[[mgr.prepend_keymap]]
+on   = "T"
+run  = "plugin wide-preview"
+desc = "Toggle a preview-heavy layout"
