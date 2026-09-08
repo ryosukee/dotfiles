@@ -33,4 +33,4 @@ end
 
 starship init fish | source
 
-abbr -a claude claude --dangerously-skip-permissions
+abbr -a claude --function __claude_abbr
