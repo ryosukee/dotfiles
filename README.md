@@ -44,7 +44,7 @@ mv ~/.config/git/config ~/.config/git/config.bak
 
 # 4. symlink を作成
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
-stow -t ~ nvim git fish lazygit tig bin claude mise herdr
+stow -t ~ nvim git fish lazygit tig bin claude mise herdr yazi
 
 # 5. nvim プラグインをインストール (初回起動で自動)
 nvim

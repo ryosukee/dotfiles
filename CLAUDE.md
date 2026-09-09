@@ -20,7 +20,7 @@ fish/.config/fish/       → ~/.config/fish/
 herdr/.config/herdr/     → ~/.config/herdr/
 ```
 
-デプロイ: `stow -t ~ nvim git fish lazygit tig bin claude mise herdr`
+デプロイ: `stow -t ~ nvim git fish lazygit tig bin claude mise herdr yazi`
 
 退役した package は `archive/` に移す。stow の対象にしない。
 
