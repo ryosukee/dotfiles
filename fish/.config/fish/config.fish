@@ -1,16 +1,20 @@
-alias ls='lsd -a -F'
-alias cat='bat'
-alias vim='nvim'
+abbr -a ls lsd -a -F
+abbr -a cat bat
+abbr -a vim nvim
 
-alias sshm='ssh marujirou@marujirou.local'
+abbr -a pbc pbcopy
 
-alias g='git'
-alias gpl='git pull'
-alias gps='git push'
-alias gpf='git push -f'
-alias gd='git def'
-alias gc-='git c-'
-alias gg='git-graph'
+abbr -a sshm ssh marujirou@marujirou.local
+
+abbr -a g git
+abbr -a gpl git pull
+abbr -a gps git push
+abbr -a gpf git push -f
+abbr -a gd git def
+abbr -a gg git-graph
+
+abbr -a claude --function __claude_abbr
+abbr -a codex codex --dangerously-bypass-approvals-and-sandbox
 
 mise activate fish | source
 
@@ -32,5 +36,3 @@ if test -f "$HOME/google-cloud-sdk/path.fish.inc"
 end
 
 starship init fish | source
-
-abbr -a claude --function __claude_abbr
