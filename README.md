@@ -121,11 +121,11 @@ fisher update
 | claude-code | Claude Code CLI + VS Code 拡張 | `brew install anthropic/claude-code/claude-code` / VS Code |
 | codex | OpenAI のコーディングエージェント | `brew install codex` |
 
-Claude Code と Codex のユーザー設定、複数の作業リポジトリで使う plugin、
-作業リポジトリ固有の知識の管理先は、
-[Claude Code と Codex の作業環境](./docs/ai-agent-environment.md) を参照する。
-Codex は `config.toml` に端末固有の状態を書き込む。このため、ファイル全体を stow せず、
-[`templates/codex/config.toml`](./templates/codex/config.toml) の静的な設定項目だけを反映する。
+Claude Code と Codex のユーザー設定を再現する方法は、
+[Claude Code と Codex のユーザー設定](./docs/ai-agent-environment.md) を参照する。
+Codex は `config.toml` に、実行時に更新する hook trust hash と端末固有の
+project path を書き込む。このため、ファイル全体を stow せず、
+[`templates/codex/config.toml`](./templates/codex/config.toml) に記載した設定項目だけを反映する。
 
 ### AI エージェントの skill
 

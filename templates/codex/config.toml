@@ -1,5 +1,5 @@
 # 以下の静的設定を ~/.codex/config.toml へ反映する。
-# Codex が実行時に管理する hook state と、端末固有の project trust の項目は置き換えない。
+# Codex が実行時に更新する hook trust hash と、端末固有の project trust 設定は置き換えない。
 
 project_doc_fallback_filenames = ["CLAUDE.md"]
 project_doc_max_bytes = 65536

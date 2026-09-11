@@ -22,8 +22,8 @@ herdr/.config/herdr/     → ~/.config/herdr/
 
 デプロイ: `stow -t ~ nvim git fish lazygit tig bin claude mise herdr yazi`
 
-`templates/` は stow package ではない。Codex の静的設定など、必要な項目だけを
-ローカルの設定ファイルへ反映するための見本を置く。
+`templates/` は stow package ではない。必要な項目だけをローカルの設定ファイルへ
+反映するための見本を置く。
 
 退役した package は `archive/` に移す。stow の対象にしない。
 
@@ -46,7 +46,7 @@ herdr/.config/herdr/     → ~/.config/herdr/
 - パッケージマネージャが自動生成するファイル
 
 `~/.codex/config.toml` 全体も含めない。Codex が更新する hook trust hash と、
-端末固有の project path が同じファイルに入るためだ。追跡する静的設定は
+端末固有の project path が同じファイルに入るためだ。dotfiles で追跡する設定項目は、
 `templates/codex/config.toml` で管理する。管理範囲と反映手順は
 `docs/ai-agent-environment.md` に記載する。
 
