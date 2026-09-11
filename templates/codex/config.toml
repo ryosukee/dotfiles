@@ -1,0 +1,16 @@
+# Merge these static settings into ~/.codex/config.toml.
+# Do not replace runtime-managed hook state or machine-specific project trust entries.
+
+project_doc_fallback_filenames = ["CLAUDE.md"]
+project_doc_max_bytes = 65536
+
+[tui]
+auto_recap = false
+status_line = [
+  "model-with-reasoning",
+  "permissions",
+  "context-remaining",
+  "five-hour-limit",
+  "weekly-limit",
+  "current-dir",
+]
