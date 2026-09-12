@@ -1,0 +1,232 @@
+#!/usr/bin/env python3
+"""Load Claude Code rules for Codex hooks without changing their source files."""
+
+from __future__ import annotations
+
+import ast
+import fcntl
+import hashlib
+import json
+import os
+import re
+import shlex
+import sys
+from pathlib import Path
+
+
+PATH_KEYS = {"path", "paths", "file", "file_path", "filepath", "absolute_path"}
+PATCH_PATH = re.compile(r"^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$", re.M)
+LIST_ITEM = re.compile(r"^\s+-\s+(.+?)\s*$")
+
+
+def ancestors(directory: Path):
+    return reversed((directory, *directory.parents))
+
+
+def parse_rule(path: Path):
+    content = path.read_text(encoding="utf-8")
+    lines = content.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return (), content
+    try:
+        end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
+    except StopIteration:
+        raise ValueError(f"閉じていない YAML frontmatter: {path}") from None
+    patterns = []
+    in_paths = False
+    for line in lines[1:end]:
+        if re.match(r"^paths\s*:", line):
+            in_paths = True
+            value = line.split(":", 1)[1].strip()
+            if value:
+                if value.startswith("["):
+                    parsed = ast.literal_eval(value)
+                    if not isinstance(parsed, list) or not all(isinstance(p, str) for p in parsed):
+                        raise ValueError(f"paths は文字列のリストにする: {path}")
+                    patterns.extend(parsed)
+                else:
+                    patterns.append(value.strip("\"'"))
+            continue
+        if in_paths and line and not line[0].isspace():
+            in_paths = False
+        match = LIST_ITEM.match(line) if in_paths else None
+        if match:
+            patterns.append(match.group(1).strip("\"'"))
+    return tuple(patterns), "\n".join(lines[end + 1 :]).strip() + "\n"
+
+
+def glob_regex(pattern: str):
+    """Translate the common Claude paths glob syntax, including zero-depth **/."""
+    result = ["^"]
+    i = 0
+    braces = 0
+    while i < len(pattern):
+        if pattern[i : i + 2] == "**":
+            if pattern[i + 2 : i + 3] == "/":
+                result.append("(?:.*/)?")
+                i += 3
+            else:
+                result.append(".*")
+                i += 2
+        elif pattern[i] == "*":
+            result.append("[^/]*")
+            i += 1
+        elif pattern[i] == "?":
+            result.append("[^/]")
+            i += 1
+        elif pattern[i] == "{":
+            result.append("(?:")
+            braces += 1
+            i += 1
+        elif pattern[i] == "," and braces:
+            result.append("|")
+            i += 1
+        elif pattern[i] == "}" and braces:
+            result.append(")")
+            braces -= 1
+            i += 1
+        else:
+            result.append(re.escape(pattern[i]))
+            i += 1
+    if braces:
+        raise ValueError(f"閉じていない paths glob: {pattern}")
+    result.append("$")
+    return re.compile("".join(result))
+
+
+def rule_files(cwd: Path, target: Path | None = None):
+    dirs = []
+    global_rules = Path.home() / ".claude" / "rules"
+    if global_rules.is_dir():
+        dirs.append((global_rules, cwd))
+    for base in ancestors(cwd):
+        rules = base / ".claude" / "rules"
+        if rules.is_dir():
+            dirs.append((rules, base))
+    if target is not None:
+        for base in ancestors(target.parent):
+            if base == cwd or base in cwd.parents:
+                continue
+            rules = base / ".claude" / "rules"
+            if rules.is_dir():
+                dirs.append((rules, base))
+    seen = set()
+    for rules, base in dirs:
+        for root, subdirs, files in os.walk(rules, followlinks=True):
+            real = Path(root).resolve()
+            if real in seen:
+                subdirs[:] = []
+                continue
+            seen.add(real)
+            subdirs.sort()
+            for name in sorted(files):
+                if name.endswith(".md"):
+                    yield Path(root) / name, base
+
+
+def target_paths(event: dict, cwd: Path):
+    data = event.get("tool_input") or {}
+    tool = event.get("tool_name")
+    candidates = []
+    if isinstance(data, dict) and tool == "apply_patch":
+        candidates.extend(PATCH_PATH.findall(str(data.get("command", ""))))
+
+    def visit(value, key=""):
+        if isinstance(value, dict):
+            for child_key, child in value.items():
+                visit(child, child_key)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child, key)
+        elif isinstance(value, str) and key in PATH_KEYS:
+            candidates.append(value)
+
+    visit(data)
+    if tool == "Bash" and isinstance(data, dict):
+        command = str(data.get("command", ""))
+        try:
+            tokens = shlex.split(command)
+        except ValueError:
+            tokens = []
+        for token in tokens:
+            if token.startswith("-") or any(c in token for c in "$*?{}|;><"):
+                continue
+            if "/" in token or Path(token).suffix:
+                candidates.append(token)
+    result = set()
+    for candidate in candidates:
+        if not candidate or candidate.startswith("-") or "\n" in candidate:
+            continue
+        path = Path(os.path.expanduser(candidate))
+        result.add((path if path.is_absolute() else cwd / path).resolve())
+    return sorted(result)
+
+
+def matching_rules(cwd: Path, target: Path | None):
+    for source, base in rule_files(cwd, target):
+        patterns, body = parse_rule(source)
+        if not body or bool(patterns) != bool(target):
+            continue
+        if target is not None:
+            try:
+                relative = target.relative_to(base).as_posix()
+            except ValueError:
+                continue
+            if not any(glob_regex(pattern).fullmatch(relative) for pattern in patterns):
+                continue
+        yield source, body
+
+
+def state_path(session_id: str):
+    root = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local" / "state")))
+    root = root / "codex-claude-rules"
+    root.mkdir(parents=True, exist_ok=True)
+    name = hashlib.sha256(session_id.encode()).hexdigest()
+    return root / f"{name}.json"
+
+
+def run(event: dict):
+    kind = event.get("hook_event_name")
+    if kind not in {"SessionStart", "PreToolUse", "SessionEnd"}:
+        return
+    cwd = Path(event["cwd"]).resolve()
+    state = state_path(str(event["session_id"]))
+    if kind == "SessionEnd":
+        state.unlink(missing_ok=True)
+        state.with_suffix(".lock").unlink(missing_ok=True)
+        return
+    lock = state.with_suffix(".lock")
+    with lock.open("a+") as guard:
+        fcntl.flock(guard, fcntl.LOCK_EX)
+        try:
+            delivered = json.loads(state.read_text(encoding="utf-8")) if state.exists() else {}
+        except (ValueError, OSError):
+            delivered = {}
+        if kind == "SessionStart":
+            delivered = {}
+            targets = [None]
+        else:
+            targets = target_paths(event, cwd)
+        output = []
+        for target in targets:
+            for source, body in matching_rules(cwd, target):
+                key = str(source.resolve())
+                digest = hashlib.sha256(body.encode()).hexdigest()
+                if delivered.get(key) == digest:
+                    continue
+                delivered[key] = digest
+                output.append(f"<!-- Claude rule: {source} -->\n{body}")
+        state.write_text(json.dumps(delivered, ensure_ascii=False), encoding="utf-8")
+    if output:
+        print(json.dumps({"hookSpecificOutput": {
+            "hookEventName": kind,
+            "additionalContext": "\n".join(output),
+        }}, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    try:
+        run(json.load(sys.stdin))
+    except (KeyError, OSError, ValueError) as error:
+        print(f"codex-claude-rules: {error}", file=sys.stderr)
+        sys.exit(1)

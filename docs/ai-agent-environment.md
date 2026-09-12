@@ -22,14 +22,12 @@ Codex 専用の指示を追加する目的では使わない。
 `~/.codex/AGENTS.md` を読み、同ファイルがない場合も `~/.codex/CLAUDE.md` は読まない。
 
 `.claude/rules` のうち、`paths` を持たない rule は常時読み込む指示として Codex 側でも使う。
-`codex/.codex/AGENTS.md` を `~/.codex/AGENTS.md` へ stow し、
-`codex-path-rules always` を実行する。このコマンドは、`~/.claude/rules` と、
-Git リポジトリのルートから作業ディレクトリまでの各階層にある `.claude/rules` から
-該当する rule を収集する。コマンドが未 setup の場合は環境を変更せず、
-`setup-codex-path-rules` skill の実行を案内する。
-この `AGENTS.md` はユーザー共通の指示として読み込まれるため、作業リポジトリの
-`CLAUDE.md` も project instructions として続けて読み込まれる。
-`paths` を持つ rule は、Codex 用の path rule hook で読み込む。
+dotfiles 管理の `codex-claude-rules` を SessionStart hook から実行し、
+`~/.claude/rules` と起動ディレクトリの親階層にある `.claude/rules` から収集する。
+`paths` を持つ rule は PreToolUse hook で、対象ファイルまでの階層を調べ、
+各 rule が置かれた階層を基準に照合する。同じ rule はセッション内で重複して渡さず、
+圧縮後は再度読み込めるようにする。複雑な shell コマンドなど、hook の入力から
+対象ファイルを特定できない操作では、該当 rule を自動では渡せない。
 
 ユーザー共通の skill は `~/.claude/skills` を原本とし、
 `~/.agents/skills` から同じディレクトリへの symlink を置く。
@@ -59,7 +57,7 @@ profile の設定を重ね、同じ設定項目には profile の値を使う。
 ## セットアップ順序
 
 1. dotfiles を clone する
-2. `stow -t ~ claude codex fish` で Claude Code、Codex、fish の設定を配置する
+2. `stow -t ~ claude codex fish bin` で Claude Code、Codex、fish の設定と rule 読み込みスクリプトを配置する
 3. 次のコマンドでユーザー共通 skill の symlink を作る
 
    ```bash
