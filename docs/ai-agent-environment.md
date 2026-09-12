@@ -21,9 +21,12 @@ Codex 専用の指示を追加する目的では使わない。
 この fallback 設定は、グローバル scope には適用されない。Codex はグローバル scope で
 `~/.codex/AGENTS.md` を読み、同ファイルがない場合も `~/.codex/CLAUDE.md` は読まない。
 
-`.claude/rules` のうち、`paths` を持たない rule は常時読み込む指示として
-Codex 側でも使う。`codex/.codex/AGENTS.md` を `~/.codex/AGENTS.md` へ stow し、
-`~/.claude/rules` から該当する rule を読むよう Codex に指示する。
+`.claude/rules` のうち、`paths` を持たない rule は常時読み込む指示として Codex 側でも使う。
+`codex/.codex/AGENTS.md` を `~/.codex/AGENTS.md` へ stow し、
+`codex-path-rules always` を実行する。このコマンドは、`~/.claude/rules` と、
+Git リポジトリのルートから作業ディレクトリまでの各階層にある `.claude/rules` から
+該当する rule を収集する。コマンドが未 setup の場合は環境を変更せず、
+`setup-codex-path-rules` skill の実行を案内する。
 この `AGENTS.md` はユーザー共通の指示として読み込まれるため、作業リポジトリの
 `CLAUDE.md` も project instructions として続けて読み込まれる。
 `paths` を持つ rule は、Codex 用の path rule hook で読み込む。
