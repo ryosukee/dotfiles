@@ -34,6 +34,9 @@ dotfiles の `codex-claude-rules` plugin に同梱した script を SessionStart
 `{a,b}` も扱うが、Claude Code が対応する `[]` 文字クラスは未対応なので、
 その形式を rule に追加する前に script も拡張する。
 
+dotfiles の marketplace には、この rule 読み込みのように Codex の環境設定に
+必要な plugin だけを置く。任意の利便機能やツール系の plugin は dotfiles では管理しない。
+
 ユーザー共通の skill は `~/.claude/skills` を原本とし、
 `~/.agents/skills` から同じディレクトリへの symlink を置く。
 作業リポジトリ固有の skill も `.claude/skills` を原本とし、
