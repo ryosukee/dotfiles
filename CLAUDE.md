@@ -18,12 +18,10 @@ ghostty/.config/ghostty/ → ~/.config/ghostty/
 git/.config/git/         → ~/.config/git/
 fish/.config/fish/       → ~/.config/fish/
 herdr/.config/herdr/     → ~/.config/herdr/
+codex/.codex/            → ~/.codex/
 ```
 
-デプロイ: `stow -t ~ nvim git fish lazygit tig bin claude mise herdr yazi`
-
-`templates/` は stow package ではない。必要な項目だけをローカルの設定ファイルへ
-反映するための見本を置く。
+デプロイ: `stow -t ~ nvim git fish lazygit tig bin claude codex mise herdr yazi`
 
 退役した package は `archive/` に移す。stow の対象にしない。
 
@@ -46,8 +44,8 @@ herdr/.config/herdr/     → ~/.config/herdr/
 - パッケージマネージャが自動生成するファイル
 
 `~/.codex/config.toml` 全体も含めない。Codex が更新する hook trust hash と、
-端末固有の project path が同じファイルに入るためだ。dotfiles で追跡する設定項目は、
-`templates/codex/config.toml` で管理する。管理範囲と反映手順は
+端末固有の project path が同じファイルに入るためだ。dotfiles で追跡する設定は、
+`codex/.codex/dotfiles.config.toml` で管理する。Codex の起動時にこの profile を選択する方法は、
 `docs/ai-agent-environment.md` に記載する。
 
 ### コミット前の個人情報チェック

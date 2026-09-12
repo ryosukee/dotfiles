@@ -9,7 +9,7 @@ Claude Code の基本設定は、`claude/.claude/settings.json` で管理する�
 stow で `~/.claude` 配下へ配置し、Claude Code からそのまま読み込む。
 
 Codex には、Claude Code 用の指示ファイルを読み込む設定と、Codex 固有の設定を加える。
-Codex 固有の静的な設定項目は、`templates/codex/config.toml` で管理する。
+Codex 固有の静的な設定項目は、`codex/.codex/dotfiles.config.toml` で管理する。
 
 Claude Code と Codex に共通する作業リポジトリの指示は、`CLAUDE.md` に置く。
 Codex は、ユーザー設定の `project_doc_fallback_filenames = ["CLAUDE.md"]` により、
@@ -27,37 +27,36 @@ Codex 側にも配置する。Codex は rule ディレクトリを instruction �
 Claude Code 用の agent 定義を Codex に読ませる対応は保留する。
 現時点では、Codex は `.claude/agents` の定義を読み込まない。
 
-## Codex の `config.toml` の管理
+## Codex の設定を profile に分ける
 
 `~/.codex/config.toml` 全体は stow しない。このファイルには、Codex が更新する
 hook trust hash と、端末ごとの project path が入るためだ。symlink すると、Codex が
 実行中に更新した内容が dotfiles の working tree に書き込まれる。別の端末では使えない
 絶対パスも追跡される。
 
-GNU Stow はファイル単位で symlink を管理し、TOML の設定項目単位では管理できない。
-`--adopt` も対象ファイル全体を stow package へ移す。
-このため、dotfiles で追跡する設定項目だけを `templates/codex/config.toml` で管理する。
+dotfiles で追跡する設定は、`codex/.codex/dotfiles.config.toml` に分ける。
+このファイルを `~/.codex/dotfiles.config.toml` へ stow し、Codex を
+`--profile dotfiles` 付きで起動する。Codex は `~/.codex/config.toml` を読み込んだ後に
+profile の設定を重ね、同じ設定項目には profile の値を使う。
 
-ローカルで管理対象の設定値を変更した場合は、`~/.codex/config.toml` と
-`templates/codex/config.toml` に同じ名前で存在する設定項目の値だけを、
-`templates/codex/config.toml` へコピーする。
-hook trust hash、project trust 設定、model 設定は `templates/codex/config.toml` へ追加しない。
+`~/.codex/dotfiles.config.toml` は dotfiles 内のファイルへの symlink である。
+ローカル側で静的な設定を変更すると、dotfiles の working tree に同じ変更が入る。
 
 ## セットアップ順序
 
 1. dotfiles を clone する
-2. `stow -t ~ claude` で Claude Code のユーザー設定を配置する
-3. `templates/codex/config.toml` と `~/.codex/config.toml` をエディタで開く
-4. `templates/codex/config.toml` にある各設定項目を、同名の設定項目として `~/.codex/config.toml` へ追加または更新する
+2. `stow -t ~ claude codex fish` で両ホストの設定と fish の設定を配置する
+3. fish を起動し直す
 
-`templates/codex/config.toml` にない `~/.codex/config.toml` の設定項目は変更しない。
+fish の `codex` abbreviation は `--profile dotfiles` を付ける。
+`~/.codex/config.toml` にある可変値は profile を使っても保持される。
 
 ## 確認
 
 Codex に渡される project instructions は、次のコマンドで確認する。
 
 ```bash
-codex --strict-config -C /path/to/repository debug prompt-input
+codex --profile dotfiles --strict-config -C /path/to/repository debug prompt-input
 ```
 
 リポジトリルートと作業ディレクトリの `CLAUDE.md` が含まれ、
