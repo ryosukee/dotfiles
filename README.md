@@ -47,6 +47,12 @@ mv ~/.config/git/config ~/.config/git/config.bak
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
 stow -t ~ nvim git fish lazygit tig bin claude codex mise herdr yazi
 
+# Claude Code と Codex でユーザー共通 skill を共有
+mkdir -p ~/.agents
+if ! test -e ~/.agents/skills && ! test -L ~/.agents/skills; then
+  ln -s ../.claude/skills ~/.agents/skills
+fi
+
 # 5. nvim プラグインをインストール (初回起動で自動)
 nvim
 

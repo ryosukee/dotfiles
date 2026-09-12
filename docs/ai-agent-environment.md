@@ -17,10 +17,13 @@ Codex は、ユーザー設定の `project_doc_fallback_filenames = ["CLAUDE.md"
 `CLAUDE.md` が読まれないため、Codex 専用の指示を追加する目的では使わない。
 
 `.claude/rules` のうち、`paths` を持たない rule は常時読み込む指示として
-Codex 側にも配置する。Codex は rule ディレクトリを instruction として読まないため、
-配布方法は別途決める。`paths` を持つ rule は、Codex 用の path rule hook で読み込む。
+Codex 側でも使う。`codex/.codex/AGENTS.md` を `~/.codex/AGENTS.md` へ stow し、
+`~/.claude/rules` から該当する rule を読むよう Codex に指示する。
+`paths` を持つ rule は、Codex 用の path rule hook で読み込む。
 
-作業リポジトリ固有の skill は `.claude/skills` を原本とし、
+ユーザー共通の skill は `~/.claude/skills` を原本とし、
+`~/.agents/skills` から同じディレクトリへの symlink を置く。
+作業リポジトリ固有の skill も `.claude/skills` を原本とし、
 `.agents/skills` から同じディレクトリへの symlink を置く。
 複数の作業リポジトリで使う skill は、両ホストの plugin として配布する。
 
@@ -46,7 +49,16 @@ profile の設定を重ね、同じ設定項目には profile の値を使う。
 
 1. dotfiles を clone する
 2. `stow -t ~ claude codex fish` で両ホストの設定と fish の設定を配置する
-3. fish を起動し直す
+3. 次のコマンドでユーザー共通 skill の symlink を作る
+
+   ```bash
+   mkdir -p ~/.agents
+   if ! test -e ~/.agents/skills && ! test -L ~/.agents/skills; then
+     ln -s ../.claude/skills ~/.agents/skills
+   fi
+   ```
+
+4. fish を起動し直す
 
 fish の `codex` abbreviation は `--profile dotfiles` を付ける。
 `~/.codex/config.toml` にある可変値は profile を使っても保持される。
@@ -56,7 +68,7 @@ fish の `codex` abbreviation は `--profile dotfiles` を付ける。
 Codex に渡される project instructions は、次のコマンドで確認する。
 
 ```bash
-codex --profile dotfiles --strict-config -C /path/to/repository debug prompt-input
+codex --profile dotfiles -C /path/to/repository debug prompt-input
 ```
 
 リポジトリルートと作業ディレクトリの `CLAUDE.md` が含まれ、
