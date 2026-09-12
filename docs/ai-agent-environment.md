@@ -7,6 +7,8 @@
 Claude Code の基本設定は、`claude/.claude/settings.json` で管理する。
 ステータスラインは、`claude/.claude/statusline.sh` で管理する。
 stow で `~/.claude` 配下へ配置し、Claude Code からそのまま読み込む。
+Claude Code が読む設定ファイルには、Codex 向けの設定や説明を追加しない。
+Codex との両立に必要な設定は Codex 側に置く。
 
 Codex には、Claude Code 用の指示ファイルを読み込む設定と、Codex 固有の設定を加える。
 Codex 固有の静的な設定項目は、`codex/.codex/dotfiles.config.toml` で管理する。
