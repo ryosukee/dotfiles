@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "bin/.local/bin/codex-claude-rules"
+SCRIPT = Path(__file__).resolve().parents[1] / "plugins/codex-claude-rules/scripts/codex-claude-rules"
 loader = importlib.machinery.SourceFileLoader("codex_claude_rules", str(SCRIPT))
 spec = importlib.util.spec_from_loader(loader.name, loader)
 rules = importlib.util.module_from_spec(spec)

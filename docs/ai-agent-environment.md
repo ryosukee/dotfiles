@@ -22,7 +22,7 @@ Codex 専用の指示を追加する目的では使わない。
 `~/.codex/AGENTS.md` を読み、同ファイルがない場合も `~/.codex/CLAUDE.md` は読まない。
 
 `.claude/rules` のうち、`paths` を持たない rule は常時読み込む指示として Codex 側でも使う。
-dotfiles 管理の `codex-claude-rules` を SessionStart hook から実行し、
+dotfiles の `codex-claude-rules` plugin に同梱した script を SessionStart hook から実行し、
 `~/.claude/rules` と起動ディレクトリの親階層にある `.claude/rules` から収集する。
 `paths` を持つ rule は PreToolUse hook で、対象ファイルまでの階層を調べ、
 各 rule が置かれた階層を基準に照合する。同じ rule はセッション内で重複して渡さず、
@@ -62,7 +62,7 @@ profile の設定を重ね、同じ設定項目には profile の値を使う。
 ## セットアップ順序
 
 1. dotfiles を clone する
-2. `stow -t ~ claude codex fish bin` で Claude Code、Codex、fish の設定と rule 読み込みスクリプトを配置する
+2. `stow -t ~ claude codex fish` で Claude Code、Codex、fish の設定を配置する
 3. 次のコマンドでユーザー共通 skill の symlink を作る
 
    ```bash
@@ -72,12 +72,21 @@ profile の設定を重ね、同じ設定項目には profile の値を使う。
    fi
    ```
 
-4. fish を起動し直す
+4. dotfiles のルートで `codex plugin marketplace add .` を実行し、
+   `codex plugin add codex-claude-rules@dotfiles` で rule 読み込み plugin をインストールする
+5. `codex plugin list` で `codex-claude-rules@dotfiles` が有効なことを確認する
+6. fish を起動し直す
 
-Codex で `--profile dotfiles` を指定して起動したら、初回に `/hooks` で新しい hook の
-内容を確認し、信頼する。信頼するまでは Codex が hook を実行しない。
-信頼前に省略された SessionStart は後から自動実行されないため、信頼後に新しい
-セッションを開始する。信頼は毎回ではなく、hook 定義が変わった場合に再確認する。
+plugin を有効にした後、Codex 内の `/hooks` で同梱 hook の内容を確認して信頼する。
+信頼前の hook は実行されない。信頼前に省略された SessionStart は遡って実行されないため、
+信頼後に新しいセッションを開始する。信頼済みの定義はローカルの Codex 設定にハッシュで
+記録され、セッションを作り直すたびに信頼する必要はない。hook の定義が変わったら再確認する。
+plugin はユーザー設定としてインストールするので、別のリポジトリでも有効なら同じ hook を使う。
+リポジトリ固有の hook を別途定義した場合、その定義は別に信頼が必要になる。
+
+plugin が未導入の場合、その plugin の SessionStart hook 自体は実行されない。
+セットアップ時に上記の `codex plugin list` で検出する。起動時にも通知したい場合は
+plugin と独立した常設 hook または起動 wrapper が必要になる。
 
 > [!IMPORTANT]
 > Codex は profile を自動で選択しない。shell、script、エディタなどの起動方法ごとに、

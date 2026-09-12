@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Load Claude Code rules for Codex hooks without changing their source files."""
+"""Load Claude Code rules for Codex plugin hooks without changing their source files."""
 
 from __future__ import annotations
 

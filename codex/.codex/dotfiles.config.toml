@@ -5,28 +5,6 @@ project_doc_fallback_filenames = ["CLAUDE.md"]
 # 既定の 32 KiB では末尾が切れる可能性があるため 64 KiB とし、超えたら指示の構成を見直す。
 project_doc_max_bytes = 65536
 
-# Claude Code の .claude/rules を原本とし、常時 rule と paths 付き rule を読み分ける。
-[[hooks.SessionStart]]
-matcher = "startup|resume|clear|compact"
-
-[[hooks.SessionStart.hooks]]
-type = "command"
-command = "~/.local/bin/codex-claude-rules"
-additionalContextLimit = 0
-
-[[hooks.PreToolUse]]
-
-[[hooks.PreToolUse.hooks]]
-type = "command"
-command = "~/.local/bin/codex-claude-rules"
-additionalContextLimit = 0
-
-[[hooks.SessionEnd]]
-
-[[hooks.SessionEnd.hooks]]
-type = "command"
-command = "~/.local/bin/codex-claude-rules"
-
 [tui]
 # conversation recap を表示しない。
 auto_recap = false

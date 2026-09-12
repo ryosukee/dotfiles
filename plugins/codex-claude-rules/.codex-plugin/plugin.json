@@ -1,0 +1,17 @@
+{
+  "name": "codex-claude-rules",
+  "version": "0.1.0",
+  "description": "Load Claude Code rules into Codex with lifecycle hooks",
+  "author": {
+    "name": "Dotfiles"
+  },
+  "interface": {
+    "displayName": "Codex Claude Rules",
+    "shortDescription": "Apply Claude Code rules in Codex.",
+    "longDescription": "Loads always-on and path-scoped Claude Code rules with Codex lifecycle hooks.",
+    "developerName": "Dotfiles",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Apply Claude Code rules to this session."
+  }
+}
