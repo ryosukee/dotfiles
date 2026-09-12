@@ -15,7 +15,17 @@ Claude Code と Codex に共通する作業リポジトリの指示は、`CLAUDE
 Codex は、ユーザー設定の `project_doc_fallback_filenames = ["CLAUDE.md"]` により、
 `AGENTS.md` がない階層で `CLAUDE.md` を読む。同じ階層に `AGENTS.md` を置くと
 `CLAUDE.md` が読まれないため、Codex 専用の指示を追加する目的では使わない。
-Codex 専用の指示は、cc-marketplace の `codex-path-rules` plugin で扱う。
+
+`.claude/rules` のうち、`paths` を持たない rule は常時読み込む指示として
+Codex 側にも配置する。Codex は rule ディレクトリを instruction として読まないため、
+配布方法は別途決める。`paths` を持つ rule は、Codex 用の path rule hook で読み込む。
+
+作業リポジトリ固有の skill は `.claude/skills` を原本とし、
+`.agents/skills` から同じディレクトリへの symlink を置く。
+複数の作業リポジトリで使う skill は、両ホストの plugin として配布する。
+
+Claude Code 用の agent 定義を Codex に読ませる対応は保留する。
+現時点では、Codex は `.claude/agents` の定義を読み込まない。
 
 ## Codex の `config.toml` の管理
 
