@@ -1,16 +1,18 @@
-# Claude Code と Codex のユーザー設定
+# Claude Code と Codex を両立するユーザー設定
 
-この文書は、dotfiles で管理する Claude Code と Codex のユーザー設定と、
-その設定をローカル環境に反映して確認する手順を定める。
+この文書は、Claude Code の設定を基準として、dotfiles で管理するユーザー設定を Claude Code と Codex の両方へ反映する方法を定める。
+新しい端末へ設定を反映するときや、両ツールの設定を変更するときに使う。
 
-## dotfiles で管理する設定
+## Claude Code を基準とする管理方針
 
-dotfiles では、次のファイルと手順を管理する。
+Claude Code の基本設定は、`claude/.claude/settings.json` で管理する。
+ステータスラインは、`claude/.claude/statusline.sh` で管理する。
+stow で `~/.claude` 配下へ配置し、Claude Code からそのまま読み込む。
+Codex との両立のために、Claude Code 側の設定形式は変更しない。
 
-- `~/.claude` と `~/.codex` に配置するユーザー設定
-- 導入する CLI を記載した Brewfile
-- stow による symlink の配置手順
-- Codex のステータスライン (`status_line`) の表示項目
+Codex には、Claude Code 用の指示ファイルを読み込む設定と、Codex 固有の設定を加える。
+Codex 固有の静的な設定項目は、`templates/codex/config.toml` で管理する。
+実行中に更新される値を保持するため、`~/.codex/config.toml` 全体は dotfiles で置き換えない。
 
 ## Codex が読み込む指示ファイル
 
@@ -39,7 +41,7 @@ dotfiles で追跡する設定項目は `templates/codex/config.toml` で管理�
 ## セットアップ順序
 
 1. dotfiles を clone する
-2. README に記載された stow package を配置する
+2. `stow -t ~ claude` で Claude Code のユーザー設定を配置する
 3. `templates/codex/config.toml` の設定項目を `~/.codex/config.toml` へ反映する
 
 ## 確認
