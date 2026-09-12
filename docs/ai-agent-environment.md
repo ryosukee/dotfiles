@@ -11,19 +11,6 @@ stow で `~/.claude` 配下へ配置し、Claude Code からそのまま読み�
 Codex には、Claude Code 用の指示ファイルを読み込む設定と、Codex 固有の設定を加える。
 Codex 固有の静的な設定項目は、`templates/codex/config.toml` で管理する。
 
-## Codex が読み込む指示ファイル
-
-Codex のユーザー設定では、`AGENTS.md` がない場合に読む fallback filename として
-`CLAUDE.md` を指定する。Codex 専用の追加指示がなければ、`AGENTS.md` は作らない。
-
-Codex が `CLAUDE.md` などから読み込む指示（project instructions）の上限は、
-64 KiB に設定する。既定の 32 KiB では、
-リポジトリルートとサブディレクトリの `CLAUDE.md` が増えると、合計サイズが上限に達して
-末尾を読み込めない可能性があるためだ。上限は無制限にしない。project instructions が
-64 KiB を超える場合は、指示の構成を見直す。
-
-設定値は [`templates/codex/config.toml`](../templates/codex/config.toml) で管理する。
-
 ## Codex の `config.toml` の管理
 
 `~/.codex/config.toml` 全体は stow しない。このファイルには、Codex が更新する

@@ -1,11 +1,19 @@
 # 以下の静的設定を ~/.codex/config.toml へ反映する。
 # Codex が実行時に更新する hook trust hash と、端末固有の project trust 設定は置き換えない。
 
+# AGENTS.md がない場合は、CLAUDE.md を project instructions として読み込む。
+# Codex 専用の追加指示がなければ、AGENTS.md は作らない。
 project_doc_fallback_filenames = ["CLAUDE.md"]
+
+# リポジトリルートと作業ディレクトリから読む project instructions の合計上限。
+# 既定の 32 KiB では末尾が切れる可能性があるため 64 KiB とし、超えたら指示の構成を見直す。
 project_doc_max_bytes = 65536
 
 [tui]
+# conversation recap を表示しない。
 auto_recap = false
+
+# model と reasoning、permission mode、context 残量、usage limit と reset 時刻、作業ディレクトリを表示する。
 status_line = [
   "model-with-reasoning",
   "permissions",
