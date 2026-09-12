@@ -13,7 +13,7 @@ project_doc_max_bytes = 65536
 # conversation recap を表示しない。
 auto_recap = false
 
-# model と reasoning、permission mode、context 残量、usage limit と reset 時刻、作業ディレクトリを表示する。
+# model と reasoning、permission mode、context 残量、5 時間枠と週次枠の usage limit、作業ディレクトリを表示する。
 status_line = [
   "model-with-reasoning",
   "permissions",
