@@ -20,7 +20,6 @@ dotfiles/
 ├── mise/          # mise global tools (node/go/python/ruby + go tools)
 ├── bin/           # 自作 CLI (~/.local/bin/cc-ask-dotfiles 等)
 ├── claude/        # Claude Code 設定 (settings, statusline)
-├── templates/     # stow せず設定項目ごとに反映する見本
 ├── archive/       # 退役した stow package (tmux)
 ├── Brewfile       # brew パッケージ一覧 (brew bundle dump --describe で生成)
 └── .stow-local-ignore
@@ -45,13 +44,7 @@ mv ~/.config/git/config ~/.config/git/config.bak
 
 # 4. symlink を作成
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
-stow -t ~ nvim git fish lazygit tig bin claude codex mise herdr yazi
-
-# Claude Code と Codex でユーザー共通 skill を共有
-mkdir -p ~/.agents
-if ! test -e ~/.agents/skills && ! test -L ~/.agents/skills; then
-  ln -s ../.claude/skills ~/.agents/skills
-fi
+stow -t ~ nvim git fish lazygit tig bin claude mise herdr yazi
 
 # 5. nvim プラグインをインストール (初回起動で自動)
 nvim
@@ -126,9 +119,6 @@ fisher update
 <!-- markdownlint-disable-next-line MD013 -->
 | claude-code | Claude Code CLI + VS Code 拡張 | `brew install anthropic/claude-code/claude-code` / VS Code |
 | codex | OpenAI のコーディングエージェント | `brew install codex` |
-
-Claude Code と Codex のユーザー設定の管理方針と設定手順は、
-[Claude Code と Codex のユーザー設定](./docs/ai-agent-environment.md) に記載している。
 
 ### AI エージェントの skill
 
