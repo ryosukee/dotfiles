@@ -56,8 +56,29 @@ class RuleTests(unittest.TestCase):
     def test_parent_and_child_rules_match_their_own_base(self):
         self.add_rule(self.repo, "root.md", ["projects/*/docs/planning/**"], "root rule")
         self.add_rule(self.cwd, "app.md", ["docs/**"], "app rule")
+        self.add_rule(self.cwd / "docs", "nested.md", ["planning/**"], "nested rule")
         result = list(rules.matching_rules(self.cwd, self.target))
-        self.assertEqual([body.strip() for _, body in result], ["root rule", "app rule"])
+        self.assertEqual([body.strip() for _, body in result], ["root rule", "app rule", "nested rule"])
+
+    def test_bash_workdir_is_relative_path_base(self):
+        self.add_rule(self.repo, "root.md", ["projects/*/docs/planning/**"], "root rule")
+        event = self.event("PreToolUse", tool_name="Bash", tool_input={
+            "command": "sed -n '1,20p' planning/a.md", "workdir": "docs",
+        })
+        self.assertEqual(rules.target_paths(event, self.cwd), [self.target.resolve()])
+        self.assertIn("root rule", self.invoke(event)["hookSpecificOutput"]["additionalContext"])
+
+    def test_bash_internal_cd_is_not_misresolved(self):
+        event = self.event("PreToolUse", tool_name="Bash", tool_input={
+            "command": "cd docs && sed planning/a.md",
+        })
+        self.assertEqual(rules.target_paths(event, self.cwd), [])
+
+    def test_explicit_empty_paths_is_not_an_always_rule(self):
+        source = self.add_rule(self.cwd, "empty.md", [], "not an always rule")
+        source.write_text("---\npaths: []\n---\nnot an always rule\n", encoding="utf-8")
+        self.assertEqual(list(rules.matching_rules(self.cwd, None)), [])
+        self.assertEqual(list(rules.matching_rules(self.cwd, self.target)), [])
 
     def test_nested_and_global_always_rules(self):
         self.add_rule(self.home, "user.md", [], "user rule")

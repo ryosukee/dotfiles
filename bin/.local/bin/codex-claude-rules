@@ -27,16 +27,18 @@ def parse_rule(path: Path):
     content = path.read_text(encoding="utf-8")
     lines = content.splitlines()
     if not lines or lines[0].strip() != "---":
-        return (), content
+        return None, content
     try:
         end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
     except StopIteration:
         raise ValueError(f"閉じていない YAML frontmatter: {path}") from None
     patterns = []
     in_paths = False
+    has_paths = False
     for line in lines[1:end]:
         if re.match(r"^paths\s*:", line):
             in_paths = True
+            has_paths = True
             value = line.split(":", 1)[1].strip()
             if value:
                 if value.startswith("["):
@@ -52,7 +54,7 @@ def parse_rule(path: Path):
         match = LIST_ITEM.match(line) if in_paths else None
         if match:
             patterns.append(match.group(1).strip("\"'"))
-    return tuple(patterns), "\n".join(lines[end + 1 :]).strip() + "\n"
+    return (tuple(patterns) if has_paths else None), "\n".join(lines[end + 1 :]).strip() + "\n"
 
 
 def glob_regex(pattern: str):
@@ -128,6 +130,10 @@ def target_paths(event: dict, cwd: Path):
     data = event.get("tool_input") or {}
     tool = event.get("tool_name")
     candidates = []
+    tool_cwd = cwd
+    if tool == "Bash" and isinstance(data, dict) and data.get("workdir"):
+        workdir = Path(os.path.expanduser(str(data["workdir"])))
+        tool_cwd = (workdir if workdir.is_absolute() else cwd / workdir).resolve()
     if isinstance(data, dict) and tool == "apply_patch":
         candidates.extend(PATCH_PATH.findall(str(data.get("command", ""))))
 
@@ -144,28 +150,32 @@ def target_paths(event: dict, cwd: Path):
     visit(data)
     if tool == "Bash" and isinstance(data, dict):
         command = str(data.get("command", ""))
-        try:
-            tokens = shlex.split(command)
-        except ValueError:
-            tokens = []
-        for token in tokens:
-            if token.startswith("-") or any(c in token for c in "$*?{}|;><"):
-                continue
-            if "/" in token or Path(token).suffix:
-                candidates.append(token)
+        # An inner `cd` changes the base mid-command; never guess its paths.
+        if not re.search(r"(?:^|[;&|()])\s*cd(?:\s|$)", command):
+            try:
+                tokens = shlex.split(command)
+            except ValueError:
+                tokens = []
+            for token in tokens:
+                if token.startswith("-") or any(c in token for c in "$*?{}|;><"):
+                    continue
+                if "/" in token or Path(token).suffix:
+                    candidates.append(token)
     result = set()
     for candidate in candidates:
         if not candidate or candidate.startswith("-") or "\n" in candidate:
             continue
         path = Path(os.path.expanduser(candidate))
-        result.add((path if path.is_absolute() else cwd / path).resolve())
+        result.add((path if path.is_absolute() else tool_cwd / path).resolve())
     return sorted(result)
 
 
 def matching_rules(cwd: Path, target: Path | None):
     for source, base in rule_files(cwd, target):
         patterns, body = parse_rule(source)
-        if not body or bool(patterns) != bool(target):
+        if not body or (target is None and patterns is not None):
+            continue
+        if target is not None and not patterns:
             continue
         if target is not None:
             try:

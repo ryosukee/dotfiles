@@ -27,7 +27,8 @@ dotfiles 管理の `codex-claude-rules` を SessionStart hook から実行し、
 `paths` を持つ rule は PreToolUse hook で、対象ファイルまでの階層を調べ、
 各 rule が置かれた階層を基準に照合する。同じ rule はセッション内で重複して渡さず、
 圧縮後は再度読み込めるようにする。複雑な shell コマンドなど、hook の入力から
-対象ファイルを特定できない操作では、該当 rule を自動では渡せない。
+対象ファイルを特定できない操作では、該当 rule を自動では渡せない。コマンド内で
+`cd` する場合も、移動先を推測せず、そのコマンドのパスからは rule を選ばない。
 
 ユーザー共通の skill は `~/.claude/skills` を原本とし、
 `~/.agents/skills` から同じディレクトリへの symlink を置く。
@@ -68,6 +69,9 @@ profile の設定を重ね、同じ設定項目には profile の値を使う。
    ```
 
 4. fish を起動し直す
+
+Codex で `--profile dotfiles` を指定して起動したら、初回に `/hooks` で新しい hook の
+内容を確認し、信頼する。信頼するまでは Codex が hook を実行しない。
 
 > [!IMPORTANT]
 > Codex は profile を自動で選択しない。shell、script、エディタなどの起動方法ごとに、
