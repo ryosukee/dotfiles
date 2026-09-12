@@ -31,15 +31,23 @@ hook trust hash と、端末ごとの project path が入るためだ。symlink 
 実行中に更新した内容が dotfiles の working tree に書き込まれる。別の端末では使えない
 絶対パスも追跡される。
 
-dotfiles で追跡する設定項目は `templates/codex/config.toml` で管理する。セットアップ時には、
-必要な設定項目だけをローカルの `~/.codex/config.toml` へ反映する。
-既存の hook trust hash、project trust 設定、model 設定は削除しない。
+GNU Stow はファイル単位で symlink を管理し、TOML の設定項目単位では管理できない。
+`--adopt` も対象ファイル全体を stow package へ移す。
+このため、dotfiles で追跡する設定項目だけを `templates/codex/config.toml` で管理する。
+
+ローカルで管理対象の設定値を変更した場合は、`~/.codex/config.toml` と
+`templates/codex/config.toml` に同じ名前で存在する設定項目の値だけを、
+`templates/codex/config.toml` へコピーする。
+hook trust hash、project trust 設定、model 設定は `templates/codex/config.toml` へ追加しない。
 
 ## セットアップ順序
 
 1. dotfiles を clone する
 2. `stow -t ~ claude` で Claude Code のユーザー設定を配置する
-3. `templates/codex/config.toml` の設定項目を `~/.codex/config.toml` へ反映する
+3. `templates/codex/config.toml` と `~/.codex/config.toml` をエディタで開く
+4. `templates/codex/config.toml` にある各設定項目を、同名の設定項目として `~/.codex/config.toml` へ追加または更新する
+
+`templates/codex/config.toml` にない `~/.codex/config.toml` の設定項目は変更しない。
 
 ## 確認
 
