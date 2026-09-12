@@ -25,7 +25,7 @@ class RuleTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.home = Path(self.temp.name)
         self.repo = self.home / "repo"
-        self.cwd = self.repo / "to-be" / "idp"
+        self.cwd = self.repo / "projects" / "app"
         self.cwd.mkdir(parents=True)
         self.target = self.cwd / "docs" / "planning" / "a.md"
         self.target.parent.mkdir(parents=True)
@@ -53,16 +53,16 @@ class RuleTests(unittest.TestCase):
             rules.run(event)
         return json.loads(output.getvalue()) if output.getvalue() else None
 
-    def test_parent_and_idp_rules_match_their_own_base(self):
-        self.add_rule(self.repo, "root.md", ["to-be/*/docs/planning/**"], "root rule")
-        self.add_rule(self.cwd, "idp.md", ["docs/**"], "idp rule")
+    def test_parent_and_child_rules_match_their_own_base(self):
+        self.add_rule(self.repo, "root.md", ["projects/*/docs/planning/**"], "root rule")
+        self.add_rule(self.cwd, "app.md", ["docs/**"], "app rule")
         result = list(rules.matching_rules(self.cwd, self.target))
-        self.assertEqual([body.strip() for _, body in result], ["root rule", "idp rule"])
+        self.assertEqual([body.strip() for _, body in result], ["root rule", "app rule"])
 
     def test_nested_and_global_always_rules(self):
         self.add_rule(self.home, "user.md", [], "user rule")
         self.add_rule(self.repo, "root.md", [], "root rule")
-        self.add_rule(self.cwd, "idp.md", ["docs/**"], "conditional rule")
+        self.add_rule(self.cwd, "app.md", ["docs/**"], "conditional rule")
         result = self.invoke(self.event("SessionStart", source="startup"))
         context = result["hookSpecificOutput"]["additionalContext"]
         self.assertIn("user rule", context)
@@ -70,7 +70,7 @@ class RuleTests(unittest.TestCase):
         self.assertNotIn("conditional rule", context)
 
     def test_pre_tool_use_delivers_once_and_resets_after_compact(self):
-        self.add_rule(self.repo, "root.md", ["to-be/*/docs/planning/**"], "root rule")
+        self.add_rule(self.repo, "root.md", ["projects/*/docs/planning/**"], "root rule")
         event = self.event("PreToolUse", tool_name="Bash", tool_input={"command": "sed -n '1,20p' docs/planning/a.md"})
         self.assertIn("root rule", self.invoke(event)["hookSpecificOutput"]["additionalContext"])
         self.assertIsNone(self.invoke(event))
