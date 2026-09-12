@@ -5,6 +5,15 @@ project_doc_fallback_filenames = ["CLAUDE.md"]
 # 既定の 32 KiB では末尾が切れる可能性があるため 64 KiB とし、超えたら指示の構成を見直す。
 project_doc_max_bytes = 65536
 
+# dotfiles の marketplace にある必須 plugin を、plugin 自体とは独立して確認する。
+[[hooks.SessionStart]]
+matcher = "startup|resume|clear"
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = "python3 ~/.codex/scripts/check-required-plugins.py"
+timeout = 5
+
 [tui]
 # conversation recap を表示しない。
 auto_recap = false

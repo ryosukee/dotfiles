@@ -80,17 +80,19 @@ profile の設定を重ね、同じ設定項目には profile の値を使う。
 5. `codex plugin list` で `codex-claude-rules@dotfiles` が有効なことを確認する
 6. fish を起動し直す
 
-plugin を有効にした後、Codex 内の `/hooks` で同梱 hook の内容を確認して信頼する。
-信頼前の hook は実行されない。信頼前に省略された SessionStart は遡って実行されないため、
-信頼後に新しいセッションを開始する。信頼済みの定義はローカルの Codex 設定にハッシュで
+plugin を有効にした後、Codex 内の `/hooks` で plugin の hook と、profile に置いた
+必須 plugin 確認用の SessionStart hook を確認して信頼する。信頼前の hook は実行されない。
+信頼前に省略された SessionStart は遡って実行されないため、信頼後に新しいセッションを
+開始する。信頼済みの定義はローカルの Codex 設定にハッシュで
 記録され、セッションを作り直すたびに信頼する必要はない。hook の定義が変わったら再確認する。
 plugin はユーザー設定としてインストールするので、別のリポジトリでも有効なら同じ hook を使う。
 plugin の hook は `--profile dotfiles` の指定とは独立して読み込まれる。
 リポジトリ固有の hook を別途定義した場合、その定義は別に信頼が必要になる。
 
-plugin が未導入の場合、その plugin の SessionStart hook 自体は実行されない。
-セットアップ時に上記の `codex plugin list` で検出する。起動時にも通知したい場合は
-plugin と独立した常設 hook または起動 wrapper が必要になる。
+profile の必須 plugin 確認 hook は、dotfiles の marketplace に載る全 plugin を
+`codex plugin list --json` の導入・有効状態と照合する。未導入または無効な plugin があれば
+セッション開始時に警告する。確認 hook は plugin と独立しているため、plugin 未導入時も動く。
+ただし profile にある hook なので、`--profile dotfiles` を付けない起動では警告しない。
 
 > [!IMPORTANT]
 > Codex は profile を自動で選択しない。shell、script、エディタなどの起動方法ごとに、
