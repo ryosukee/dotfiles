@@ -11,7 +11,6 @@ stow で `~/.claude` 配下へ配置し、Claude Code からそのまま読み�
 
 Codex には、Claude Code 用の指示ファイルを読み込む設定と、Codex 固有の設定を加える。
 Codex 固有の静的な設定項目は、`templates/codex/config.toml` で管理する。
-実行中に更新される値を保持するため、`~/.codex/config.toml` 全体は dotfiles で置き換えない。
 
 ## Codex が読み込む指示ファイル
 
