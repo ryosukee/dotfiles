@@ -42,11 +42,7 @@ codex/.codex/            → ~/.codex/
 - シークレット (API キー、トークン)
 - ランタイム生成ファイル
 - パッケージマネージャが自動生成するファイル
-
-`~/.codex/config.toml` 全体も含めない。Codex が更新する hook trust hash と、
-端末固有の project path が同じファイルに入るためだ。dotfiles で追跡する設定は、
-`codex/.codex/dotfiles.config.toml` で管理する。Codex の起動時にこの profile を選択する方法は、
-`docs/ai-agent-environment.md` に記載する。
+- `~/.codex/config.toml`（管理方法は `docs/ai-agent-environment.md` を参照）
 
 ### コミット前の個人情報チェック
 

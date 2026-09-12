@@ -10,12 +10,16 @@ stow で `~/.claude` 配下へ配置し、Claude Code からそのまま読み�
 Claude Code が読む設定ファイルには、Codex 向けの設定や説明を追加しない。
 Codex との両立に必要な設定は Codex 側に置く。
 
-Codex 固有の静的な設定項目は、`codex/.codex/dotfiles.config.toml` で管理する。
+## 指示・rule・skill・agent の共有
 
 Claude Code と Codex に共通する作業リポジトリの指示は、`CLAUDE.md` に置く。
 Codex は、ユーザー設定の `project_doc_fallback_filenames = ["CLAUDE.md"]` により、
-`AGENTS.md` がない階層で `CLAUDE.md` を読む。同じ階層に `AGENTS.md` を置くと
-`CLAUDE.md` が読まれないため、Codex 専用の指示を追加する目的では使わない。
+Git リポジトリのルートから作業ディレクトリまでの各階層で、`AGENTS.md` がなければ
+`CLAUDE.md` を読む。同じ階層に `AGENTS.md` を置くと `CLAUDE.md` が読まれないため、
+Codex 専用の指示を追加する目的では使わない。
+
+この fallback 設定は、グローバル scope には適用されない。Codex はグローバル scope で
+`~/.codex/AGENTS.md` を読み、同ファイルがない場合も `~/.codex/CLAUDE.md` は読まない。
 
 `.claude/rules` のうち、`paths` を持たない rule は常時読み込む指示として
 Codex 側でも使う。`codex/.codex/AGENTS.md` を `~/.codex/AGENTS.md` へ stow し、
@@ -35,6 +39,7 @@ Claude Code 用の agent 定義を Codex に読ませる対応は保留する。
 
 ## Codex の設定を profile に分ける
 
+Codex 固有の静的な設定項目は、`codex/.codex/dotfiles.config.toml` で管理する。
 `~/.codex/config.toml` 全体は stow しない。このファイルには、Codex が更新する
 hook trust hash と、端末ごとの project path が入るためだ。symlink すると、Codex が
 実行中に更新した内容が dotfiles の working tree に書き込まれる。別の端末では使えない
