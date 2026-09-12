@@ -123,10 +123,6 @@ fisher update
 
 Claude Code と Codex のユーザー設定の管理方針と設定手順は、
 [Claude Code と Codex のユーザー設定](./docs/ai-agent-environment.md) に記載している。
-Codex は `config.toml` に、実行時に更新する hook trust hash と端末固有の
-project path を書き込む。このため、ファイル全体を stow せず、
-`~/.codex/config.toml` の既存項目を残したまま、
-[`templates/codex/config.toml`](./templates/codex/config.toml) に記載した項目を追記または更新する。
 
 ### AI エージェントの skill
 
