@@ -36,15 +36,6 @@ dotfiles で追跡する設定項目は `templates/codex/config.toml` で管理�
 必要な設定項目だけをローカルの `~/.codex/config.toml` へ反映する。
 既存の hook trust hash、project trust 設定、model 設定は削除しない。
 
-反映する静的設定は次のとおり。
-
-- `CLAUDE.md` を fallback filename に指定する設定
-- project instructions の上限を 64 KiB にする設定
-- conversation recap (`auto_recap`) を無効にする設定
-- model、permission mode、context 残量を表示する `status_line`
-- 5 時間枠と週間枠の利用可能な残量とリセット時刻を表示する `status_line`
-- 現在の directory を表示する `status_line`
-
 ## セットアップ順序
 
 1. dotfiles を clone する
