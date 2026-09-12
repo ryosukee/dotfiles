@@ -82,6 +82,7 @@ plugin を有効にした後、Codex 内の `/hooks` で同梱 hook の内容を
 信頼後に新しいセッションを開始する。信頼済みの定義はローカルの Codex 設定にハッシュで
 記録され、セッションを作り直すたびに信頼する必要はない。hook の定義が変わったら再確認する。
 plugin はユーザー設定としてインストールするので、別のリポジトリでも有効なら同じ hook を使う。
+plugin の hook は `--profile dotfiles` の指定とは独立して読み込まれる。
 リポジトリ固有の hook を別途定義した場合、その定義は別に信頼が必要になる。
 
 plugin が未導入の場合、その plugin の SessionStart hook 自体は実行されない。
@@ -90,8 +91,8 @@ plugin と独立した常設 hook または起動 wrapper が必要になる。
 
 > [!IMPORTANT]
 > Codex は profile を自動で選択しない。shell、script、エディタなどの起動方法ごとに、
-> `--profile dotfiles` を指定する。指定しなければ `~/.codex/config.toml` だけが使われ、
-> `dotfiles.config.toml` の設定は読み込まれない。
+> `--profile dotfiles` を指定する。指定しなければ設定ファイルとしては
+> `~/.codex/config.toml` だけが使われ、`dotfiles.config.toml` の設定は読み込まれない。
 
 dotfiles 管理の `fish/.config/fish/config.fish` には、`codex` の起動時に
 `--profile dotfiles` を付ける abbreviation を設定している。
