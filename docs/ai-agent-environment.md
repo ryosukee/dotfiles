@@ -1,7 +1,6 @@
 # Claude Code と Codex を両立するユーザー設定
 
 この文書は、dotfiles における Claude Code と Codex のユーザー設定の管理方法を定める。
-新しい端末へ設定を反映するときや、両ツールの設定を変更するときに使う。
 
 ## Claude Code を基準とする管理方針
 
