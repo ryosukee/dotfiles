@@ -1,0 +1,21 @@
+# AGENTS.md がない場合は、CLAUDE.md を project instructions として読み込む。
+project_doc_fallback_filenames = ["CLAUDE.md"]
+
+# リポジトリルートと作業ディレクトリから読む project instructions の合計上限。
+# 既定の 32 KiB では末尾が切れる可能性があるため 64 KiB とし、超えたら指示の構成を見直す。
+project_doc_max_bytes = 65536
+
+[tui]
+# conversation recap を表示しない。
+auto_recap = false
+
+# model と reasoning、permission mode、context 残量、5 時間枠と週次枠の usage limit、作業ディレクトリを表示する。
+# Codex 0.154.0 の usage limit は残量だけを表示し、reset 時刻を表示する項目はない。
+status_line = [
+  "model-with-reasoning",
+  "permissions",
+  "context-remaining",
+  "five-hour-limit",
+  "weekly-limit",
+  "current-dir",
+]
