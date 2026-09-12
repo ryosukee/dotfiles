@@ -18,10 +18,9 @@ ghostty/.config/ghostty/ → ~/.config/ghostty/
 git/.config/git/         → ~/.config/git/
 fish/.config/fish/       → ~/.config/fish/
 herdr/.config/herdr/     → ~/.config/herdr/
-codex/.codex/            → ~/.codex/
 ```
 
-デプロイ: `stow -t ~ nvim git fish lazygit tig bin claude codex mise herdr yazi`
+デプロイ: `stow -t ~ nvim git fish lazygit tig bin claude mise herdr yazi`
 
 退役した package は `archive/` に移す。stow の対象にしない。
 
@@ -42,11 +41,6 @@ codex/.codex/            → ~/.codex/
 - シークレット (API キー、トークン)
 - ランタイム生成ファイル
 - パッケージマネージャが自動生成するファイル
-
-`~/.codex/config.toml` 全体も含めない。Codex が更新する hook trust hash と、
-端末固有の project path が同じファイルに入るためだ。dotfiles で追跡する設定は、
-`codex/.codex/dotfiles.config.toml` で管理する。Codex の起動時にこの profile を選択する方法は、
-`docs/ai-agent-environment.md` に記載する。
 
 ### コミット前の個人情報チェック
 

@@ -14,7 +14,7 @@ abbr -a gd git def
 abbr -a gg git-graph
 
 abbr -a claude --function __claude_abbr
-abbr -a codex codex --profile dotfiles --dangerously-bypass-approvals-and-sandbox
+abbr -a codex codex --dangerously-bypass-approvals-and-sandbox
 
 mise activate fish | source
 
