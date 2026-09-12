@@ -11,6 +11,12 @@ stow で `~/.claude` 配下へ配置し、Claude Code からそのまま読み�
 Codex には、Claude Code 用の指示ファイルを読み込む設定と、Codex 固有の設定を加える。
 Codex 固有の静的な設定項目は、`templates/codex/config.toml` で管理する。
 
+Claude Code と Codex に共通する作業リポジトリの指示は、`CLAUDE.md` に置く。
+Codex は、ユーザー設定の `project_doc_fallback_filenames = ["CLAUDE.md"]` により、
+`AGENTS.md` がない階層で `CLAUDE.md` を読む。同じ階層に `AGENTS.md` を置くと
+`CLAUDE.md` が読まれないため、Codex 専用の指示を追加する目的では使わない。
+Codex 専用の指示は、cc-marketplace の `codex-path-rules` plugin で扱う。
+
 ## Codex の `config.toml` の管理
 
 `~/.codex/config.toml` 全体は stow しない。このファイルには、Codex が更新する

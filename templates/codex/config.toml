@@ -1,8 +1,7 @@
 # 以下の静的設定を ~/.codex/config.toml へ反映する。
 # Codex が実行時に更新する hook trust hash と、端末固有の project trust 設定は置き換えない。
 
-# AGENTS.md がない場合は、CLAUDE.md を project instructions として読み込む。
-# Codex 専用の追加指示がなければ、AGENTS.md は作らない。
+# AGENTS.md がない場合に検索する project instructions のファイル名。
 project_doc_fallback_filenames = ["CLAUDE.md"]
 
 # リポジトリルートと作業ディレクトリから読む project instructions の合計上限。
