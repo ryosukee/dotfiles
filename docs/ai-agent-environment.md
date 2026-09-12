@@ -29,6 +29,10 @@ dotfiles 管理の `codex-claude-rules` を SessionStart hook から実行し、
 圧縮後は再度読み込めるようにする。複雑な shell コマンドなど、hook の入力から
 対象ファイルを特定できない操作では、該当 rule を自動では渡せない。コマンド内で
 `cd` する場合も、移動先を推測せず、そのコマンドのパスからは rule を選ばない。
+起動ディレクトリの外にあるファイルは、絶対パスで操作しても選択対象にしない。
+現行の rule で使用する `*` と `**` は script が照合できる。script は `?` と
+`{a,b}` も扱うが、Claude Code が対応する `[]` 文字クラスは未対応なので、
+その形式を rule に追加する前に script も拡張する。
 
 ユーザー共通の skill は `~/.claude/skills` を原本とし、
 `~/.agents/skills` から同じディレクトリへの symlink を置く。
@@ -72,6 +76,8 @@ profile の設定を重ね、同じ設定項目には profile の値を使う。
 
 Codex で `--profile dotfiles` を指定して起動したら、初回に `/hooks` で新しい hook の
 内容を確認し、信頼する。信頼するまでは Codex が hook を実行しない。
+信頼前に省略された SessionStart は後から自動実行されないため、信頼後に新しい
+セッションを開始する。信頼は毎回ではなく、hook 定義が変わった場合に再確認する。
 
 > [!IMPORTANT]
 > Codex は profile を自動で選択しない。shell、script、エディタなどの起動方法ごとに、

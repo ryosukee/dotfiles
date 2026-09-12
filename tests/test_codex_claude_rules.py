@@ -74,6 +74,33 @@ class RuleTests(unittest.TestCase):
         })
         self.assertEqual(rules.target_paths(event, self.cwd), [])
 
+    def test_path_outside_session_directory_is_not_scoped(self):
+        sibling = self.repo / "projects" / "other" / "README.md"
+        sibling.parent.mkdir(parents=True)
+        sibling.write_text("test", encoding="utf-8")
+        self.add_rule(self.repo, "sibling.md", ["projects/other/**"], "sibling rule")
+        event = self.event("PreToolUse", tool_name="Bash", tool_input={
+            "command": f"sed -n '1,20p' {sibling}",
+        })
+        self.assertEqual(rules.target_paths(event, self.cwd), [])
+        self.assertIsNone(self.invoke(event))
+
+    def test_locally_used_glob_shapes(self):
+        samples = {
+            "CLAUDE.md": ("CLAUDE.md", "src/CLAUDE.md"),
+            "jira/**": ("jira/README.md", "docs/jira/README.md"),
+            "jira/**/*.md": ("jira/README.md", "jira/a.txt"),
+            "projects/*/docs/**": ("projects/app/docs/a.md", "projects/app/src/a.md"),
+            ".claude/skills/ref-*/**/*": (
+                ".claude/skills/ref-example/SKILL.md", ".claude/skills/example/SKILL.md",
+            ),
+        }
+        for pattern, (match, miss) in samples.items():
+            with self.subTest(pattern=pattern):
+                expression = rules.glob_regex(pattern)
+                self.assertIsNotNone(expression.fullmatch(match))
+                self.assertIsNone(expression.fullmatch(miss))
+
     def test_explicit_empty_paths_is_not_an_always_rule(self):
         source = self.add_rule(self.cwd, "empty.md", [], "not an always rule")
         source.write_text("---\npaths: []\n---\nnot an always rule\n", encoding="utf-8")
