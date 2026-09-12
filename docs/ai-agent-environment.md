@@ -62,8 +62,11 @@ profile の設定を重ね、同じ設定項目には profile の値を使う。
 
 4. fish を起動し直す
 
-fish の `codex` abbreviation は `--profile dotfiles` を付ける。
-`~/.codex/config.toml` にある可変値は profile を使っても保持される。
+> [!IMPORTANT]
+> fish の `codex` abbreviation は、起動時に `--profile dotfiles` を付ける。
+> fish 以外の shell、script、エディタなどから Codex を直接起動するときは、
+> `--profile dotfiles` を毎回指定する。指定しなければ `~/.codex/config.toml` だけが使われ、
+> `dotfiles.config.toml` の設定は読み込まれない。
 
 ## 確認
 
