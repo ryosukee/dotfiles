@@ -1,6 +1,6 @@
 # codex-claude-rules
 
-対応コーディングエージェント: `Codex only`
+対応 CodingAgent: `Codex only`
 
 Claude Code 向けに管理している rule の本文を、Codex のコンテキストにも注入する plugin。
 対象の rule は、`~/.claude/rules` と、起動ディレクトリの親階層・

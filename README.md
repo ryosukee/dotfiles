@@ -137,7 +137,7 @@ Claude Code と Codex のユーザー設定の管理方針と設定手順は、
 [Claude Code と Codex のユーザー設定](./docs/ai-agent-environment.md) に記載している。
 
 dotfiles の marketplace は環境設定に必要な plugin だけを管理する。
-対応コーディングエージェントは次の 3 種類に分類する。
+対応 CodingAgent は次の 3 種類に分類する。
 
 | 分類 | 意味 |
 | --- | --- |

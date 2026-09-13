@@ -38,7 +38,7 @@ dotfiles の marketplace には、この rule 読み込みのように Codex の
 `~/.agents/skills` から同じディレクトリへの symlink を置く。
 作業リポジトリ固有の skill も `.claude/skills` を原本とし、
 `.agents/skills` から同じディレクトリへの symlink を置く。
-複数の作業リポジトリで使う skill は、両ホストの plugin として配布する。
+複数の作業リポジトリで使う skill は、Claude Code と Codex の両方に対応する plugin として配布する。
 
 ### agent
 

@@ -12,7 +12,7 @@
 - marketplace には環境設定に必要な plugin だけを登録し、任意の便利機能やツール系 plugin は登録しない
 - plugin のテストは配布物と分けて `tests/plugin/<plugin名>/` に置く。
   Python のテストディレクトリ名では `-` を `_` に置き換える
-- 各 plugin の README に対応コーディングエージェントを明記する。両方での動作を検証するまで `Claude Code + Codex` と分類しない
+- 各 plugin の README に対応 CodingAgent を明記する。両方での動作を検証するまで `Claude Code + Codex` と分類しない
 - 環境全体のインストールスクリプトは追加しない。個別の設定補助 script は許容する
 
 ## 設定変更時のルール
