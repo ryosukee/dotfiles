@@ -1,3 +1,9 @@
+model = "gpt-5.6-sol"
+model_reasoning_effort = "medium"
+personality = "pragmatic"
+service_tier = "default"
+approvals_reviewer = "user"
+
 # AGENTS.md がない場合は、CLAUDE.md を project instructions として読み込む。
 project_doc_fallback_filenames = ["CLAUDE.md"]
 
