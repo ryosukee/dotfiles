@@ -1,29 +1,19 @@
 # dotfiles
 
-設定ファイルとツールカタログのリポジトリ。
+このリポジトリを編集するエージェント向けの規則。
+構造とセットアップ手順は [README](README.md)、Claude Code と Codex の設定詳細は
+[ユーザー設定の管理方針](docs/ai-agent-environment.md) を参照する。
 
-## 方針
+## 設定の配置
 
-- インストールスクリプトは持たない。何を使っているかを宣言的に管理する
-- 設定ファイルは stow で symlink 配置する
-- Brewfile がツールカタログを兼ねる (`brew bundle dump --describe` で生成)
-
-## 構造
-
-stow ベース。各トップレベルディレクトリが stow package で、中身は `~` からの相対パスを再現している。
-
-```text
-nvim/.config/nvim/       → ~/.config/nvim/
-ghostty/.config/ghostty/ → ~/.config/ghostty/
-git/.config/git/         → ~/.config/git/
-fish/.config/fish/       → ~/.config/fish/
-herdr/.config/herdr/     → ~/.config/herdr/
-codex/.codex/            → ~/.codex/
-```
-
-デプロイ: `stow -t ~ nvim git fish lazygit tig bin claude codex mise herdr yazi`
-
-退役した package は `archive/` に移す。stow の対象にしない。
+- 新しいツールの設定は `stow/<package名>/` に置く。
+  package 名より下のパスをホームディレクトリ配下の配置先に合わせる
+- 退役した stow package は `archive/` に移し、stow の対象にしない
+- marketplace には環境設定に必要な plugin だけを登録し、任意の便利機能やツール系 plugin は登録しない
+- plugin のテストは配布物と分けて `tests/plugin/<plugin名>/` に置く。
+  Python のテストディレクトリ名では `-` を `_` に置き換える
+- 各 plugin の README に対応コーディングエージェントを明記する。両方での動作を検証するまで `Claude Code + Codex` と分類しない
+- 環境全体のインストールスクリプトは追加しない。個別の設定補助 script は許容する
 
 ## 設定変更時のルール
 
@@ -69,10 +59,6 @@ git diff --cached | grep -iE '/Users/[a-z]|/home/[a-z]|api.key|token|secret|pass
 `.gitignore` パターン (public テンプレートを追跡し local 実体は除外) も
 選択肢。
 
-### stow package の作り方
-
-新しいツールの設定を追加するときは、stow package としてトップレベルディレクトリを作る。中身は `~` からの相対パスを再現する。
-
 ## 問題解決の進め方
 
 最初の試行は直感で進めてよい。ただし一度詰まったら場当たり的な修正を繰り返さず、立ち止まって全体を整理する。
@@ -107,28 +93,11 @@ echo やパイプで小さいサンプルに対してテストしてから
 4. ターミナルで完結する検証は先に済ませる。Web 検索やソースコード読みも活用する
 5. ユーザーへの確認は最小限にする (「試してください」の連打はしない)
 
-## ターミナル環境
-
-- ターミナル: ghostty (kitty graphics protocol 対応、画像/mermaid プレビュー用)
-- herdr (agent multiplexer) + fish shell
-
 ## fish 設定の注意
 
 - `config.fish` にシークレットを書かない
 - fisher プラグインは `fish_plugins` ファイルで宣言。`fisher update` でインストール
-
-### シークレットの管理方針
-
-API キーやトークンは **macOS Keychain + `conf.d/secrets.fish`** で管理する。
-
-- Keychain にキーを保存: `security add-generic-password -s <service> -a $USER -w "<value>"`
-- `~/.config/fish/conf.d/secrets.fish` (stow 管理外) で Keychain から読み出して環境変数に設定
-- `secrets.fish` にはキー本体を書かない。`security find-generic-password -s <service> -w` の呼び出しだけ
-
-この方式を選んだ理由:
-
-- `set -Ux` (fish universal variable) だと `fish_variables` に平文でキーが残り、
-    誤って git add すると漏洩する
-- Keychain 方式なら `secrets.fish` や `fish_variables` を git add しても API キー本体は含まれない
-- ランタイムでは環境変数に載るのでプロセスから読める点は `set -Ux` と同等。ディスク上の平文回避が主な利点
-- `security find-generic-password` は数 ms で完了するので shell 起動速度に影響しない
+- API キーやトークンは macOS Keychain に保存し、stow 管理外の
+  `conf.d/secrets.fish` から読み出す。`secrets.fish` や fish の
+  universal variable に値を直書きしない。
+  手順は [README](README.md#シークレット-api-キー等) を参照

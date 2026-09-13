@@ -4,7 +4,7 @@
 	name = ryosukee
 
 # ghq.root は git config だと ~/$HOME 展開されないので fish の GHQ_ROOT
-# 環境変数で設定する (fish/.config/fish/config.fish 参照)
+# 環境変数で設定する (stow/fish/.config/fish/config.fish 参照)
 
 [alias]
 	pr = !"f(){ git fetch origin pull/${1}/head:pr/${1} && git checkout pr/${1}; };f"

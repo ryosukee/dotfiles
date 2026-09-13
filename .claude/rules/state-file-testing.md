@@ -1,6 +1,6 @@
 # 永続 state ファイルを書き換えるスクリプトのテスト
 
-dotfiles 内には `claude/.claude/statusline.sh` のように、実行のたびに
+dotfiles 内には `stow/claude/.claude/statusline.sh` のように、実行のたびに
 永続ファイルを更新するスクリプトがある。書き込み先の例:
 
 - `~/.local/state/claude-status/weekly-snapshot.json` (statusline の週間使用量履歴)
@@ -16,7 +16,7 @@ dotfiles 内には `claude/.claude/statusline.sh` のように、実行のたび
 1. **Sandbox**: state dir を env 変数で差し替える
 
     ```bash
-    XDG_STATE_HOME=$(mktemp -d) bash claude/.claude/statusline.sh
+    XDG_STATE_HOME=$(mktemp -d) bash stow/claude/.claude/statusline.sh
     ```
 
     `/tmp/` 固定パスに書くスクリプトは sandbox 化できないので 2 か 3 を使う。

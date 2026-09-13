@@ -4,13 +4,15 @@
 
 ## Claude Code を基準とする管理方針
 
-Claude Code の基本設定は、`claude/.claude/settings.json` で管理する。
-ステータスラインは、`claude/.claude/statusline.sh` で管理する。
+Claude Code の基本設定は、`stow/claude/.claude/settings.json` で管理する。
+ステータスラインは、`stow/claude/.claude/statusline.sh` で管理する。
 stow で `~/.claude` 配下へ配置し、Claude Code からそのまま読み込む。
 Claude Code が読む設定ファイルには、Codex 向けの設定や説明を追加しない。
 Codex との両立に必要な設定は Codex 側に置く。
 
 ## 指示・rule・skill・agent の共有
+
+### AGENTS.md と CLAUDE.md
 
 Claude Code と Codex に共通する作業リポジトリの指示は、`CLAUDE.md` に置く。
 Codex は、ユーザー設定の `project_doc_fallback_filenames = ["CLAUDE.md"]` により、
@@ -21,21 +23,16 @@ Codex 専用の指示を追加する目的では使わない。
 この fallback 設定は、グローバル scope には適用されない。Codex はグローバル scope で
 `~/.codex/AGENTS.md` を読み、同ファイルがない場合も `~/.codex/CLAUDE.md` は読まない。
 
-`.claude/rules` のうち、`paths` を持たない rule は常時読み込む指示として Codex 側でも使う。
-dotfiles の `codex-claude-rules` plugin に同梱した script を SessionStart hook から実行し、
-`~/.claude/rules` と起動ディレクトリの親階層にある `.claude/rules` から収集する。
-`paths` を持つ rule は PreToolUse hook で、対象ファイルまでの階層を調べ、
-各 rule が置かれた階層を基準に照合する。同じ rule はセッション内で重複して渡さず、
-圧縮後は再度読み込めるようにする。複雑な shell コマンドなど、hook の入力から
-対象ファイルを特定できない操作では、該当 rule を自動では渡せない。コマンド内で
-`cd` する場合も、移動先を推測せず、そのコマンドのパスからは rule を選ばない。
-起動ディレクトリの外にあるファイルは、絶対パスで操作しても選択対象にしない。
-現行の rule で使用する `*` と `**` は script が照合できる。script は `?` と
-`{a,b}` も扱うが、Claude Code が対応する `[]` 文字クラスは未対応なので、
-その形式を rule に追加する前に script も拡張する。
+### rule
+
+`.claude/rules` は
+[codex-claude-rules plugin](../plugins/codex-claude-rules/README.md) で
+Codex にも適用する。rule の探索・照合・制約は plugin の README を参照する。
 
 dotfiles の marketplace には、この rule 読み込みのように Codex の環境設定に
-必要な plugin だけを置く。任意の利便機能やツール系の plugin は dotfiles では管理しない。
+必要な plugin だけを置く。任意の便利機能やツール系の plugin は dotfiles では管理しない。
+
+### skill
 
 ユーザー共通の skill は `~/.claude/skills` を原本とし、
 `~/.agents/skills` から同じディレクトリへの symlink を置く。
@@ -43,36 +40,42 @@ dotfiles の marketplace には、この rule 読み込みのように Codex の
 `.agents/skills` から同じディレクトリへの symlink を置く。
 複数の作業リポジトリで使う skill は、両ホストの plugin として配布する。
 
+### agent
+
 Claude Code 用の agent 定義を Codex に読ませる対応は保留する。
 現時点では、Codex は `.claude/agents` の定義を読み込まない。
 
-## Codex の設定を profile に分ける
+## stow 管理する Codex の config.toml は profile に分ける
 
-Codex 固有の静的な設定項目は、`codex/.codex/dotfiles.config.toml` で管理する。
-`~/.codex/config.toml` 全体は stow しない。このファイルには、Codex が更新する
-hook trust hash と、端末ごとの project path が入るためだ。symlink すると、Codex が
-実行中に更新した内容が dotfiles の working tree に書き込まれる。別の端末では使えない
-絶対パスも追跡される。
+`~/.codex/config.toml` には Codex が更新する hook trust hash と
+端末固有の project path が含まれるため、stow しない。
+共通の静的設定は `stow/codex/.codex/dotfiles.config.toml` で管理し、
+`~/.codex/dotfiles.config.toml` へ stow する。
+Codex は `~/.codex/config.toml` を読み込んだ後に profile の設定を重ね、
+同じ設定項目には profile の値を使う。
 
-dotfiles で追跡する設定は、`codex/.codex/dotfiles.config.toml` に分ける。
-このファイルを `~/.codex/dotfiles.config.toml` へ stow し、Codex を
-`--profile dotfiles` 付きで起動する。Codex は `~/.codex/config.toml` を読み込んだ後に
-profile の設定を重ね、同じ設定項目には profile の値を使う。
+> [!IMPORTANT]
+> Codex は profile を自動で選択しない。stow 管理する設定値を反映するには、
+> shell、script、エディタなどの起動方法ごとに `--profile dotfiles` を指定する。
 
-`~/.codex/dotfiles.config.toml` は dotfiles 内のファイルへの symlink である。
-ローカル側で静的な設定を変更すると、dotfiles の working tree に同じ変更が入る。
+### 必須 plugin 警告 hook
+
+`--profile dotfiles` で起動すると、
+必須 plugin 警告 hook が marketplace 内の plugin と Python・jq の不足を警告する。
+profile を指定しない起動では、この警告 hook は動かない。
+
+> [!NOTE]
+> dotfiles 管理の `stow/fish/.config/fish/config.fish` には、`codex` の起動時に
+> `--profile dotfiles` を付ける abbreviation を設定している。
 
 ## セットアップ順序
 
 1. dotfiles を clone する
-2. `stow -t ~ claude codex fish` で Claude Code、Codex、fish の設定を配置する
-3. 次のコマンドでユーザー共通 skill の symlink を作る
+2. `stow -d stow -t ~ claude codex fish` で Claude Code、Codex、fish の設定を配置する
+3. dotfiles のルートで次のコマンドを実行し、ユーザー共通 skill の symlink を作る
 
    ```bash
-   mkdir -p ~/.agents
-   if ! test -e ~/.agents/skills && ! test -L ~/.agents/skills; then
-     ln -s ../.claude/skills ~/.agents/skills
-   fi
+   /bin/sh scripts/setup-shared-skills.sh
    ```
 
 4. dotfiles のルートで `codex plugin marketplace add .` を実行し、
@@ -80,27 +83,10 @@ profile の設定を重ね、同じ設定項目には profile の値を使う。
 5. `codex plugin list` で `codex-claude-rules@dotfiles` が有効なことを確認する
 6. fish を起動し直す
 
-plugin を有効にした後、Codex 内の `/hooks` で plugin の hook と、profile に置いた
-必須 plugin 確認用の SessionStart hook を確認して信頼する。信頼前の hook は実行されない。
-信頼前に省略された SessionStart は遡って実行されないため、信頼後に新しいセッションを
-開始する。信頼済みの定義はローカルの Codex 設定にハッシュで
-記録され、セッションを作り直すたびに信頼する必要はない。hook の定義が変わったら再確認する。
-plugin はユーザー設定としてインストールするので、別のリポジトリでも有効なら同じ hook を使う。
-plugin の hook は `--profile dotfiles` の指定とは独立して読み込まれる。
-リポジトリ固有の hook を別途定義した場合、その定義は別に信頼が必要になる。
-
-profile の必須 plugin 確認 hook は、dotfiles の marketplace に載る全 plugin を
-`codex plugin list --json` の導入・有効状態と照合する。未導入または無効な plugin があれば
-セッション開始時に警告する。確認 hook は plugin と独立しているため、plugin 未導入時も動く。
-ただし profile にある hook なので、`--profile dotfiles` を付けない起動では警告しない。
-
 > [!IMPORTANT]
-> Codex は profile を自動で選択しない。shell、script、エディタなどの起動方法ごとに、
-> `--profile dotfiles` を指定する。指定しなければ設定ファイルとしては
-> `~/.codex/config.toml` だけが使われ、`dotfiles.config.toml` の設定は読み込まれない。
-
-dotfiles 管理の `fish/.config/fish/config.fish` には、`codex` の起動時に
-`--profile dotfiles` を付ける abbreviation を設定している。
+> `codex --profile dotfiles` を起動し、`/hooks` で plugin の hook と
+> 必須 plugin 警告 hook を信頼する。信頼後は新しいセッションを開始する。
+> hook の定義が変わるまでは、再度信頼する必要はない。
 
 ## 確認
 
@@ -111,4 +97,4 @@ codex --profile dotfiles -C /path/to/repository debug prompt-input
 ```
 
 リポジトリルートと作業ディレクトリの `CLAUDE.md` が含まれ、
-末尾が途中で切れていなければ確認は完了だ。
+内容が末尾まで表示されることを確認する。

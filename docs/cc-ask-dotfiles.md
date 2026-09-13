@@ -9,9 +9,9 @@ dotfiles の全ファイル内容をロードした Claude セッションに対
 ## ファイル構成
 
 ```text
-bin/.local/bin/cc-ask-dotfiles                       # 本体 (POSIX sh)
-nvim/.config/nvim/lua/config/ask_dotfiles.lua     # nvim フロート UI
-nvim/.config/nvim/lua/config/keymaps.lua          # <leader>Ca キーマップ
+stow/bin/.local/bin/cc-ask-dotfiles                    # 本体 (POSIX sh)
+stow/nvim/.config/nvim/lua/config/ask_dotfiles.lua  # nvim フロート UI
+stow/nvim/.config/nvim/lua/config/keymaps.lua       # <leader>Ca キーマップ
 ~/.local/state/cc-ask-dotfiles/                      # ランタイム状態 (gitignore 対象外)
 ├── base.jsonl                                    # Claude セッションの jsonl
 └── config-hash                                   # 最後に build したときの dotfiles ハッシュ

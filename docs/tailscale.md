@@ -81,7 +81,7 @@ Tailscale 停止時は ts.net 名の解決が失敗するだけ。ファイル�
 ## claude-html-communication 用の環境変数
 
 html-communication skill は配置先と配信 URL を環境変数から解決する。
-値は `claude/.claude/settings.json` の `env` で設定する（このマシンの現在値）:
+値は `stow/claude/.claude/settings.json` の `env` で設定する（このマシンの現在値）:
 
 - `CLAUDE_HTML_COMMUNICATION_BASE_URL` = `https://mac-mini.hake-tarpon.ts.net`
 

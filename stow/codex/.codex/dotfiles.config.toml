@@ -11,7 +11,7 @@ matcher = "startup|resume|clear"
 
 [[hooks.SessionStart.hooks]]
 type = "command"
-command = "python3 ~/.codex/scripts/check-required-plugins.py"
+command = "/bin/sh ~/.codex/scripts/check-required-plugins.sh"
 timeout = 5
 
 [tui]

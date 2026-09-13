@@ -1,6 +1,6 @@
 # 永続 state 設計: derive できるものは store しない
 
-dotfiles 内のスクリプト (`claude/.claude/statusline.sh` 等) が持つ
+dotfiles 内のスクリプト (`stow/claude/.claude/statusline.sh` 等) が持つ
 永続 state は最小限に留める。入力から毎回 derive できる値を state に
 含めると整合性ズレで検知困難なバグになる。
 
