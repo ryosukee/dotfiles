@@ -1,7 +1,7 @@
 # herdr 運用メモ
 
 ターミナル用の agent multiplexer。tmux の後継として使う (旧 tmux 設定は `archive/tmux/` にある)。
-ここは日常運用で必要になる要点だけを置く。設定実体は stow package `herdr/` にある。
+ここは日常運用で必要になる要点だけを置く。設定実体は stow package `stow/herdr/` にある。
 
 ## アップグレード
 
@@ -62,7 +62,7 @@ tmux の `prefix + P` (display-popup) 相当。`prefix + f` に割り当てて�
 
 ## 追跡中の upstream 項目
 
-未実装で、実装されたら `herdr/.config/herdr/config.toml` を変える予定のもの。
+未実装で、実装されたら `stow/herdr/.config/herdr/config.toml` を変える予定のもの。
 判定はリリースノートを意味で読む (後述の理由で番号照合・discussion 更新では判定できない)。
 
 最終確認: v0.7.5 / 2026-07-27

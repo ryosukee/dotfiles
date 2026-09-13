@@ -1,31 +1,41 @@
 # dotfiles
 
-設定ファイルとツールカタログ。インストールスクリプトは持たず、何を使っているかを宣言的に管理する。
+設定ファイルとツールカタログ。環境全体のインストールスクリプトは持たず、何を使っているかを宣言的に管理する。
 
 ## 方針
 
 - 設定ファイルの同期: stow でシンボリックリンクを作成
 - ツールカタログ: Brewfile がパッケージ一覧を兼ねる
-- インストールは手動 or AI に任せる: スクリプトは腐りやすいので持たない
+- ツールのインストールは手動 or AI に任せる。個別の設定補助だけを script にする
 
 ## 構造
 
 ```text
 dotfiles/
-├── nvim/          # Neovim (LazyVim)
-├── git/           # gitconfig, gitignore
-├── fish/          # Fish shell
-├── lazygit/       # lazygit (delta 連携)
-├── tig/           # tig
-├── mise/          # mise global tools (node/go/python/ruby + go tools)
-├── bin/           # 自作 CLI (~/.local/bin/cc-ask-dotfiles 等)
-├── claude/        # Claude Code 設定 (settings, statusline)
+├── stow/          # ホームディレクトリへ配置する設定
+│   ├── nvim/      # Neovim (LazyVim)
+│   ├── git/       # gitconfig, gitignore
+│   ├── fish/      # Fish shell
+│   ├── lazygit/   # lazygit (delta 連携)
+│   ├── tig/       # tig
+│   ├── mise/      # mise global tools (node/go/python/ruby + go tools)
+│   ├── bin/       # 自作 CLI (~/.local/bin/cc-ask-dotfiles 等)
+│   ├── claude/    # Claude Code 設定 (settings, statusline)
+│   ├── codex/     # Codex のユーザー共通指示と profile 設定
+│   ├── ghostty/   # Ghostty
+│   ├── herdr/     # Herdr
+│   ├── yazi/      # Yazi
+│   └── .stow-local-ignore
+├── .agents/plugins/ # Codex marketplace の定義
+├── plugins/       # 環境設定に必要な plugin 本体
+├── scripts/       # 個別の設定補助コマンド
+├── tests/plugin/  # plugin ごとのテスト (配布物には含めない)
 ├── archive/       # 退役した stow package (tmux)
-├── Brewfile       # brew パッケージ一覧 (brew bundle dump --describe で生成)
-└── .stow-local-ignore
+└── Brewfile       # brew パッケージ一覧 (brew bundle dump --describe で生成)
 ```
 
-各ディレクトリは stow package。中身は `~` からの相対パスをそのまま再現している。
+`stow/` 配下の各設定ディレクトリが stow package。
+`.agents/plugins/`、`plugins/`、`tests/` はリポジトリ内で管理し、stow しない。
 
 ## セットアップ
 
@@ -44,7 +54,10 @@ mv ~/.config/git/config ~/.config/git/config.bak
 
 # 4. symlink を作成
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
-stow -t ~ nvim git fish lazygit tig bin claude mise herdr yazi
+stow -d stow -t ~ nvim git fish lazygit tig bin claude codex mise herdr yazi
+
+# Claude Code と Codex でユーザー共通 skill を共有
+/bin/sh scripts/setup-shared-skills.sh
 
 # 5. nvim プラグインをインストール (初回起動で自動)
 nvim
@@ -119,6 +132,22 @@ fisher update
 <!-- markdownlint-disable-next-line MD013 -->
 | claude-code | Claude Code CLI + VS Code 拡張 | `brew install anthropic/claude-code/claude-code` / VS Code |
 | codex | OpenAI のコーディングエージェント | `brew install codex` |
+
+Claude Code と Codex のユーザー設定の管理方針と設定手順は、
+[Claude Code と Codex のユーザー設定](./docs/ai-agent-environment.md) に記載している。
+
+dotfiles の marketplace は環境設定に必要な plugin だけを管理する。
+対応コーディングエージェントは次の 3 種類に分類する。
+
+| 分類 | 意味 |
+| --- | --- |
+| `Claude Code only` | Claude Code で使う plugin |
+| `Codex only` | Codex で使う plugin |
+| `Claude Code + Codex` | 両方で動作を検証した plugin |
+
+両方で動作を検証するまでは `Claude Code + Codex` としない。
+plugin のテストは配布対象の plugin 本体と分けて `tests/plugin/<plugin名>/` に置き、
+Python のテストディレクトリ名では `-` を `_` に置き換える。
 
 ### AI エージェントの skill
 

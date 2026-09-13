@@ -5,7 +5,7 @@ kitty graphics protocol 対応のターミナルエミュレータ。nvim 内で
 ## ファイル構成
 
 ```
-ghostty/.config/ghostty/
+stow/ghostty/.config/ghostty/
 └── config    # 設定ファイル (INI 風)
 ```
 

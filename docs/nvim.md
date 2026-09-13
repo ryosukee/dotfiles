@@ -5,7 +5,7 @@ LazyVim ベースの nvim 環境。プラグイン管理は lazy.nvim。
 ## ファイル構成
 
 ```text
-nvim/.config/nvim/
+stow/nvim/.config/nvim/
 ├── init.lua                 # lazy.nvim bootstrap + LazyVim 読み込み
 ├── lazyvim.json             # LazyVim extras (lang.markdown 有効化)
 ├── lua/config/
