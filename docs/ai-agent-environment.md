@@ -10,6 +10,42 @@ stow で `~/.claude` 配下へ配置し、Claude Code からそのまま読み�
 Claude Code が読む設定ファイルには、Codex 向けの設定や説明を追加しない。
 Codex との両立に必要な設定は Codex 側に置く。
 
+### Claude Code の共有設定と端末固有設定
+
+`~/.claude/settings.json` は共有設定への symlink とし、別の通常ファイルを置かない。
+Claude package の配置には `stow --no-folding -d stow -t ~ claude` を使い、
+`~/.claude` 自体を repo への symlink にしない。
+Claude Code や Orca が共有設定を更新したら、Git の差分を確認する。
+自動更新を理由にファイル全体を live からコピーしない。
+
+端末固有の値は stow 管理外の `~/.claude/settings.machine.json` に置く。
+必要な項目だけを記入し、端末固有設定が不要な端末では作らない。
+
+作成後は `chmod 600 ~/.claude/settings.machine.json` を実行する。
+この JSON は自動で読み込まれないため、起動時に `--settings` で指定する。
+未指定の項目は通常の設定ファイルから読み込まれる。
+設定の優先順位は [Settings files and precedence](https://code.claude.com/docs/en/settings) を参照する。
+
+```bash
+claude --settings ~/.claude/settings.machine.json
+```
+
+fish の `claude` abbreviation は、このファイルが存在するときだけ `--settings` を追加する。
+既存の `--dangerously-skip-permissions` と、stow 管理外の `__claude_abbr_local_args` による引数追加は維持する。
+abbreviation が展開されない script・別の shell・アプリからの起動では、個別に引数を指定する。
+Orca は UI の Claude 起動引数に `--settings` と端末固有 JSON の絶対パスを設定する。
+既存の起動引数がある場合は末尾に追加する。
+Orca の内部設定ファイルを dotfiles から直接編集しない。
+
+`--settings` は追加設定の読込み指定であり、設定の保存先を切り替える指定ではない。
+端末固有設定の変更は追加 JSON を直接編集する。
+Claude Code の UI や plugin コマンドが共有設定へ値を書き戻す場合もあるため、
+commit 前には端末固有の URL・絶対パス・識別子が混入していないか確認する。
+
+Orca が symlink の参照先に作る `settings.json.bak` と端末固有 JSON は、Git と Stow の両方で除外する。
+バックアップは設定の原本として扱わない。
+`~/.claude/settings.local.json`、認証・信頼状態、plugin cache は共有設定へ取り込まない。
+
 ## 指示・rule・skill・agent の共有
 
 ### AGENTS.md と CLAUDE.md
@@ -71,17 +107,18 @@ profile を指定しない起動では、この警告 hook は動かない。
 ## セットアップ順序
 
 1. dotfiles を clone する
-2. `stow -d stow -t ~ claude codex fish` で Claude Code、Codex、fish の設定を配置する
-3. dotfiles のルートで次のコマンドを実行し、ユーザー共通 skill の symlink を作る
+2. `stow -d stow -t ~ codex fish` で Codex と fish の設定を配置する
+3. `stow --no-folding -d stow -t ~ claude` で Claude Code の共有設定を配置する
+4. dotfiles のルートで次のコマンドを実行し、ユーザー共通 skill の symlink を作る
 
    ```bash
    /bin/sh scripts/setup-shared-skills.sh
    ```
 
-4. dotfiles のルートで `codex plugin marketplace add .` を実行し、
+5. dotfiles のルートで `codex plugin marketplace add .` を実行し、
    `codex plugin add codex-claude-rules@dotfiles` で rule 読み込み plugin をインストールする
-5. `codex plugin list` で `codex-claude-rules@dotfiles` が有効なことを確認する
-6. fish を起動し直す
+6. `codex plugin list` で `codex-claude-rules@dotfiles` が有効なことを確認する
+7. fish を起動し直す
 
 > [!IMPORTANT]
 > `codex --profile dotfiles` を起動し、`/hooks` で plugin の hook と

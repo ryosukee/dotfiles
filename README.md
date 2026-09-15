@@ -54,7 +54,8 @@ mv ~/.config/git/config ~/.config/git/config.bak
 
 # 4. symlink を作成
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
-stow -d stow -t ~ nvim git fish lazygit tig bin claude codex mise herdr yazi
+stow -d stow -t ~ nvim git fish lazygit tig bin codex mise herdr yazi
+stow --no-folding -d stow -t ~ claude
 
 # Claude Code と Codex でユーザー共通 skill を共有
 /bin/sh scripts/setup-shared-skills.sh
@@ -65,6 +66,9 @@ nvim
 # 6. fish プラグインをインストール
 fisher update
 ```
+
+Claude Code の端末固有設定と起動引数は、
+[Claude Code と Codex を両立するユーザー設定](./docs/ai-agent-environment.md#claude-code-の共有設定と端末固有設定) を参照する。
 
 ## ツールカタログ
 

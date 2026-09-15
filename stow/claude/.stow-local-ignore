@@ -1,0 +1,19 @@
+# Stow の既定 ignore を保持し、設定のバックアップと端末固有設定を除外する。
+RCS
+.+,v
+CVS
+\.\#.+
+\.cvsignore
+\.svn
+_darcs
+\.hg
+\.git
+\.gitignore
+\.gitmodules
+.+~
+\#.*\#
+^/README.*
+^/LICENSE.*
+^/COPYING
+^/\.claude/settings\.json\.bak$
+^/\.claude/settings\.machine\.json$

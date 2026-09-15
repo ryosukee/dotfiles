@@ -1,3 +1,7 @@
 nexttask.md
 __pycache__/
 *.py[cod]
+
+# Claude / Orca が symlink の参照先に作るバックアップと端末固有設定
+stow/claude/.claude/settings.json.bak
+stow/claude/.claude/settings.machine.json
