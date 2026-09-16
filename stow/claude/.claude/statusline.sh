@@ -1240,22 +1240,28 @@ if [ -n "$transcript_path" ] && [ -f "$transcript_path" ]; then
 fi
 
 # --- cache-keepalive: このセッションで keepalive が動いているか ---
-# cache-keepalive skill (cc-marketplace の plugin) は Monitor で常駐ループを
-# 起こす。そのプロセスのコマンドラインには transcript path と "cache-keepalive"
-# の両方が入るので、pgrep で当てられる。skill 自身の status サブコマンドも
-# 同じ判定をしている。
-#
-# コスト: pgrep -f は全プロセスのコマンドラインを走査するため実測 ~91ms
-# (985 プロセス時。jq 1 回が ~13ms)。キャッシュを挟まず毎回引く。
-# statusLine のタイムアウトで line2/3 が落ちる症状が出たら、判定結果を
-# /tmp/claude-status/ へ数十秒キャッシュする形に変える。
-#
-# tasks/ の output ファイルでは判定できない。停止済みタスクの output も
-# 残るため、ファイルの存在と生存が一致しない。
+# cache-keepalive plugin (cc-marketplace) の監視プロセスは、pid を
+# ~/.claude/plugins/data/cache-keepalive-cc-tools/keepalive-{session_id}.pid に書く。
+# その pid の生死 (kill -0) に加え、コマンドラインに plugin 名 cache-keepalive と
+# --session-id {session_id} が入っていることを照合する。kill -0 だけだと、監視プロセスが
+# 死んだ後に同じ pid が別プロセスへ再利用されたとき誤って「動いている」と出る。
+# 照合をこの 2 点に限るのは、plugin の版数ディレクトリや配置が変わっても壊れないようにするため。
+# plugin 側の report-status.sh も同じ判定をしている。
+# pgrep -f の全プロセス走査 (実測 ~91ms) と違い、対象 1 プロセスの照会だけで済む。
 ka_text=""; ka_fmt=""
-if [ -n "$transcript_path" ] && pgrep -f "$transcript_path.*cache-keepalive" >/dev/null 2>&1; then
-  ka_text=" ⟳ keepalive"
-  ka_fmt=$(printf ' \033[2m⟳ keepalive\033[0m')
+if [ -n "$session_id" ] && [ "$session_id" != "null" ]; then
+  _ka_pid_file="$HOME/.claude/plugins/data/cache-keepalive-cc-tools/keepalive-${session_id}.pid"
+  _ka_pid=""
+  [ -f "$_ka_pid_file" ] && _ka_pid=$(head -1 "$_ka_pid_file" 2>/dev/null)
+  if [ -n "$_ka_pid" ] && kill -0 "$_ka_pid" 2>/dev/null; then
+    _ka_cmd=$(ps -p "$_ka_pid" -o command= 2>/dev/null || true)
+    case "$_ka_cmd" in
+      *cache-keepalive*"--session-id ${session_id}"*)
+        ka_text=" ⟳ keepalive"
+        ka_fmt=$(printf ' \033[2m⟳ keepalive\033[0m')
+        ;;
+    esac
+  fi
 fi
 
 # --- 組み立て ---
