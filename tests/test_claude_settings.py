@@ -18,7 +18,7 @@ ABBR = ROOT / "stow/fish/.config/fish/functions/__claude_abbr.fish"
 class ClaudeSettingsTests(unittest.TestCase):
     def test_shared_settings_exclude_machine_keys(self):
         settings = json.loads((PACKAGE / ".claude/settings.json").read_text())
-        self.assertNotIn("CLAUDE_HTML_COMMUNICATION_BASE_URL", settings["env"])
+        self.assertNotIn("HTML_COMMUNICATION_BASE_URL", settings["env"])
         self.assertNotIn("product-boilerplate", settings["extraKnownMarketplaces"])
         for plugin in ("ja-writing-ambiguity@cc-tools", "diffo@cc-tools"):
             self.assertIs(settings["enabledPlugins"][plugin], True)

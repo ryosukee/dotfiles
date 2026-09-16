@@ -85,6 +85,8 @@ Claude Code 用の agent 定義を Codex に読ませる対応は保留する。
 
 `~/.codex/config.toml` には Codex が更新する hook trust hash と
 端末固有の project path が含まれるため、stow しない。
+端末固有の環境変数も `~/.codex/config.toml` の
+`shell_environment_policy.set` に置く。
 共通の静的設定は `stow/codex/.codex/dotfiles.config.toml` で管理し、
 `~/.codex/dotfiles.config.toml` へ stow する。
 Codex は `~/.codex/config.toml` を読み込んだ後に profile の設定を重ね、

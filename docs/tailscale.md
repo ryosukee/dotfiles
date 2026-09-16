@@ -81,16 +81,28 @@ Tailscale 停止時は ts.net 名の解決が失敗するだけ。ファイル�
 ## claude-html-communication 用の環境変数
 
 html-communication skill は配置先と配信 URL を環境変数から解決する。
-値は stow 管理外の `~/.claude/settings.machine.json` の `env` で設定する。
+値は Claude Code と Codex の両方に設定する。
 
-- `CLAUDE_HTML_COMMUNICATION_BASE_URL`: その端末の Tailscale Serve 配信 URL
+- `HTML_COMMUNICATION_BASE_URL`: その端末の Tailscale Serve 配信 URL
 
 ホスト名・tailnet 名が変わったらこの値を更新する。
 
-`CLAUDE_HTML_COMMUNICATION_DIR` は設定しない。未設定時は skill 側の既定値
+Claude Code では stow 管理外の `~/.claude/settings.machine.json` の `env` に置く。
+Codex では stow 管理外の `~/.codex/config.toml` の
+`shell_environment_policy.set` に置く。
+
+```toml
+[shell_environment_policy.set]
+HTML_COMMUNICATION_BASE_URL = "https://<host>.<tailnet>.ts.net"
+```
+
+`HTML_COMMUNICATION_DIR` は設定しない。未設定時は skill 側の既定値
 `~/.local/share/claude-html-communication` が使われ、それがこのマシンでの配置先と一致する。
 
-追加 JSON を `--settings` で指定したセッションでは、起動元シェルの env に依存せず配信 URL を利用できる。
+設定後に新しいセッションを開始する。
+Claude Code で追加 JSON を `--settings` で指定したセッションと、
+Codex が起動時に `config.toml` を読み込んだセッションでは、
+起動元シェルの env に依存せず配信 URL を利用できる。
 fish の abbreviation とアプリ別の起動引数は、
 [Claude Code と Codex を両立するユーザー設定](./ai-agent-environment.md#claude-code-の共有設定と端末固有設定) を参照する。
 
