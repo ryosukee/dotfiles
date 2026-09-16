@@ -163,6 +163,8 @@ Python のテストディレクトリ名では `-` を `_` に置き換える。
 | skill | 用途 | 本体 | インストール |
 | --- | --- | --- | --- |
 <!-- markdownlint-disable-next-line MD013 -->
+| archify | architecture、workflow、sequence、data flow、lifecycle / state diagram を操作可能な HTML Viewer として生成する | skill 同梱 CLI (Node.js 18 以上) | `npx skills add tt-a1i/archify --skill archify -g -a claude-code` |
+<!-- markdownlint-disable-next-line MD013 -->
 | diffo | ローカルで動く diff レビュー。人間とエージェントが行アンカーで双方向にやり取りする | `npx -y @diffohq/diffo` (インストール不要) | `npx skills add DiffoHQ/diffo --skill diffo -g -a claude-code` |
 
 一覧の確認は `npx skills list -g`、更新は `npx skills update`。
