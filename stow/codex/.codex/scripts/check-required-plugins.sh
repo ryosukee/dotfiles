@@ -12,6 +12,7 @@ while [ -L "$script_path" ]; do
 done
 script_dir=${script_path%/*}
 [ "$script_dir" = "$script_path" ] && script_dir=.
+script_dir=$(CDPATH= cd "$script_dir" && pwd -P) || exit 1
 repo_root=$(CDPATH= cd "$script_dir/../../../.." && pwd -P) || exit 1
 marketplace=$repo_root/.agents/plugins/marketplace.json
 

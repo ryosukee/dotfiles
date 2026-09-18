@@ -127,6 +127,15 @@ class RequiredPluginTests(unittest.TestCase):
         linked.symlink_to(self.script)
         self.assertIn("rules@settings", self.run_hook(script=linked))
 
+    def test_stow_directory_symlink_resolves_source_marketplace(self):
+        linked = self.root / "home/.codex/scripts"
+        linked.parent.mkdir(parents=True)
+        linked.symlink_to(self.script.parent, target_is_directory=True)
+        self.assertIn(
+            "rules@settings",
+            self.run_hook(script=linked / "check-required-plugins.sh"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
