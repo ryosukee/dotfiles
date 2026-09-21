@@ -4,8 +4,8 @@
 
 [[mgr.prepend_keymap]]
 on   = "M"
-run  = 'shell "mpv %h" --orphan'
-desc = "Play hovered file with mpv (GUI)"
+run  = 'shell "mpv --image-display-duration=inf --autofit=100%x100% %h" --orphan'
+desc = "Open hovered media with mpv (GUI)"
 
 [[mgr.prepend_keymap]]
 on   = "T"
