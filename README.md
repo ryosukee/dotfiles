@@ -18,7 +18,7 @@ dotfiles/
 │   ├── fish/      # Fish shell
 │   ├── lazygit/   # lazygit (delta 連携)
 │   ├── tig/       # tig
-│   ├── mise/      # mise global tools (node/go/python/ruby + go tools)
+│   ├── mise/      # mise global tools (node/go/python/ruby/uv + go tools)
 │   ├── bin/       # 自作 CLI (~/.local/bin/cc-ask-dotfiles 等)
 │   ├── claude/    # Claude Code 設定 (settings, statusline)
 │   ├── codex/     # Codex のユーザー共通指示と profile 設定
@@ -108,7 +108,7 @@ Claude Code の端末固有設定と起動引数は、
 | ツール | 用途 | インストール |
 | --- | --- | --- |
 | mise | 言語ランタイム管理 (Node, Python, Go 等) | `brew install mise` |
-| uv | Python パッケージマネージャ | `brew install uv` |
+| uv | Python パッケージマネージャ | mise (`stow/mise` の global tools) |
 
 ### CLI ユーティリティ
 

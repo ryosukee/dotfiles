@@ -153,8 +153,6 @@ brew "tesseract"
 brew "tig"
 # Terminal multiplexer
 brew "tmux"
-# Extremely fast Python package installer and resolver, written in Rust
-brew "uv"
 # Executes a program periodically, showing output fullscreen
 brew "watch"
 # Library to create, extract, and modify Windows Imaging files
