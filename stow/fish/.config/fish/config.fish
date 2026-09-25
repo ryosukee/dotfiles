@@ -16,7 +16,11 @@ abbr -a gg git-graph
 abbr -a claude --function __claude_abbr
 abbr -a codex codex --profile dotfiles --dangerously-bypass-approvals-and-sandbox
 
-mise activate fish | source
+if status is-interactive
+    mise activate fish | source
+else
+    mise activate fish --shims | source
+end
 
 set GHQ_SELECTOR fzf
 # ghq.root は git config だと ~/$HOME が展開されないためここで設定する
