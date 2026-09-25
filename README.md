@@ -16,6 +16,7 @@ dotfiles/
 │   ├── nvim/      # Neovim (LazyVim)
 │   ├── git/       # gitconfig, gitignore
 │   ├── fish/      # Fish shell
+│   ├── shell/     # login zsh / bash と対話 shell の mise 初期化
 │   ├── lazygit/   # lazygit (delta 連携)
 │   ├── tig/       # tig
 │   ├── mise/      # mise global tools (node/go/python/ruby/uv + go tools)
@@ -54,7 +55,7 @@ mv ~/.config/git/config ~/.config/git/config.bak
 
 # 4. symlink を作成
 cd "$(ghq root)/github.com/ryosukee/dotfiles"
-stow -d stow -t ~ nvim git fish lazygit tig bin codex mise herdr yazi
+stow -d stow -t ~ nvim git fish shell lazygit tig bin codex mise herdr yazi
 stow --no-folding -d stow -t ~ claude
 
 # Claude Code と Codex でユーザー共通 skill を共有
@@ -109,6 +110,29 @@ Claude Code の端末固有設定と起動引数は、
 | --- | --- | --- |
 | mise | 言語ランタイム管理 (Node, Python, Go 等) | `brew install mise` |
 | uv | Python パッケージマネージャ | mise (`stow/mise` の global tools) |
+
+`stow/shell` は login zsh・login bash で mise shims を先に選び、対話 shell で mise を activate する。
+fresh shell を開いた後、グローバル既定の Go `1.27.1`、Node.js `24.21.0`、golangci-lint `2.11.4` は
+`stow/mise` の完全固定版を使う。repository に `.mise.toml` があればその project override が優先するため、
+repository command は `mise exec -- <command>` で実行する。Homebrew の Node.js は他 formula の依存として残るが、
+通常の `node` を選ぶ PATH の選択元にはしない。
+
+### mise と shell の再構築順序
+
+既存環境をこの構成へ移す場合は、次の順に実行する。
+
+1. `~/.zprofile`、`~/.zshrc`、`~/.bash_profile`、`~/.bashrc`、`~/.profile` の既存の通常ファイルを退避する。既存設定に必要な内容があれば、退避後に `stow/shell` の対応ファイルへ移す。
+2. `stow/mise` を配置し、`mise install` で config に固定した Go `1.27.1`、Node.js `24.21.0`、golangci-lint `2.11.4` を導入する。
+3. `stow/shell` を配置する。個別に再配置する場合は、`stow -d "$(ghq root)/github.com/ryosukee/dotfiles/stow" -t "$HOME" mise shell` を使う。
+4. 新しい zsh、bash、fish それぞれで global version を確認し、feedmarks のように `.mise.toml` を持つ repository では project override も確認する。global では Go `1.27.1` と Node.js `24.21.0`、feedmarks では Go `1.26.8` と Node.js `22.23.3` が返ることを確認する。
+
+```bash
+zsh -lic 'mise current && go version && node --version && mise -C /path/to/feedmarks current && mise -C /path/to/feedmarks exec -- go version && mise -C /path/to/feedmarks exec -- node --version'
+bash -lic 'mise current && go version && node --version && mise -C /path/to/feedmarks current && mise -C /path/to/feedmarks exec -- go version && mise -C /path/to/feedmarks exec -- node --version'
+fish -lic 'mise current; and go version; and node --version; and mise -C /path/to/feedmarks current; and mise -C /path/to/feedmarks exec -- go version; and mise -C /path/to/feedmarks exec -- node --version'
+```
+
+5. すべての確認が成功した後だけ、重複する Homebrew Go を `brew uninstall go` で除去する。Homebrew Node.js は依存として残し、mise shims より先に置かない。
 
 ### CLI ユーティリティ
 
