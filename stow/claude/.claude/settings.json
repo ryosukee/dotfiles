@@ -262,13 +262,27 @@
     "usage-line@cc-tools": true,
     "github-pr@cc-tools": true,
     "ja-writing-ambiguity@cc-tools": true,
-    "diffo@cc-tools": true
+    "diffo@cc-tools": true,
+    "run-records@agent-run-records": true,
+    "agent-kanban@agent-kanban": true
   },
   "extraKnownMarketplaces": {
     "claude-code-gdscript": {
       "source": {
         "source": "github",
         "repo": "twaananen/claude-code-gdscript"
+      }
+    },
+    "agent-run-records": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/ryosukee/agent-run-records.git"
+      }
+    },
+    "agent-kanban": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/ryosukee/agent-kanban.git"
       }
     }
   },
