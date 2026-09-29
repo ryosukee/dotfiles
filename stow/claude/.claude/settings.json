@@ -5,8 +5,6 @@
     "ENABLE_TOOL_SEARCH": "true",
     "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
     "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1",
-    "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1",
-    "CLAUDE_CODE_ENABLE_TASKS": "1",
     "EDITOR": "nvim",
     "CLAUDE_CODE_THRIFTY_SONIC": "false"
   },
@@ -95,6 +93,7 @@
       "Bash(tmux capture-pane *)"
     ],
     "deny": [
+      "AskUserQuestion",
       "Bash(*.netrc*)",
       "Bash(/usr/bin/security find-generic-password*)",
       "Bash(security dump-keychain*)",
