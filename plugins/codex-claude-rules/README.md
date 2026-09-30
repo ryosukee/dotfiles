@@ -16,15 +16,19 @@ Codex の実行中のセッションに追加の指示として渡す。
   起動ディレクトリまでの各階層の `.claude/rules` を探す。
   `paths` キーがない rule だけを渡し、
   `paths: []` は渡さない
+- SubagentStart は、子エージェント（`spawn_agent` で起動したもの）に SessionStart と同じ rule を渡す。
+  子エージェントには SessionStart で渡した文脈が届かないため
 - PreToolUse はツール入力から対象ファイルのパスを検出し、そのファイルまでの
   階層にある `.claude/rules` も探す。対象パスと `paths` が一致した rule の本文を渡す。
   project rule の `paths` は、その rule を含む `.claude` の親ディレクトリを
   基準に照合する。`~/.claude/rules` の
   `paths` は起動ディレクトリを基準にする
-- 同じ rule ファイルの同じ本文はセッション内で重複して渡さない。
+- 同じ rule ファイルの同じ本文は、同じエージェントに重複して渡さない。
+  子エージェントは親と同じ `session_id` を持つので、渡した記録は hook 入力の `agent_id` でも分け、
+  親がすでに受け取った rule も子エージェントには渡す。
   圧縮後の SessionStart で記録を初期化し、`paths` のない rule を再送する。
   `paths` のある rule は、次に一致した PreToolUse で再送する。
-  SessionEnd で記録を削除する
+  SubagentStop で子エージェントの記録を、SessionEnd でセッション全体の記録を削除する
 - 起動ディレクトリ外のファイルは、絶対パスで指定しても対象にしない。
   複雑な shell コマンドなどで対象パスを検出できなければ、該当 rule は渡さない。
   コマンド内の `cd` による移動先は推測せず、コマンド文字列からはパスを選ばない

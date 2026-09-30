@@ -12,6 +12,17 @@
         ]
       }
     ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/codex-claude-rules\"",
+            "additionalContextLimit": 0
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "hooks": [
@@ -19,6 +30,16 @@
             "type": "command",
             "command": "python3 \"${PLUGIN_ROOT}/scripts/codex-claude-rules\"",
             "additionalContextLimit": 0
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/scripts/codex-claude-rules\""
           }
         ]
       }

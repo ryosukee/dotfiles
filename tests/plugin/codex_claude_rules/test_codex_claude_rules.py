@@ -144,9 +144,42 @@ class RuleTests(unittest.TestCase):
     def test_session_end_removes_state(self):
         self.add_rule(self.repo, "root.md", [], "root rule")
         self.invoke(self.event("SessionStart", source="startup"))
+        self.invoke(self.event("SubagentStart", agent_id="child", agent_type="default"))
+        legacy = rules.state_root() / f"{rules._digest('test-session')}.json"
+        legacy.write_text("{}", encoding="utf-8")
         self.assertTrue(rules.state_path("test-session").exists())
+        self.assertTrue(rules.state_path("test-session", "child").exists())
         self.invoke(self.event("SessionEnd"))
-        self.assertFalse(rules.state_path("test-session").exists())
+        self.assertFalse(rules.session_dir("test-session").exists())
+        self.assertFalse(legacy.exists())
+
+    def test_subagent_start_delivers_always_rules(self):
+        self.add_rule(self.home, "user.md", [], "user rule")
+        self.add_rule(self.cwd, "app.md", ["docs/**"], "conditional rule")
+        self.invoke(self.event("SessionStart", source="startup"))
+        result = self.invoke(self.event("SubagentStart", agent_id="child", agent_type="default"))
+        self.assertEqual(result["hookSpecificOutput"]["hookEventName"], "SubagentStart")
+        context = result["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("user rule", context)
+        self.assertNotIn("conditional rule", context)
+
+    def test_subagent_keeps_its_own_delivered_rules(self):
+        # Subagents share the parent's session_id; a rule the parent already got must still reach the child.
+        self.add_rule(self.repo, "root.md", ["projects/*/docs/planning/**"], "root rule")
+        read = {"tool_name": "Bash", "tool_input": {"command": "sed -n '1,20p' docs/planning/a.md"}}
+        self.assertIn("root rule", self.invoke(self.event("PreToolUse", **read))["hookSpecificOutput"]["additionalContext"])
+        child = self.event("PreToolUse", agent_id="child", agent_type="default", **read)
+        self.assertIn("root rule", self.invoke(child)["hookSpecificOutput"]["additionalContext"])
+        self.assertIsNone(self.invoke(child))
+        self.assertIsNone(self.invoke(self.event("PreToolUse", **read)))
+
+    def test_subagent_stop_removes_only_the_child_state(self):
+        self.add_rule(self.repo, "root.md", [], "root rule")
+        self.invoke(self.event("SessionStart", source="startup"))
+        self.invoke(self.event("SubagentStart", agent_id="child", agent_type="default"))
+        self.invoke(self.event("SubagentStop", agent_id="child", agent_type="default"))
+        self.assertFalse(rules.state_path("test-session", "child").exists())
+        self.assertTrue(rules.state_path("test-session").exists())
 
 
 if __name__ == "__main__":

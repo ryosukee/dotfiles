@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import sys
 from pathlib import Path
 
@@ -192,24 +193,49 @@ def matching_rules(cwd: Path, target: Path | None):
         yield source, body
 
 
-def state_path(session_id: str):
+def _digest(value: str):
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def state_root():
     root = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local" / "state")))
-    root = root / "codex-claude-rules"
-    root.mkdir(parents=True, exist_ok=True)
-    name = hashlib.sha256(session_id.encode()).hexdigest()
-    return root / f"{name}.json"
+    return root / "codex-claude-rules"
+
+
+def session_dir(session_id: str):
+    return state_root() / _digest(session_id)
+
+
+def state_path(session_id: str, agent_id: str | None = None):
+    """Delivered rules per thread. Subagents share the parent's session_id, so key them by agent_id too."""
+    directory = session_dir(session_id)
+    directory.mkdir(parents=True, exist_ok=True)
+    name = f"agent-{_digest(agent_id)}" if agent_id else "main"
+    return directory / f"{name}.json"
+
+
+def remove_state(state: Path):
+    state.unlink(missing_ok=True)
+    state.with_suffix(".lock").unlink(missing_ok=True)
 
 
 def run(event: dict):
     kind = event.get("hook_event_name")
-    if kind not in {"SessionStart", "PreToolUse", "SessionEnd"}:
+    if kind not in {"SessionStart", "SubagentStart", "PreToolUse", "SubagentStop", "SessionEnd"}:
+        return
+    session_id = str(event["session_id"])
+    agent_id = event.get("agent_id") or None
+    if kind == "SessionEnd":
+        shutil.rmtree(session_dir(session_id), ignore_errors=True)
+        # State written before per-agent records were keyed by session only.
+        remove_state(state_root() / f"{_digest(session_id)}.json")
+        return
+    if kind == "SubagentStop":
+        if agent_id:
+            remove_state(state_path(session_id, agent_id))
         return
     cwd = Path(event["cwd"]).resolve()
-    state = state_path(str(event["session_id"]))
-    if kind == "SessionEnd":
-        state.unlink(missing_ok=True)
-        state.with_suffix(".lock").unlink(missing_ok=True)
-        return
+    state = state_path(session_id, agent_id)
     lock = state.with_suffix(".lock")
     with lock.open("a+") as guard:
         fcntl.flock(guard, fcntl.LOCK_EX)
@@ -217,7 +243,8 @@ def run(event: dict):
             delivered = json.loads(state.read_text(encoding="utf-8")) if state.exists() else {}
         except (ValueError, OSError):
             delivered = {}
-        if kind == "SessionStart":
+        # Subagents do not get the SessionStart context; SubagentStart gives them the always rules.
+        if kind in {"SessionStart", "SubagentStart"}:
             delivered = {}
             targets = [None]
         else:
