@@ -53,6 +53,20 @@ tailscale serve --https=443 off                  # 解除
 
 ルート URL（`https://<ホスト名>.<tailnet 名>.ts.net/`）で index.html が配信される。
 
+## agent-run-records の Web UI の serve 設定
+
+同じホストの 443 番の `/runs` に、agent-run-records の Web UI（`127.0.0.1:8787`）を載せる。
+Tailscale Serve はパスが最も長く一致した配信先を選ぶので、`/` の claude-html-communication と並べられる。
+サーバの起動と画面は [agent-run-records の README](https://github.com/ryosukee/agent-run-records#web-ui) を参照する。
+
+```sh
+sudo tailscale serve --bg --set-path /runs http://127.0.0.1:8787 # 初回のみ。以降は永続
+sudo tailscale serve --https=443 --set-path /runs off             # 解除。/ の配信は残る
+```
+
+`/` にディレクトリの配信があると、serve の設定を変えるたびに root の権限が要る。
+operator の設定（`tailscale set --operator=$USER`）だけでは、`401 Unauthorized` で拒まれる。
+
 ## ts.net の名前解決（split DNS）
 
 OSS 版に乗り換えると、Mac 上で `*.ts.net` の名前が引けなくなることがある。対処は次の 1 行。
