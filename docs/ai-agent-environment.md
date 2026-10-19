@@ -83,14 +83,19 @@ Claude Code 用の agent 定義を Codex に読ませる対応は保留する。
 
 ## stow 管理する Codex の config.toml は profile に分ける
 
-`~/.codex/config.toml` には Codex が更新する hook trust hash と
-端末固有の project path が含まれるため、stow しない。
+`~/.codex/config.toml` には hook trust hash や端末固有の project path を置くため、stow しない。
 端末固有の環境変数も `~/.codex/config.toml` の
 `shell_environment_policy.set` に置く。
 共通の静的設定は `stow/codex/.codex/dotfiles.config.toml` で管理し、
 `~/.codex/dotfiles.config.toml` へ stow する。
 Codex は `~/.codex/config.toml` を読み込んだ後に profile の設定を重ね、
 同じ設定項目には profile の値を使う。
+
+`--profile dotfiles` で起動した Codex は、hook の信頼や project の trust を
+`dotfiles.config.toml` に書き込む。
+一方、`codex plugin add` や `codex mcp add` は `~/.codex/config.toml` に書き込む。
+どちらのファイルにも置き場所の違う項目が入るため、`dotfiles.config.toml` を commit する前に両方を棚卸しする。
+手順は [Codex の 2 つの設定ファイル](../.claude/skills/commit-symlinked-changes/references/codex-config.md) に従う。
 
 > [!IMPORTANT]
 > Codex は profile を自動で選択しない。stow 管理する設定値を反映するには、

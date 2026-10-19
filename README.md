@@ -28,6 +28,7 @@ dotfiles/
 │   ├── yazi/      # Yazi
 │   └── .stow-local-ignore
 ├── .agents/plugins/ # Codex marketplace の定義
+├── .claude/skills/ # この repo を編集するときの skill (.agents/skills から symlink)
 ├── plugins/       # 環境設定に必要な plugin 本体
 ├── scripts/       # 個別の設定補助コマンド
 ├── tests/plugin/  # plugin ごとのテスト (配布物には含めない)
@@ -36,7 +37,7 @@ dotfiles/
 ```
 
 `stow/` 配下の各設定ディレクトリが stow package。
-`.agents/plugins/`、`plugins/`、`tests/` はリポジトリ内で管理し、stow しない。
+`.agents/`、`.claude/`、`plugins/`、`tests/` はリポジトリ内で管理し、stow しない。
 
 ## セットアップ
 
