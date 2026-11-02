@@ -525,478 +525,478 @@ if [ -n "$session_pct" ] && [ "$session_pct" != "ERROR" ]; then
     left_fmt="${left_fmt}$(printf ' %b➤\033[0m %b%s\033[0m' \
       "$META_ICON" "$META_ENDTIME" "$session_reset")"
   fi
+fi
 
-  # ---------------------------------------------------------------------------
-  # 左側: 週間レートリミット — 入力のパースと残り時間の計算
-  # JSON から使用率・リセット日時を取得し、リセットまでの残り時間を算出する。
-  # 残り時間は最大単位＋次単位で表示する（例: 4d18h / 18h30m / 45m）。
-  # 依存: jq, date, bc
-  # ---------------------------------------------------------------------------
-  # weekly_pct / weekly_resets_at は top-level の一括 jq で取得済み
-  weekly_reset=""          # リセット日時の表示文字列 (例: 3/28 21:45)
-  weekly_remaining=""      # 残り時間の表示文字列 (例: 4d18h)
-  weekly_remaining_secs=0  # 残り秒数（per day 計算用）
-  weekly_per_day=""        # 1日あたりの予算 pp (例: 18)
+# ---------------------------------------------------------------------------
+# 左側: 週間レートリミット — 入力のパースと残り時間の計算
+# JSON から使用率・リセット日時を取得し、リセットまでの残り時間を算出する。
+# 残り時間は最大単位＋次単位で表示する（例: 4d18h / 18h30m / 45m）。
+# 依存: jq, date, bc
+# ---------------------------------------------------------------------------
+# weekly_pct / weekly_resets_at は top-level の一括 jq で取得済み
+weekly_reset=""          # リセット日時の表示文字列 (例: 3/28 21:45)
+weekly_remaining=""      # 残り時間の表示文字列 (例: 4d18h)
+weekly_remaining_secs=0  # 残り秒数（per day 計算用）
+weekly_per_day=""        # 1日あたりの予算 pp (例: 18)
 
-  if [ -n "$weekly_resets_at" ] && [ "$weekly_resets_at" != "null" ]; then
-    weekly_reset=$(date -r "${weekly_resets_at%.*}" "+%-m/%-d %H:%M" 2>/dev/null)
-    weekly_remaining_secs=$(( ${weekly_resets_at%.*} - $(date +%s) ))
-    [ "$weekly_remaining_secs" -lt 0 ] && weekly_remaining_secs=0
+if [ -n "$weekly_resets_at" ] && [ "$weekly_resets_at" != "null" ]; then
+  weekly_reset=$(date -r "${weekly_resets_at%.*}" "+%-m/%-d %H:%M" 2>/dev/null)
+  weekly_remaining_secs=$(( ${weekly_resets_at%.*} - $(date +%s) ))
+  [ "$weekly_remaining_secs" -lt 0 ] && weekly_remaining_secs=0
 
-    # 残り時間を最大単位＋次単位にフォーマットする。単位間は空白 + 2桁 zero-pad で揃える。
-    # 1日以上: `Nd NNh` (0h なら Nd) / 1時間以上: `Nh NNm` (0m なら Nh) / 1時間未満: Nm
-    wr_days=$(( weekly_remaining_secs / 86400 ))
-    wr_hours=$(( (weekly_remaining_secs % 86400) / 3600 ))
-    wr_mins=$(( (weekly_remaining_secs % 3600) / 60 ))
-    if [ "$wr_days" -gt 0 ] && [ "$wr_hours" -gt 0 ]; then
-      weekly_remaining=$(printf '%dd %02dh' "$wr_days" "$wr_hours")
-    elif [ "$wr_days" -gt 0 ]; then
-      weekly_remaining="${wr_days}d"
-    elif [ "$wr_hours" -gt 0 ] && [ "$wr_mins" -gt 0 ]; then
-      weekly_remaining=$(printf '%dh %02dm' "$wr_hours" "$wr_mins")
-    elif [ "$wr_hours" -gt 0 ]; then
-      weekly_remaining="${wr_hours}h"
-    else
-      weekly_remaining="${wr_mins}m"
+  # 残り時間を最大単位＋次単位にフォーマットする。単位間は空白 + 2桁 zero-pad で揃える。
+  # 1日以上: `Nd NNh` (0h なら Nd) / 1時間以上: `Nh NNm` (0m なら Nh) / 1時間未満: Nm
+  wr_days=$(( weekly_remaining_secs / 86400 ))
+  wr_hours=$(( (weekly_remaining_secs % 86400) / 3600 ))
+  wr_mins=$(( (weekly_remaining_secs % 3600) / 60 ))
+  if [ "$wr_days" -gt 0 ] && [ "$wr_hours" -gt 0 ]; then
+    weekly_remaining=$(printf '%dd %02dh' "$wr_days" "$wr_hours")
+  elif [ "$wr_days" -gt 0 ]; then
+    weekly_remaining="${wr_days}d"
+  elif [ "$wr_hours" -gt 0 ] && [ "$wr_mins" -gt 0 ]; then
+    weekly_remaining=$(printf '%dh %02dm' "$wr_hours" "$wr_mins")
+  elif [ "$wr_hours" -gt 0 ]; then
+    weekly_remaining="${wr_hours}h"
+  else
+    weekly_remaining="${wr_mins}m"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# 左側: 今日の消費ポイント (today セクション) + cycle day 履歴
+# weekly cycle (7 日) 内の 24h スロットを 1 day として扱う。
+# Day 境界は resets_at から逆算した 24h 間隔 (カレンダー 0:00 ではない)。
+#
+# === State 設計 (v4) ===
+# 持つべき状態: 各 day の「朝 (= day 境界時) の weekly_pct」のスタックのみ。
+#   history: [{day_start_ts, morning_pct}, ...] newest-first、最大 7 エントリ
+# cycle 情報 (ends_at, day_idx, day_start) や現時点の weekly_pct は JSON から
+# 毎回 derive。これらを state に持たせると複数フィールドを原子的に更新できず、
+# 「ends_at は新 cycle なのに day_idx は前 cycle の値」のような部分更新の不整合が
+# 起きる。毎回 derive なら単一入力 (resets_at) から一貫性が保たれる。
+#
+# === State 更新ルール ===
+# 0. 5h.resets_at < now (= 入力 stale)        → skip (全ルールより先に評価)
+# 1. history 空                               → push 新 entry
+# 2. head.day_start_ts < cycle_start         → 前 cycle 所属。破棄して新 cycle
+#                                              初日として仕切り直し
+# 3. current_day_start > head.day_start_ts   → day 進行 (同 cycle)。push
+# 4. current_day_start < head.day_start_ts   → backward (stale 入力) → skip
+# 5. 同日, 境界 +60s 以内, input_pct > head  → max-update (境界 race 補正)
+# 6. 同日, それ以外                            → skip (書き込みゼロ)
+#
+# ルール 0 の理由: 複数セッション環境で Claude Code 本体は rate_limits を
+# プロセス内にキャッシュし、API 呼び出し時のみ refresh する。アイドル session
+# は古い weekly_pct を送り続けるため、5h cycle が切り替わっても自分の
+# resets_at が更新されない → これを stale signal として使う。
+# ルール 5 の理由: day 境界で stale-low な session が先に push してしまった
+# ケースに対する補正。60s = refresh 2 周期で全 session が 1 回は走る想定。
+# 60s 以降は input pct に今日の成長が乗ってくるので max-update すると
+# morning_pct が膨らんで today_used が消える → 許可しない。
+#
+# Cycle 跨ぎでは旧 cycle の最終日を finalize しない (不正確な値になる)。
+# Sparkline で gap がある日は空バー表示、diff は earlier (古い) entry の使用量
+# として計上 (user 指定動作)。
+#
+# 統計情報永続化のため /tmp ではなく $XDG_STATE_HOME/claude-status/ に置く。
+# 旧 /tmp/claude-status/weekly-snapshot.json (v1/v2) および v3 snap があれば
+# 破棄して v4 で仕切り直し。
+# 依存: jq, date, bc
+# 読み書き: $XDG_STATE_HOME/claude-status/weekly-snapshot.json (v4 スキーマ)
+# 出力例: T:5pp ⏳6h30m 18pp/d
+# ---------------------------------------------------------------------------
+today_used=""            # 今日の消費 pp (= weekly_pct - history[0].morning_pct)
+today_elapsed=""         # cycle day の開始からの経過時間 (例: 6h30m)
+today_history_json="[]"  # JSON 出力用 (per-day pp list、v3 互換形式)
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/claude-status"
+SNAPSHOT_FILE="${STATE_DIR}/weekly-snapshot.json"
+OLD_SNAPSHOT_FILE="/tmp/claude-status/weekly-snapshot.json"
+
+if [ -n "$weekly_pct" ] && [ "$weekly_pct" != "" ] \
+   && [ -n "$weekly_resets_at" ] && [ "$weekly_resets_at" != "null" ]; then
+  weekly_pct_num=$(printf '%.0f' "$weekly_pct")
+  now_ts=$(date +%s)
+  current_resets_at="${weekly_resets_at%.*}"
+  cycle_start=$(( current_resets_at - 7 * 86400 ))
+
+  # day_idx = 1..7 (24h スロット)。7 超えは cycle 側の resets_at 更新で処理される想定。
+  current_day_idx=$(( (now_ts - cycle_start) / 86400 + 1 ))
+  [ "$current_day_idx" -lt 1 ] && current_day_idx=1
+  [ "$current_day_idx" -gt 7 ] && current_day_idx=7
+  current_day_start=$(( cycle_start + (current_day_idx - 1) * 86400 ))
+
+  mkdir -p "$STATE_DIR"
+
+  # legacy snapshot 掃除
+  [ -f "$OLD_SNAPSHOT_FILE" ] && rm -f "$OLD_SNAPSHOT_FILE"
+  # 古い tmp ファイル掃除 (5 分以上放置されてるものは orphan とみなす)
+  find "$STATE_DIR" -name "weekly-snapshot.json.tmp.*" -mmin +5 -delete 2>/dev/null || true
+
+  # スナップショット読み取り (v4 のみ、それ以外は fresh start)
+  history_json="[]"
+  if [ -f "$SNAPSHOT_FILE" ]; then
+    snap_version=$(jq -r '.version // 0' "$SNAPSHOT_FILE" 2>/dev/null)
+    if [ "$snap_version" = "4" ]; then
+      loaded=$(jq -c '.history // []' "$SNAPSHOT_FILE" 2>/dev/null)
+      [ -n "$loaded" ] && history_json="$loaded"
     fi
   fi
 
-  # ---------------------------------------------------------------------------
-  # 左側: 今日の消費ポイント (today セクション) + cycle day 履歴
-  # weekly cycle (7 日) 内の 24h スロットを 1 day として扱う。
-  # Day 境界は resets_at から逆算した 24h 間隔 (カレンダー 0:00 ではない)。
-  #
-  # === State 設計 (v4) ===
-  # 持つべき状態: 各 day の「朝 (= day 境界時) の weekly_pct」のスタックのみ。
-  #   history: [{day_start_ts, morning_pct}, ...] newest-first、最大 7 エントリ
-  # cycle 情報 (ends_at, day_idx, day_start) や現時点の weekly_pct は JSON から
-  # 毎回 derive。これらを state に持たせると複数フィールドを原子的に更新できず、
-  # 「ends_at は新 cycle なのに day_idx は前 cycle の値」のような部分更新の不整合が
-  # 起きる。毎回 derive なら単一入力 (resets_at) から一貫性が保たれる。
-  #
-  # === State 更新ルール ===
-  # 0. 5h.resets_at < now (= 入力 stale)        → skip (全ルールより先に評価)
-  # 1. history 空                               → push 新 entry
-  # 2. head.day_start_ts < cycle_start         → 前 cycle 所属。破棄して新 cycle
-  #                                              初日として仕切り直し
-  # 3. current_day_start > head.day_start_ts   → day 進行 (同 cycle)。push
-  # 4. current_day_start < head.day_start_ts   → backward (stale 入力) → skip
-  # 5. 同日, 境界 +60s 以内, input_pct > head  → max-update (境界 race 補正)
-  # 6. 同日, それ以外                            → skip (書き込みゼロ)
-  #
-  # ルール 0 の理由: 複数セッション環境で Claude Code 本体は rate_limits を
-  # プロセス内にキャッシュし、API 呼び出し時のみ refresh する。アイドル session
-  # は古い weekly_pct を送り続けるため、5h cycle が切り替わっても自分の
-  # resets_at が更新されない → これを stale signal として使う。
-  # ルール 5 の理由: day 境界で stale-low な session が先に push してしまった
-  # ケースに対する補正。60s = refresh 2 周期で全 session が 1 回は走る想定。
-  # 60s 以降は input pct に今日の成長が乗ってくるので max-update すると
-  # morning_pct が膨らんで today_used が消える → 許可しない。
-  #
-  # Cycle 跨ぎでは旧 cycle の最終日を finalize しない (不正確な値になる)。
-  # Sparkline で gap がある日は空バー表示、diff は earlier (古い) entry の使用量
-  # として計上 (user 指定動作)。
-  #
-  # 統計情報永続化のため /tmp ではなく $XDG_STATE_HOME/claude-status/ に置く。
-  # 旧 /tmp/claude-status/weekly-snapshot.json (v1/v2) および v3 snap があれば
-  # 破棄して v4 で仕切り直し。
-  # 依存: jq, date, bc
-  # 読み書き: $XDG_STATE_HOME/claude-status/weekly-snapshot.json (v4 スキーマ)
-  # 出力例: T:5pp ⏳6h30m 18pp/d
-  # ---------------------------------------------------------------------------
-  today_used=""            # 今日の消費 pp (= weekly_pct - history[0].morning_pct)
-  today_elapsed=""         # cycle day の開始からの経過時間 (例: 6h30m)
-  today_history_json="[]"  # JSON 出力用 (per-day pp list、v3 互換形式)
+  # head (newest entry) 取得
+  head_day_start=$(jq -r '.[0].day_start_ts // empty' <<< "$history_json" 2>/dev/null)
+  head_morning_pct=$(jq -r '.[0].morning_pct // empty' <<< "$history_json" 2>/dev/null)
 
-  STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/claude-status"
-  SNAPSHOT_FILE="${STATE_DIR}/weekly-snapshot.json"
-  OLD_SNAPSHOT_FILE="/tmp/claude-status/weekly-snapshot.json"
+  # === State 更新判定 ===
+  skip_write=false
+  new_history="$history_json"
 
-  if [ -n "$weekly_pct" ] && [ "$weekly_pct" != "" ] \
-     && [ -n "$weekly_resets_at" ] && [ "$weekly_resets_at" != "null" ]; then
-    weekly_pct_num=$(printf '%.0f' "$weekly_pct")
-    now_ts=$(date +%s)
-    current_resets_at="${weekly_resets_at%.*}"
-    cycle_start=$(( current_resets_at - 7 * 86400 ))
-
-    # day_idx = 1..7 (24h スロット)。7 超えは cycle 側の resets_at 更新で処理される想定。
-    current_day_idx=$(( (now_ts - cycle_start) / 86400 + 1 ))
-    [ "$current_day_idx" -lt 1 ] && current_day_idx=1
-    [ "$current_day_idx" -gt 7 ] && current_day_idx=7
-    current_day_start=$(( cycle_start + (current_day_idx - 1) * 86400 ))
-
-    mkdir -p "$STATE_DIR"
-
-    # legacy snapshot 掃除
-    [ -f "$OLD_SNAPSHOT_FILE" ] && rm -f "$OLD_SNAPSHOT_FILE"
-    # 古い tmp ファイル掃除 (5 分以上放置されてるものは orphan とみなす)
-    find "$STATE_DIR" -name "weekly-snapshot.json.tmp.*" -mmin +5 -delete 2>/dev/null || true
-
-    # スナップショット読み取り (v4 のみ、それ以外は fresh start)
-    history_json="[]"
-    if [ -f "$SNAPSHOT_FILE" ]; then
-      snap_version=$(jq -r '.version // 0' "$SNAPSHOT_FILE" 2>/dev/null)
-      if [ "$snap_version" = "4" ]; then
-        loaded=$(jq -c '.history // []' "$SNAPSHOT_FILE" 2>/dev/null)
-        [ -n "$loaded" ] && history_json="$loaded"
-      fi
-    fi
-
-    # head (newest entry) 取得
-    head_day_start=$(jq -r '.[0].day_start_ts // empty' <<< "$history_json" 2>/dev/null)
-    head_morning_pct=$(jq -r '.[0].morning_pct // empty' <<< "$history_json" 2>/dev/null)
-
-    # === State 更新判定 ===
-    skip_write=false
-    new_history="$history_json"
-
-    # Stale 入力ガード: 5h.resets_at が過去 = この session の Claude Code 本体は
-    # rate_limits を refresh しておらず、weekly_pct も古い値が固定で来ている。
-    # 詳細: アイドルセッション (API 未呼び出し) は rate_limits がプロセス内
-    # キャッシュのまま更新されないため、複数セッション環境では古い stale 値が
-    # snapshot に push されて morning_pct を壊す。5h cycle が切り替わっても
-    # 自分の resets_at が更新されないことを stale signal として使う。
-    five_resets_int="${five_resets_at%.*}"
-    if [ -n "$five_resets_int" ] && [ "$five_resets_int" != "0" ] \
-       && [ "$five_resets_int" -lt "$now_ts" ] 2>/dev/null; then
-      skip_write=true
-    elif [ -z "$head_day_start" ]; then
-      # 初回: 新 entry で start
-      new_history=$(jq -n \
-        --argjson ts "$current_day_start" \
-        --argjson pct "$weekly_pct_num" \
-        '[{day_start_ts: $ts, morning_pct: $pct}]')
-    elif [ "$head_day_start" -lt "$cycle_start" ] 2>/dev/null; then
-      # head が前 cycle 所属 = cycle 切替検知。history 破棄、新 cycle 初日として仕切り直し
-      new_history=$(jq -n \
-        --argjson ts "$current_day_start" \
-        --argjson pct "$weekly_pct_num" \
-        '[{day_start_ts: $ts, morning_pct: $pct}]')
-    elif [ "$current_day_start" -gt "$head_day_start" ] 2>/dev/null; then
-      # 同 cycle 内 day 進行。push + 現 cycle の entry のみ保持 + 7 件まで
+  # Stale 入力ガード: 5h.resets_at が過去 = この session の Claude Code 本体は
+  # rate_limits を refresh しておらず、weekly_pct も古い値が固定で来ている。
+  # 詳細: アイドルセッション (API 未呼び出し) は rate_limits がプロセス内
+  # キャッシュのまま更新されないため、複数セッション環境では古い stale 値が
+  # snapshot に push されて morning_pct を壊す。5h cycle が切り替わっても
+  # 自分の resets_at が更新されないことを stale signal として使う。
+  five_resets_int="${five_resets_at%.*}"
+  if [ -n "$five_resets_int" ] && [ "$five_resets_int" != "0" ] \
+     && [ "$five_resets_int" -lt "$now_ts" ] 2>/dev/null; then
+    skip_write=true
+  elif [ -z "$head_day_start" ]; then
+    # 初回: 新 entry で start
+    new_history=$(jq -n \
+      --argjson ts "$current_day_start" \
+      --argjson pct "$weekly_pct_num" \
+      '[{day_start_ts: $ts, morning_pct: $pct}]')
+  elif [ "$head_day_start" -lt "$cycle_start" ] 2>/dev/null; then
+    # head が前 cycle 所属 = cycle 切替検知。history 破棄、新 cycle 初日として仕切り直し
+    new_history=$(jq -n \
+      --argjson ts "$current_day_start" \
+      --argjson pct "$weekly_pct_num" \
+      '[{day_start_ts: $ts, morning_pct: $pct}]')
+  elif [ "$current_day_start" -gt "$head_day_start" ] 2>/dev/null; then
+    # 同 cycle 内 day 進行。push + 現 cycle の entry のみ保持 + 7 件まで
+    new_history=$(jq -c \
+      --argjson ts "$current_day_start" \
+      --argjson pct "$weekly_pct_num" \
+      --argjson cs "$cycle_start" \
+      '([{day_start_ts: $ts, morning_pct: $pct}] + [.[] | select(.day_start_ts >= $cs)])[:7]' \
+      <<< "$history_json")
+  elif [ "$current_day_start" -lt "$head_day_start" ] 2>/dev/null; then
+    # backward: stale 入力 → state 触らずスキップ。次の正常 run で回復
+    skip_write=true
+  else
+    # 同日: 通常は書き込みゼロ。
+    # ただし境界直後 60s 以内なら max-update 許可: 14:00 境界での race で
+    # stale-low (5h fresh だが weekly が古い session) が先に push してしまった
+    # 場合に、同 60s 窓内の他 fresh session が観測した高い pct で head を
+    # 上書きする。60s = refresh 2 周期 ≒ 全 session が 1 回は走る時間。
+    # 60s 以降は input pct に「今日の成長」が乗ってくるので max-update すると
+    # morning_pct が膨らむ → skip。
+    elapsed=$(( now_ts - current_day_start ))
+    if [ "$elapsed" -ge 0 ] && [ "$elapsed" -le 60 ] \
+       && [ "$weekly_pct_num" -gt "${head_morning_pct%.*}" ] 2>/dev/null; then
       new_history=$(jq -c \
-        --argjson ts "$current_day_start" \
         --argjson pct "$weekly_pct_num" \
-        --argjson cs "$cycle_start" \
-        '([{day_start_ts: $ts, morning_pct: $pct}] + [.[] | select(.day_start_ts >= $cs)])[:7]' \
+        '.[0].morning_pct = $pct' \
         <<< "$history_json")
-    elif [ "$current_day_start" -lt "$head_day_start" ] 2>/dev/null; then
-      # backward: stale 入力 → state 触らずスキップ。次の正常 run で回復
+    else
       skip_write=true
-    else
-      # 同日: 通常は書き込みゼロ。
-      # ただし境界直後 60s 以内なら max-update 許可: 14:00 境界での race で
-      # stale-low (5h fresh だが weekly が古い session) が先に push してしまった
-      # 場合に、同 60s 窓内の他 fresh session が観測した高い pct で head を
-      # 上書きする。60s = refresh 2 周期 ≒ 全 session が 1 回は走る時間。
-      # 60s 以降は input pct に「今日の成長」が乗ってくるので max-update すると
-      # morning_pct が膨らむ → skip。
-      elapsed=$(( now_ts - current_day_start ))
-      if [ "$elapsed" -ge 0 ] && [ "$elapsed" -le 60 ] \
-         && [ "$weekly_pct_num" -gt "${head_morning_pct%.*}" ] 2>/dev/null; then
-        new_history=$(jq -c \
-          --argjson pct "$weekly_pct_num" \
-          '.[0].morning_pct = $pct' \
-          <<< "$history_json")
-      else
-        skip_write=true
-      fi
     fi
-
-    # 書き出し (必要なときだけ)
-    if [ "$skip_write" != "true" ]; then
-      SNAPSHOT_TMP="${SNAPSHOT_FILE}.tmp.$$"
-      # trap で tmp をクリーンアップ (jq 成功後 mv 前に process kill された場合の残留防止)
-      trap 'rm -f "$SNAPSHOT_TMP" 2>/dev/null' EXIT
-      jq -n --argjson history "$new_history" \
-        '{version: 4, history: $history}' \
-        > "$SNAPSHOT_TMP" && mv "$SNAPSHOT_TMP" "$SNAPSHOT_FILE"
-      history_json="$new_history"
-    fi
-
-    # === Display 派生 ===
-    # today_used = 現 weekly_pct - history[0].morning_pct (clamp 0)
-    head_morning_pct_eff=$(jq -r '.[0].morning_pct // "0"' <<< "$history_json" 2>/dev/null)
-    today_used=$(( weekly_pct_num - ${head_morning_pct_eff%.*} ))
-    [ "$today_used" -lt 0 ] && today_used=0
-
-    # 経過時間
-    elapsed_secs=$(( now_ts - current_day_start ))
-    [ "$elapsed_secs" -lt 0 ] && elapsed_secs=0
-    [ "$elapsed_secs" -gt 86400 ] && elapsed_secs=86400
-    el_hours=$(( elapsed_secs / 3600 ))
-    el_mins=$(( (elapsed_secs % 3600) / 60 ))
-    if [ "$el_hours" -gt 0 ] && [ "$el_mins" -gt 0 ]; then
-      today_elapsed=$(printf '%dh %02dm' "$el_hours" "$el_mins")
-    elif [ "$el_hours" -gt 0 ]; then
-      today_elapsed="${el_hours}h"
-    else
-      today_elapsed="${el_mins}m"
-    fi
-
-    # Per-day pp 配列を history から構築 (sparkline 用)。
-    # ルール: 各 entry の pp = 次に newer な entry の morning_pct との差分。
-    #   (newest = history[0]) の pp は weekly_pct - morning_pct (= today_used)。
-    # gap (day_idx に entry なし) は 0 で空バー表示。
-    # JSON output 用に v3 互換の days array も構築。
-    declare -A pp_by_day_v4
-    declare -A has_data_v4
-    for ((i=1; i<=7; i++)); do
-      pp_by_day_v4[$i]=0
-      has_data_v4[$i]=0
-    done
-
-    # history 全 entry を 1 回の jq 呼び出しで `ts pct` 行列に展開する。
-    # entry 数 × 2〜3 回の jq fork を避けるため mapfile でまとめて読み込む。
-    mapfile -t hist_rows < <(jq -r '.[] | "\(.day_start_ts) \(.morning_pct)"' <<< "$history_json" 2>/dev/null)
-    for ((h=0; h<${#hist_rows[@]}; h++)); do
-      read -r ent_ts ent_pct <<< "${hist_rows[$h]}"
-      # 現 cycle 外の entry は除外 (stale)
-      [ "$ent_ts" -lt "$cycle_start" ] 2>/dev/null && continue
-      d=$(( (ent_ts - cycle_start) / 86400 + 1 ))
-      [ "$d" -lt 1 ] || [ "$d" -gt 7 ] && continue
-      if [ "$h" -eq 0 ]; then
-        pp=$today_used
-      else
-        read -r _ prev_pct <<< "${hist_rows[$((h-1))]}"
-        pp=$(( ${prev_pct%.*} - ${ent_pct%.*} ))
-        [ "$pp" -lt 0 ] && pp=0
-      fi
-      pp_by_day_v4[$d]=$pp
-      has_data_v4[$d]=1
-    done
-
-    # v3 互換の days array (JSON output の weeklyHistory 用)。
-    # newest-first、今日を除く過去 day のみ (today は todayUsed フィールドにある)。
-    # jq で incremental append するのは fork コストが大きいので bash 側で JSON
-    # 文字列を組み立てる。pp_by_day_v4 は整数のみなのでエスケープ不要。
-    today_history_entries=""
-    for ((d=7; d>=1; d--)); do
-      if [ "${has_data_v4[$d]}" = "1" ] && [ "$d" -ne "$current_day_idx" ]; then
-        [ -n "$today_history_entries" ] && today_history_entries+=","
-        today_history_entries+="{\"day_idx\":$d,\"pp\":${pp_by_day_v4[$d]}}"
-      fi
-    done
-    today_history_json="[${today_history_entries}]"
-
-    # per day 予算の計算: head (= 今日の朝) の morning_pct と残り日数から整数除算。
-    # pp/d = (100 - head.morning_pct) / (8 - current_day_idx)
-    # 日境界で一度確定したら 1 日中安定、翌朝に morning_pct が更新されて再計算。
-    # 現在の remaining_pct を remaining_secs/86400 で割る方式にすると小数除算に
-    # なって、残り時間 < 1d のときに pp/d > remaining_pct (例: 残り 23% なのに
-    # 25pp/d) という直感に反する表示になる。整数除算ベースだと最終日でも
-    # pp/d = remaining_pct で収まる。
-    days_remaining=$(( 8 - current_day_idx ))
-    [ "$days_remaining" -lt 1 ] && days_remaining=1
-    morning_for_budget=${head_morning_pct_eff%.*}
-    if [ -n "$morning_for_budget" ] && [ "$morning_for_budget" -ge 0 ] 2>/dev/null; then
-      budget_remaining=$(( 100 - morning_for_budget ))
-      [ "$budget_remaining" -lt 0 ] && budget_remaining=0
-      weekly_per_day=$(( budget_remaining / days_remaining ))
-    fi
-
-    # today セクションの描画 (remaining icon + 終了時刻)
-    # 形式: <T-icon>Npp 󰔟Nh → HH:MM
-    #   - <T-icon>Npp  : 今日の消費 (T icon = nf-md U+F00F6)
-    #   - 󰔟Nh          : 残り時間 (nf-md-hourglass + 時間ラベル)
-    #   - → HH:MM      : cycle day 終了時刻 (wall clock)
-    # per day 予算 (pp/d) は 7d Spark セクションの先頭に配置。
-    # 色分け: per day 予算比で緑→黄→赤 (Npp に適用)
-    if [ -n "$today_used" ]; then
-      hourglass=$'\xf3\xb0\x94\x9f'  # nf-md-hourglass (U+F051F)
-      today_icon=$'\xf3\xb1\x91\xb8'  # nf-md U+F1478 (today)
-
-      # 色分け
-      tcolor="\033[92m"
-      if [ -n "$weekly_per_day" ] && [ "$weekly_per_day" -gt 0 ] 2>/dev/null; then
-        today_ratio=$(( today_used * 100 / weekly_per_day ))
-        if [ "$today_ratio" -le 50 ]; then
-          tcolor="\033[92m"
-        elif [ "$today_ratio" -le 75 ]; then
-          tcolor="\033[93m"
-        else
-          tcolor="\033[91m"
-        fi
-      fi
-
-      # 残り時間と終了時刻
-      today_remaining_secs=$(( 86400 - elapsed_secs ))
-      [ "$today_remaining_secs" -lt 0 ] && today_remaining_secs=0
-      tr_h=$(( today_remaining_secs / 3600 ))
-      tr_m=$(( (today_remaining_secs % 3600) / 60 ))
-      if [ "$tr_h" -gt 0 ] && [ "$tr_m" -gt 0 ]; then
-        today_remaining_str=$(printf '%dh %02dm' "$tr_h" "$tr_m")
-      elif [ "$tr_h" -gt 0 ]; then
-        today_remaining_str="${tr_h}h"
-      else
-        today_remaining_str="${tr_m}m"
-      fi
-      # end time も current_day_start 基準 (stored は信頼しない)
-      today_end_epoch=$(( current_day_start + 86400 ))
-      today_end_time=$(date -r "$today_end_epoch" "+%-H:%M" 2>/dev/null)
-
-      # T-icon + Npp + Npp/d + remaining + 終了時刻
-      # severity color は Npp のみ。icon は SECTION_ICON、pp/d は bright cyan
-      # (今日の消費 pp と per-day 予算を並べて比較できるように today 側に配置)、
-      # 󰔟/➤ は META_ICON (dim gray)、残り時間は META_REMAINING (cyan)、
-      # 終了時刻は META_ENDTIME (amber) で色分けして数値を主役にする。
-      today_remaining_sup=$(_to_superscript "$today_remaining_str")
-
-      # pp/d segment (conditional) — 今日の pp の右に space 区切りで append
-      ppd_text=""
-      ppd_fmt_content=""
-      if [ -n "$weekly_per_day" ]; then
-        ppd_text=" ${weekly_per_day}pp/d"
-        ppd_fmt_content=" \033[96m${weekly_per_day}pp/d\033[0m"
-      fi
-
-      t_text="${today_icon}  ${today_used}pp${ppd_text}  ${hourglass} ${today_remaining_sup} ➤ ${today_end_time}"
-      t_fmt=$(printf '%b%s\033[0m  %b%spp\033[0m%b  %b%s\033[0m %b%s\033[0m %b➤\033[0m %b%s\033[0m' \
-        "$SECTION_ICON" "$today_icon" \
-        "$tcolor" "$today_used" \
-        "$ppd_fmt_content" \
-        "$META_HOURGLASS" "$hourglass" \
-        "$META_REMAINING" "$today_remaining_sup" \
-        "$META_ICON" \
-        "$META_ENDTIME" "$today_end_time")
-
-      left_text="${left_text} │ ${t_text}"
-      left_fmt="${left_fmt} \033[2m│\033[0m ${t_fmt}"
-    fi
-
-    # -------------------------------------------------------------------------
-    # 左側: 週間レートリミット (weekly セクション)
-    # 使用率を Braille 4-char バー (Ctx/5h と同じヘルパ) で表示。
-    # 色分けは使用率で緑→黄→赤（他バーと共通）。
-    # 依存: _render_braille_bar, _braille_color_for
-    # 出力例: 󰨳 ⣿⣿⣇⣿ 15% 󰔟4d18h → 3/28·21:45
-    # -------------------------------------------------------------------------
-    weekly_pct=$(printf '%.0f' "$weekly_pct")
-    weekly_remaining_pct=$(( 100 - weekly_pct ))
-    [ "$weekly_remaining_pct" -lt 0 ] && weekly_remaining_pct=0
-    wcolor=$(_braille_color_for "$weekly_pct")
-    # bar は残量で fill (100% 始まりで usage 増で減る、battery と同じ減衰感)。
-    # 色は usage ベースの severity を維持するので _render_braille_bar の 2nd arg で上書き。
-    weekly_braille=$(_render_braille_bar "$weekly_remaining_pct" "$wcolor")
-
-    hourglass_r=$'\xf3\xb0\x94\x9f'  # nf-md-hourglass (U+F051F)
-    week_icon=$'\xf3\xb0\x8e\xb8'    # nf-md U+F03B8 (weekly)
-
-    # 形式: <W-icon> <Braille 4-char> NN% 󰔟<残り> → <日付>
-    # icon は SECTION_ICON (固定色)、bar と % は残量表示だが色は usage 由来 severity
-    w_text="${week_icon}  ⣿⣿⣿⣿ ${weekly_remaining_pct}%"
-    w_fmt=$(printf '%b%s\033[0m  %s %b%s%%\033[0m' "$SECTION_ICON" "$week_icon" "$weekly_braille" "$wcolor" "$weekly_remaining_pct")
-
-    if [ -n "$weekly_remaining" ]; then
-      weekly_remaining_sup=$(_to_superscript "$weekly_remaining")
-      w_text="${w_text}  ${hourglass_r} ${weekly_remaining_sup}"
-      w_fmt="${w_fmt}$(printf '  %b%s\033[0m %b%s\033[0m' \
-        "$META_HOURGLASS" "$hourglass_r" "$META_REMAINING" "$weekly_remaining_sup")"
-    fi
-
-    if [ -n "$weekly_reset" ]; then
-      w_text="${w_text} ➤ ${weekly_reset}"
-      w_fmt="${w_fmt}$(printf ' %b➤\033[0m %b%s\033[0m' \
-        "$META_ICON" "$META_ENDTIME" "$weekly_reset")"
-    fi
-
-    # weekly は 7d sparkline の後に append する (順序: 7d → weekly)
-    # ここでは w_text/w_fmt を構築するのみ。append は sparkline 後で行う。
-
-    # -------------------------------------------------------------------------
-    # 左側: 7 日 sparkline (weekly cycle の cycle day 別 pp 消費履歴)
-    # 常時 7 本。today は cycle day の位置に配置、右側は未来日 (▁⁰ で薄色パディング)。
-    # 各バーは per-day budget (100/7 ≈ 14pp) を full bar とした 8 段階 (▁▂▃▄▅▆▇█)。
-    # 各バー直後に superscript 数字 (⁰¹²³⁴⁵⁶⁷⁸⁹) で実 pp。
-    # 色は per-day budget 比で緑/黄/赤 (過去・未来は薄色、today は通常色)。
-    # レイアウト: past bars (day 1..day_idx-1) ▸ today ▁⁰×(7-day_idx)
-    # 出力例 (cycle day 3): 7d:█²⁰▅⁸▸▅⁸▁⁰▁⁰▁⁰▁⁰
-    # 出力例 (cycle day 7): 7d:█²⁰▅⁸█¹⁹▃⁵█²²█¹⁸▸▅⁸
-    # 出力例 (cycle day 1): 7d:▸▁⁰▁⁰▁⁰▁⁰▁⁰▁⁰▁⁰
-    # 依存: jq, bash 配列
-    # -------------------------------------------------------------------------
-    # Braille LEGACY 充填順 (左列→右列、各列内は下→上)
-    # 各バーの下に subscript digit で実 pp を併記。
-    spark_bars=(⡀ ⡄ ⡆ ⡇ ⣇ ⣧ ⣷ ⣿)
-    sub_digits=(₀ ₁ ₂ ₃ ₄ ₅ ₆ ₇ ₈ ₉)
-    budget_pp=$(( 100 / 7 ))
-    [ "$budget_pp" -lt 1 ] && budget_pp=1
-
-    # pp 数値を subscript 文字列に変換
-    spark_to_sub() {
-      local n="$1"
-      local out=""
-      local i c
-      for (( i=0; i<${#n}; i++ )); do
-        c="${n:$i:1}"
-        case "$c" in
-          [0-9]) out+="${sub_digits[$c]}" ;;
-          *)     out+="$c" ;;
-        esac
-      done
-      printf '%s' "$out"
-    }
-
-    # 1 日分のバー (色 + Braille + subscript) を text/fmt に append
-    # $1=pp, $2=dim_flag (0=通常色/1=薄色、過去・未来日用)
-    spark_append_bar() {
-      local pp="$1"
-      local dim="${2:-0}"
-      local level=$(( pp * 8 / budget_pp ))
-      [ "$level" -gt 7 ] && level=7
-      [ "$level" -lt 0 ] && level=0
-      local bar="${spark_bars[$level]}"
-      local sub
-      sub=$(spark_to_sub "$pp")
-      local color
-      if [ "$dim" = "1" ]; then
-        color="\033[2m"
-      elif [ "$pp" -le $(( budget_pp / 2 )) ]; then
-        color="\033[92m"
-      elif [ "$pp" -le "$budget_pp" ]; then
-        color="\033[93m"
-      else
-        color="\033[91m"
-      fi
-      spark_text+="${bar}${pp}"
-      spark_fmt+=$(printf '%b%s\033[0m\033[2m%s\033[0m' "$color" "$bar" "$sub")
-    }
-
-    # icon: nf-md U+F03B7 (7d 専用、weekly とは別グリフで視覚的に区別)
-    # 並び順: icon + sparkline (pp/d は today セクションに移動済み)
-    spark_icon=$'\xf3\xb0\x8e\xb7'
-    spark_text="${spark_icon}  "
-    spark_fmt=$(printf '%b%s\033[0m  ' "$SECTION_ICON" "$spark_icon")
-
-    # cycle day 1..7 を順に描画。today は ▸ マーカー直後、未来は薄色。
-    # pp_by_day_v4 は state 更新セクションで既に構築済み (history から derive)。
-    # gap day (has_data_v4[d]=0) は pp=0 で空バー表示 (user 指定動作)。
-    # today_marker = ▸ (U+25B8)。SOFT_META (italic muted violet) で控えめに目立たせる。
-    # Nerd Font の U+F17A9 (指さし系) を使っていたが、グリフが 1 セルに収まらず
-    # フォントサイズを上げると隣のバーへはみ出したため、1 セル幅の記号に変えた。
-    today_marker='▸'
-    for ((i=1; i<=7; i++)); do
-      if [ "$i" -eq "$current_day_idx" ]; then
-        # マーカー (SOFT_META 色) + today (通常色)
-        spark_text+="${today_marker}"
-        spark_fmt+=$(printf '%b%s\033[0m' "$SOFT_META" "$today_marker")
-        spark_append_bar "${today_used:-0}" 0
-      elif [ "$i" -lt "$current_day_idx" ]; then
-        # 過去 day (薄色、データあれば pp、なければ 0 = 空バー)
-        spark_append_bar "${pp_by_day_v4[$i]:-0}" 1
-      else
-        # 未来 day (薄色、常に 0)
-        spark_append_bar 0 1
-      fi
-    done
-
-    left_text="${left_text} │ ${spark_text}"
-    left_fmt="${left_fmt} \033[2m│\033[0m ${spark_fmt}"
-
-    # --- 7d sparkline の後に weekly セクションを append (順序入れ替え) ---
-    left_text="${left_text} │ ${w_text}"
-    left_fmt="${left_fmt} \033[2m│\033[0m ${w_fmt}"
   fi
+
+  # 書き出し (必要なときだけ)
+  if [ "$skip_write" != "true" ]; then
+    SNAPSHOT_TMP="${SNAPSHOT_FILE}.tmp.$$"
+    # trap で tmp をクリーンアップ (jq 成功後 mv 前に process kill された場合の残留防止)
+    trap 'rm -f "$SNAPSHOT_TMP" 2>/dev/null' EXIT
+    jq -n --argjson history "$new_history" \
+      '{version: 4, history: $history}' \
+      > "$SNAPSHOT_TMP" && mv "$SNAPSHOT_TMP" "$SNAPSHOT_FILE"
+    history_json="$new_history"
+  fi
+
+  # === Display 派生 ===
+  # today_used = 現 weekly_pct - history[0].morning_pct (clamp 0)
+  head_morning_pct_eff=$(jq -r '.[0].morning_pct // "0"' <<< "$history_json" 2>/dev/null)
+  today_used=$(( weekly_pct_num - ${head_morning_pct_eff%.*} ))
+  [ "$today_used" -lt 0 ] && today_used=0
+
+  # 経過時間
+  elapsed_secs=$(( now_ts - current_day_start ))
+  [ "$elapsed_secs" -lt 0 ] && elapsed_secs=0
+  [ "$elapsed_secs" -gt 86400 ] && elapsed_secs=86400
+  el_hours=$(( elapsed_secs / 3600 ))
+  el_mins=$(( (elapsed_secs % 3600) / 60 ))
+  if [ "$el_hours" -gt 0 ] && [ "$el_mins" -gt 0 ]; then
+    today_elapsed=$(printf '%dh %02dm' "$el_hours" "$el_mins")
+  elif [ "$el_hours" -gt 0 ]; then
+    today_elapsed="${el_hours}h"
+  else
+    today_elapsed="${el_mins}m"
+  fi
+
+  # Per-day pp 配列を history から構築 (sparkline 用)。
+  # ルール: 各 entry の pp = 次に newer な entry の morning_pct との差分。
+  #   (newest = history[0]) の pp は weekly_pct - morning_pct (= today_used)。
+  # gap (day_idx に entry なし) は 0 で空バー表示。
+  # JSON output 用に v3 互換の days array も構築。
+  declare -A pp_by_day_v4
+  declare -A has_data_v4
+  for ((i=1; i<=7; i++)); do
+    pp_by_day_v4[$i]=0
+    has_data_v4[$i]=0
+  done
+
+  # history 全 entry を 1 回の jq 呼び出しで `ts pct` 行列に展開する。
+  # entry 数 × 2〜3 回の jq fork を避けるため mapfile でまとめて読み込む。
+  mapfile -t hist_rows < <(jq -r '.[] | "\(.day_start_ts) \(.morning_pct)"' <<< "$history_json" 2>/dev/null)
+  for ((h=0; h<${#hist_rows[@]}; h++)); do
+    read -r ent_ts ent_pct <<< "${hist_rows[$h]}"
+    # 現 cycle 外の entry は除外 (stale)
+    [ "$ent_ts" -lt "$cycle_start" ] 2>/dev/null && continue
+    d=$(( (ent_ts - cycle_start) / 86400 + 1 ))
+    [ "$d" -lt 1 ] || [ "$d" -gt 7 ] && continue
+    if [ "$h" -eq 0 ]; then
+      pp=$today_used
+    else
+      read -r _ prev_pct <<< "${hist_rows[$((h-1))]}"
+      pp=$(( ${prev_pct%.*} - ${ent_pct%.*} ))
+      [ "$pp" -lt 0 ] && pp=0
+    fi
+    pp_by_day_v4[$d]=$pp
+    has_data_v4[$d]=1
+  done
+
+  # v3 互換の days array (JSON output の weeklyHistory 用)。
+  # newest-first、今日を除く過去 day のみ (today は todayUsed フィールドにある)。
+  # jq で incremental append するのは fork コストが大きいので bash 側で JSON
+  # 文字列を組み立てる。pp_by_day_v4 は整数のみなのでエスケープ不要。
+  today_history_entries=""
+  for ((d=7; d>=1; d--)); do
+    if [ "${has_data_v4[$d]}" = "1" ] && [ "$d" -ne "$current_day_idx" ]; then
+      [ -n "$today_history_entries" ] && today_history_entries+=","
+      today_history_entries+="{\"day_idx\":$d,\"pp\":${pp_by_day_v4[$d]}}"
+    fi
+  done
+  today_history_json="[${today_history_entries}]"
+
+  # per day 予算の計算: head (= 今日の朝) の morning_pct と残り日数から整数除算。
+  # pp/d = (100 - head.morning_pct) / (8 - current_day_idx)
+  # 日境界で一度確定したら 1 日中安定、翌朝に morning_pct が更新されて再計算。
+  # 現在の remaining_pct を remaining_secs/86400 で割る方式にすると小数除算に
+  # なって、残り時間 < 1d のときに pp/d > remaining_pct (例: 残り 23% なのに
+  # 25pp/d) という直感に反する表示になる。整数除算ベースだと最終日でも
+  # pp/d = remaining_pct で収まる。
+  days_remaining=$(( 8 - current_day_idx ))
+  [ "$days_remaining" -lt 1 ] && days_remaining=1
+  morning_for_budget=${head_morning_pct_eff%.*}
+  if [ -n "$morning_for_budget" ] && [ "$morning_for_budget" -ge 0 ] 2>/dev/null; then
+    budget_remaining=$(( 100 - morning_for_budget ))
+    [ "$budget_remaining" -lt 0 ] && budget_remaining=0
+    weekly_per_day=$(( budget_remaining / days_remaining ))
+  fi
+
+  # today セクションの描画 (remaining icon + 終了時刻)
+  # 形式: <T-icon>Npp 󰔟Nh → HH:MM
+  #   - <T-icon>Npp  : 今日の消費 (T icon = nf-md U+F00F6)
+  #   - 󰔟Nh          : 残り時間 (nf-md-hourglass + 時間ラベル)
+  #   - → HH:MM      : cycle day 終了時刻 (wall clock)
+  # per day 予算 (pp/d) は 7d Spark セクションの先頭に配置。
+  # 色分け: per day 予算比で緑→黄→赤 (Npp に適用)
+  if [ -n "$today_used" ]; then
+    hourglass=$'\xf3\xb0\x94\x9f'  # nf-md-hourglass (U+F051F)
+    today_icon=$'\xf3\xb1\x91\xb8'  # nf-md U+F1478 (today)
+
+    # 色分け
+    tcolor="\033[92m"
+    if [ -n "$weekly_per_day" ] && [ "$weekly_per_day" -gt 0 ] 2>/dev/null; then
+      today_ratio=$(( today_used * 100 / weekly_per_day ))
+      if [ "$today_ratio" -le 50 ]; then
+        tcolor="\033[92m"
+      elif [ "$today_ratio" -le 75 ]; then
+        tcolor="\033[93m"
+      else
+        tcolor="\033[91m"
+      fi
+    fi
+
+    # 残り時間と終了時刻
+    today_remaining_secs=$(( 86400 - elapsed_secs ))
+    [ "$today_remaining_secs" -lt 0 ] && today_remaining_secs=0
+    tr_h=$(( today_remaining_secs / 3600 ))
+    tr_m=$(( (today_remaining_secs % 3600) / 60 ))
+    if [ "$tr_h" -gt 0 ] && [ "$tr_m" -gt 0 ]; then
+      today_remaining_str=$(printf '%dh %02dm' "$tr_h" "$tr_m")
+    elif [ "$tr_h" -gt 0 ]; then
+      today_remaining_str="${tr_h}h"
+    else
+      today_remaining_str="${tr_m}m"
+    fi
+    # end time も current_day_start 基準 (stored は信頼しない)
+    today_end_epoch=$(( current_day_start + 86400 ))
+    today_end_time=$(date -r "$today_end_epoch" "+%-H:%M" 2>/dev/null)
+
+    # T-icon + Npp + Npp/d + remaining + 終了時刻
+    # severity color は Npp のみ。icon は SECTION_ICON、pp/d は bright cyan
+    # (今日の消費 pp と per-day 予算を並べて比較できるように today 側に配置)、
+    # 󰔟/➤ は META_ICON (dim gray)、残り時間は META_REMAINING (cyan)、
+    # 終了時刻は META_ENDTIME (amber) で色分けして数値を主役にする。
+    today_remaining_sup=$(_to_superscript "$today_remaining_str")
+
+    # pp/d segment (conditional) — 今日の pp の右に space 区切りで append
+    ppd_text=""
+    ppd_fmt_content=""
+    if [ -n "$weekly_per_day" ]; then
+      ppd_text=" ${weekly_per_day}pp/d"
+      ppd_fmt_content=" \033[96m${weekly_per_day}pp/d\033[0m"
+    fi
+
+    t_text="${today_icon}  ${today_used}pp${ppd_text}  ${hourglass} ${today_remaining_sup} ➤ ${today_end_time}"
+    t_fmt=$(printf '%b%s\033[0m  %b%spp\033[0m%b  %b%s\033[0m %b%s\033[0m %b➤\033[0m %b%s\033[0m' \
+      "$SECTION_ICON" "$today_icon" \
+      "$tcolor" "$today_used" \
+      "$ppd_fmt_content" \
+      "$META_HOURGLASS" "$hourglass" \
+      "$META_REMAINING" "$today_remaining_sup" \
+      "$META_ICON" \
+      "$META_ENDTIME" "$today_end_time")
+
+    left_text="${left_text} │ ${t_text}"
+    left_fmt="${left_fmt} \033[2m│\033[0m ${t_fmt}"
+  fi
+
+  # -------------------------------------------------------------------------
+  # 左側: 週間レートリミット (weekly セクション)
+  # 使用率を Braille 4-char バー (Ctx/5h と同じヘルパ) で表示。
+  # 色分けは使用率で緑→黄→赤（他バーと共通）。
+  # 依存: _render_braille_bar, _braille_color_for
+  # 出力例: 󰨳 ⣿⣿⣇⣿ 15% 󰔟4d18h → 3/28·21:45
+  # -------------------------------------------------------------------------
+  weekly_pct=$(printf '%.0f' "$weekly_pct")
+  weekly_remaining_pct=$(( 100 - weekly_pct ))
+  [ "$weekly_remaining_pct" -lt 0 ] && weekly_remaining_pct=0
+  wcolor=$(_braille_color_for "$weekly_pct")
+  # bar は残量で fill (100% 始まりで usage 増で減る、battery と同じ減衰感)。
+  # 色は usage ベースの severity を維持するので _render_braille_bar の 2nd arg で上書き。
+  weekly_braille=$(_render_braille_bar "$weekly_remaining_pct" "$wcolor")
+
+  hourglass_r=$'\xf3\xb0\x94\x9f'  # nf-md-hourglass (U+F051F)
+  week_icon=$'\xf3\xb0\x8e\xb8'    # nf-md U+F03B8 (weekly)
+
+  # 形式: <W-icon> <Braille 4-char> NN% 󰔟<残り> → <日付>
+  # icon は SECTION_ICON (固定色)、bar と % は残量表示だが色は usage 由来 severity
+  w_text="${week_icon}  ⣿⣿⣿⣿ ${weekly_remaining_pct}%"
+  w_fmt=$(printf '%b%s\033[0m  %s %b%s%%\033[0m' "$SECTION_ICON" "$week_icon" "$weekly_braille" "$wcolor" "$weekly_remaining_pct")
+
+  if [ -n "$weekly_remaining" ]; then
+    weekly_remaining_sup=$(_to_superscript "$weekly_remaining")
+    w_text="${w_text}  ${hourglass_r} ${weekly_remaining_sup}"
+    w_fmt="${w_fmt}$(printf '  %b%s\033[0m %b%s\033[0m' \
+      "$META_HOURGLASS" "$hourglass_r" "$META_REMAINING" "$weekly_remaining_sup")"
+  fi
+
+  if [ -n "$weekly_reset" ]; then
+    w_text="${w_text} ➤ ${weekly_reset}"
+    w_fmt="${w_fmt}$(printf ' %b➤\033[0m %b%s\033[0m' \
+      "$META_ICON" "$META_ENDTIME" "$weekly_reset")"
+  fi
+
+  # weekly は 7d sparkline の後に append する (順序: 7d → weekly)
+  # ここでは w_text/w_fmt を構築するのみ。append は sparkline 後で行う。
+
+  # -------------------------------------------------------------------------
+  # 左側: 7 日 sparkline (weekly cycle の cycle day 別 pp 消費履歴)
+  # 常時 7 本。today は cycle day の位置に配置、右側は未来日 (▁⁰ で薄色パディング)。
+  # 各バーは per-day budget (100/7 ≈ 14pp) を full bar とした 8 段階 (▁▂▃▄▅▆▇█)。
+  # 各バー直後に superscript 数字 (⁰¹²³⁴⁵⁶⁷⁸⁹) で実 pp。
+  # 色は per-day budget 比で緑/黄/赤 (過去・未来は薄色、today は通常色)。
+  # レイアウト: past bars (day 1..day_idx-1) ▸ today ▁⁰×(7-day_idx)
+  # 出力例 (cycle day 3): 7d:█²⁰▅⁸▸▅⁸▁⁰▁⁰▁⁰▁⁰
+  # 出力例 (cycle day 7): 7d:█²⁰▅⁸█¹⁹▃⁵█²²█¹⁸▸▅⁸
+  # 出力例 (cycle day 1): 7d:▸▁⁰▁⁰▁⁰▁⁰▁⁰▁⁰▁⁰
+  # 依存: jq, bash 配列
+  # -------------------------------------------------------------------------
+  # Braille LEGACY 充填順 (左列→右列、各列内は下→上)
+  # 各バーの下に subscript digit で実 pp を併記。
+  spark_bars=(⡀ ⡄ ⡆ ⡇ ⣇ ⣧ ⣷ ⣿)
+  sub_digits=(₀ ₁ ₂ ₃ ₄ ₅ ₆ ₇ ₈ ₉)
+  budget_pp=$(( 100 / 7 ))
+  [ "$budget_pp" -lt 1 ] && budget_pp=1
+
+  # pp 数値を subscript 文字列に変換
+  spark_to_sub() {
+    local n="$1"
+    local out=""
+    local i c
+    for (( i=0; i<${#n}; i++ )); do
+      c="${n:$i:1}"
+      case "$c" in
+        [0-9]) out+="${sub_digits[$c]}" ;;
+        *)     out+="$c" ;;
+      esac
+    done
+    printf '%s' "$out"
+  }
+
+  # 1 日分のバー (色 + Braille + subscript) を text/fmt に append
+  # $1=pp, $2=dim_flag (0=通常色/1=薄色、過去・未来日用)
+  spark_append_bar() {
+    local pp="$1"
+    local dim="${2:-0}"
+    local level=$(( pp * 8 / budget_pp ))
+    [ "$level" -gt 7 ] && level=7
+    [ "$level" -lt 0 ] && level=0
+    local bar="${spark_bars[$level]}"
+    local sub
+    sub=$(spark_to_sub "$pp")
+    local color
+    if [ "$dim" = "1" ]; then
+      color="\033[2m"
+    elif [ "$pp" -le $(( budget_pp / 2 )) ]; then
+      color="\033[92m"
+    elif [ "$pp" -le "$budget_pp" ]; then
+      color="\033[93m"
+    else
+      color="\033[91m"
+    fi
+    spark_text+="${bar}${pp}"
+    spark_fmt+=$(printf '%b%s\033[0m\033[2m%s\033[0m' "$color" "$bar" "$sub")
+  }
+
+  # icon: nf-md U+F03B7 (7d 専用、weekly とは別グリフで視覚的に区別)
+  # 並び順: icon + sparkline (pp/d は today セクションに移動済み)
+  spark_icon=$'\xf3\xb0\x8e\xb7'
+  spark_text="${spark_icon}  "
+  spark_fmt=$(printf '%b%s\033[0m  ' "$SECTION_ICON" "$spark_icon")
+
+  # cycle day 1..7 を順に描画。today は ▸ マーカー直後、未来は薄色。
+  # pp_by_day_v4 は state 更新セクションで既に構築済み (history から derive)。
+  # gap day (has_data_v4[d]=0) は pp=0 で空バー表示 (user 指定動作)。
+  # today_marker = ▸ (U+25B8)。SOFT_META (italic muted violet) で控えめに目立たせる。
+  # Nerd Font の U+F17A9 (指さし系) を使っていたが、グリフが 1 セルに収まらず
+  # フォントサイズを上げると隣のバーへはみ出したため、1 セル幅の記号に変えた。
+  today_marker='▸'
+  for ((i=1; i<=7; i++)); do
+    if [ "$i" -eq "$current_day_idx" ]; then
+      # マーカー (SOFT_META 色) + today (通常色)
+      spark_text+="${today_marker}"
+      spark_fmt+=$(printf '%b%s\033[0m' "$SOFT_META" "$today_marker")
+      spark_append_bar "${today_used:-0}" 0
+    elif [ "$i" -lt "$current_day_idx" ]; then
+      # 過去 day (薄色、データあれば pp、なければ 0 = 空バー)
+      spark_append_bar "${pp_by_day_v4[$i]:-0}" 1
+    else
+      # 未来 day (薄色、常に 0)
+      spark_append_bar 0 1
+    fi
+  done
+
+  left_text="${left_text} │ ${spark_text}"
+  left_fmt="${left_fmt} \033[2m│\033[0m ${spark_fmt}"
+
+  # --- 7d sparkline の後に weekly セクションを append (順序入れ替え) ---
+  left_text="${left_text} │ ${w_text}"
+  left_fmt="${left_fmt} \033[2m│\033[0m ${w_fmt}"
 fi
 
 # -----------------------------------------------------------------------------
