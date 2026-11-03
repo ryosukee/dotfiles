@@ -4,9 +4,9 @@ brew の OSS 版 tailscaled を使う。GUI アプリ版（App Store / Standalon
 
 ## なぜ OSS 版か
 
-- GUI アプリ版は sandbox 制約で `tailscale serve` の path serving（ディレクトリ直接配信）が使えない。
-  claude-html-communication（閲覧用 HTML の tailnet 内配信。運用は cc-marketplace の
-  [html-communication skill](https://github.com/ryosukee/cc-marketplace/tree/main/plugins/claude-user-communication/skills/html-communication) を参照）で path serving が必要
+- 導入時は閲覧用 HTML のディレクトリ直接配信が必要だったため、path serving に対応する OSS 版を選んだ。
+  HTML 配信はサーバーへ移行済みで、現在の Mac ではこの用途を使わない。
+- 現在も使う Tailscale SSH のサーバー機能には OSS 版が必要（後述）
 - GUI 版と OSS 版は同一マシンで同居できない。トンネルと DNS 制御が衝突する
 - 常時接続で GUI 操作もほぼしないため、CLI のみで運用できると判断した
 
@@ -41,31 +41,27 @@ tailscale set --ssh=false    # 解除
 - 自分自身の Tailscale IP への ssh は tunnel を通らず `Connection refused` になるため、疎通確認は
   別ノード（例: marujirou）から行う
 
-## claude-html-communication の serve 設定
+## HTML 配信の移行
 
-閲覧用 HTML の共通ディレクトリを tailnet 内限定の HTTPS で配信する。
-
-```sh
-tailscale serve --bg ~/.local/share/claude-html-communication # 初回のみ。以降は永続
-tailscale serve status                           # 設定と URL の確認
-tailscale serve --https=443 off                  # 解除
-```
-
-ルート URL（`https://<ホスト名>.<tailnet 名>.ts.net/`）で index.html が配信される。
+閲覧用 HTML は専用サーバーへ移行した。
+Mac の共通ディレクトリの直接配信と、旧 plugin の配布・利用は終了している。
+2026-11-04 に旧 HTML 用の `/` ルートを削除し、`/runs` は維持した。
+Mac に旧配信ディレクトリや Serve の `/` ルートを作り直さない。
+接続先は下の「HTML サービスへの接続先」に従って設定する。
 
 ## agent-run-records の Web UI の serve 設定
 
 同じホストの 443 番の `/runs` に、agent-run-records の Web UI（`127.0.0.1:8787`）を載せる。
-Tailscale Serve はパスが最も長く一致した配信先を選ぶので、`/` の claude-html-communication と並べられる。
+HTML の旧 `/` ルートは廃止済みで、現在は `/runs` のみを使う。
 サーバの起動と画面は [agent-run-records の README](https://github.com/ryosukee/agent-run-records#web-ui) を参照する。
 
 ```sh
 sudo tailscale serve --bg --set-path /runs http://127.0.0.1:8787 # 初回のみ。以降は永続
-sudo tailscale serve --https=443 --set-path /runs off             # 解除。/ の配信は残る
+sudo tailscale serve --https=443 --set-path /runs off             # /runs だけを解除
 ```
 
-`/` にディレクトリの配信があると、serve の設定を変えるたびに root の権限が要る。
-operator の設定（`tailscale set --operator=$USER`）だけでは、`401 Unauthorized` で拒まれる。
+設定を変更する前後に `tailscale serve status --json` で対象ルートを確認する。
+他サービスのルートまで解除する `serve reset` やポート全体の停止は使わない。
 
 ## ts.net の名前解決（split DNS）
 
@@ -92,35 +88,39 @@ printf 'nameserver 100.100.100.100\n' | sudo tee /etc/resolver/ts.net
 Tailscale 停止時は ts.net 名の解決が失敗するだけ。ファイルを消せば元に戻る。
 スマートフォン側は各端末の Tailscale アプリが VPN として DNS を注入するため、この問題の影響を受けない。
 
-## claude-html-communication 用の環境変数
+## HTML サービスへの接続先
 
-html-communication skill は配置先と配信 URL を環境変数から解決する。
-値は Claude Code と Codex の両方に設定する。
-
-- `HTML_COMMUNICATION_BASE_URL`: その端末の Tailscale Serve 配信 URL
-
-ホスト名・tailnet 名が変わったらこの値を更新する。
+HTML 作成用 plugin は `AHC_URL` でサーバーに接続する。
+各端末の Tailscale Serve URL ではなく、配備済みサーバーの HTTPS URL（ポートを含む）を設定する。
+実際の URL は端末固有設定に置き、このリポジトリには保存しない。
 
 Claude Code では stow 管理外の `~/.claude/settings.machine.json` の `env` に置く。
-Codex では stow 管理外の `~/.codex/config.toml` の
-`shell_environment_policy.set` に置く。
+Codex では stow 管理外の `~/.codex/config.toml` の `shell_environment_policy.set` に置く。
+
+```json
+{
+  "env": {
+    "AHC_URL": "https://<server>.<tailnet>.ts.net:<port>"
+  }
+}
+```
 
 ```toml
 [shell_environment_policy.set]
-HTML_COMMUNICATION_BASE_URL = "https://<host>.<tailnet>.ts.net"
+AHC_URL = "https://<server>.<tailnet>.ts.net:<port>"
 ```
 
-`HTML_COMMUNICATION_DIR` は設定しない。未設定時は skill 側の既定値
-`~/.local/share/claude-html-communication` が使われ、それがこのマシンでの配置先と一致する。
+既存の設定にキーを追加し、他のキーを消さない。
+旧 `HTML_COMMUNICATION_BASE_URL` と `HTML_COMMUNICATION_DIR` は新 plugin では使わない。
 
 設定後に新しいセッションを開始する。
-Claude Code で追加 JSON を `--settings` で指定したセッションと、
-Codex が起動時に `config.toml` を読み込んだセッションでは、
-起動元シェルの env に依存せず配信 URL を利用できる。
+Claude Code は追加 JSON を `--settings` で指定して起動する。
+Codex は起動時に base の `config.toml` を読み込む。
+各セッションで `AHC_URL` の値と plugin の一覧取得を確認する。
 fish の abbreviation とアプリ別の起動引数は、
 [Claude Code と Codex を両立するユーザー設定](./ai-agent-environment.md#claude-code-の共有設定と端末固有設定) を参照する。
 
 ## 既知の注意点
 
-- serve 設定（`tailscale serve --bg <dir>`）は tailscaled に永続化され、再起動後も維持される
-- Mac のスリープ中は serve も応答しない
+- Serve 設定は tailscaled に永続化され、再起動後も維持される
+- Mac のスリープ中は Mac 上の `/runs` も応答しない。移行先の HTML 配信はサーバー側で動く
