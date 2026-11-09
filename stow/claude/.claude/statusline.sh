@@ -1006,8 +1006,9 @@ fi
 #   ⚡ Model │ digits (最新 2 ターン) │ in·hit graph (3 ターン) │ out graph (3 ターン)
 #            │ Σ (累積) │ TTL [⟳ keepalive]
 #
-# TTL の右の ⟳ keepalive は、このセッションで cache-keepalive skill が
-# 常駐している間だけ出る。off のときは何も出さない。
+# TTL の右の ⟳ keepalive は、このセッションで cache-keepalive の監視プロセスが
+# 動いている間だけ出る。通知を off にしている間は ⟳ keepalive off と出す。
+# 監視プロセスが動いていなければ何も出さない。
 #
 # Claude Code の context_window.current_usage から 1 ターン分の
 #   - input_tokens                (uncached = キャッシュに乗らなかった input)
@@ -1246,19 +1247,28 @@ fi
 # --session-id {session_id} が入っていることを照合する。kill -0 だけだと、監視プロセスが
 # 死んだ後に同じ pid が別プロセスへ再利用されたとき誤って「動いている」と出る。
 # 照合をこの 2 点に限るのは、plugin の版数ディレクトリや配置が変わっても壊れないようにするため。
-# plugin 側の report-status.sh も同じ判定をしている。
+# plugin 側の signal-watcher.sh も同じ判定をしている。
 # pgrep -f の全プロセス走査 (実測 ~91ms) と違い、対象 1 プロセスの照会だけで済む。
+# pid ファイルの 2 行目は通知のオン・オフ (on / off) で、監視プロセスが切り替えのたびに書き直す
+# (cache-keepalive v0.12.1 以降)。2 行目が無い旧版は on として扱う。
 ka_text=""; ka_fmt=""
 if [ -n "$session_id" ] && [ "$session_id" != "null" ]; then
   _ka_pid_file="$HOME/.claude/plugins/data/cache-keepalive-cc-tools/keepalive-${session_id}.pid"
-  _ka_pid=""
-  [ -f "$_ka_pid_file" ] && _ka_pid=$(head -1 "$_ka_pid_file" 2>/dev/null)
+  _ka_pid=""; _ka_state=""
+  if [ -f "$_ka_pid_file" ]; then
+    { IFS= read -r _ka_pid; IFS= read -r _ka_state; } < "$_ka_pid_file" 2>/dev/null || true
+  fi
   if [ -n "$_ka_pid" ] && kill -0 "$_ka_pid" 2>/dev/null; then
     _ka_cmd=$(ps -p "$_ka_pid" -o command= 2>/dev/null || true)
     case "$_ka_cmd" in
       *cache-keepalive*"--session-id ${session_id}"*)
-        ka_text=" ⟳ keepalive"
-        ka_fmt=$(printf ' \033[2m⟳ keepalive\033[0m')
+        if [ "$_ka_state" = off ]; then
+          ka_text=" ⟳ keepalive off"
+          ka_fmt=$(printf ' \033[2m⟳ keepalive\033[0m \033[93moff\033[0m')
+        else
+          ka_text=" ⟳ keepalive"
+          ka_fmt=$(printf ' \033[2m⟳ keepalive\033[0m')
+        fi
         ;;
     esac
   fi
