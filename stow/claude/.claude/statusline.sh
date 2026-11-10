@@ -1034,10 +1034,9 @@ fi
 #   statusline は毎回走るが signature 同じなら書かない (= 1 ターン 1 push)。
 #
 # === TTL の anchor ===
-# Claude Code は会話イベント (user msg / assistant / tool result) で
-# transcript_path (.jsonl) に append するため、その mtime ≒ 最後に API が
-# キャッシュに触れた時刻。transcript は session ごとに別ファイルなので共有
-# state 問題はない。prompt cache のデフォルト TTL は 5 分 (Anthropic API 仕様)。
+# transcript_path (.jsonl) の最後の API 応答 (assistant の記録) の時刻。
+# mtime は API を呼ばない書き込みでも進むので使わない (詳細は下の TTL 節)。
+# transcript は session ごとに別ファイルなので共有 state 問題はない。
 #
 # 依存: jq, date, stat (macOS -f %m / Linux -c %Y)
 # 出力例:
@@ -1216,11 +1215,36 @@ done
 # Anthropic 公式 docs は「default = 5min ephemeral」だが、実機観測により
 # Claude Code CLI は内部で 1h extended cache を使っている (Issue #46829 の
 # 1h → 5min regression 話とも整合、現 2.1.114 では 1h が効いている)。
-# 経過時間 = now - transcript mtime (= 最後の API コール時刻のプロキシ)。
+# 経過時間 = now - 最後の API 応答の時刻。
+# cache の期限は API 呼び出しで延びるので、transcript の mtime は使わない。
+# transcript には API を呼ばない書き込み (cost-state、last-prompt など) もあり、
+# mtime から数えると cache が延びていないのにタイマーが戻る。
+# API 応答は assistant の記録で、model が <synthetic> のものは API を呼ばずに作られるので除く。
+# transcript は数百 MB になる (全体の grep で実測 6 秒) ので、末尾 256KB → 4MB → 全体の順に
+# 広げて探す (末尾 256KB で実測 0.1 秒)。切り出した範囲の先頭行は途中から始まりうるので捨て、
+# 書き込み途中の末尾行で失敗しないよう、最後の 2 件のうち読めたものの最新を取る。
+# cache-keepalive plugin の監視スクリプトも同じ基準で無操作を数える。
+# API 応答がまだ無いセッションは cache も無いので、TTL を出さない。
+_last_api_epoch() {
+  local f="$1" bytes lines=""
+  for bytes in 262144 4194304 all; do
+    if [ "$bytes" = all ]; then
+      lines=$(grep -F '"type":"assistant"' "$f" 2>/dev/null | grep -vF '"model":"<synthetic>"' | tail -n 2)
+    else
+      lines=$(tail -c "$bytes" "$f" 2>/dev/null | tail -n +2 \
+        | grep -F '"type":"assistant"' | grep -vF '"model":"<synthetic>"' | tail -n 2)
+    fi
+    [ -n "$lines" ] && break
+  done
+  [ -n "$lines" ] || return 0
+  printf '%s\n' "$lines" \
+    | jq -rR 'fromjson? | select(.type == "assistant") | .timestamp // empty | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601' 2>/dev/null \
+    | tail -n 1
+}
 ttl_text=""; ttl_fmt=""
 if [ -n "$transcript_path" ] && [ -f "$transcript_path" ]; then
-  last_api_ts=$(stat -f %m "$transcript_path" 2>/dev/null || stat -c %Y "$transcript_path" 2>/dev/null || echo 0)
-  if [ "$last_api_ts" -gt 0 ] 2>/dev/null; then
+  last_api_ts=$(_last_api_epoch "$transcript_path")
+  if [ "${last_api_ts:-0}" -gt 0 ] 2>/dev/null; then
     ttl_elapsed=$(( $(date +%s) - last_api_ts ))
     [ "$ttl_elapsed" -lt 0 ] && ttl_elapsed=0
     ttl_rem=$(( 3600 - ttl_elapsed ))
